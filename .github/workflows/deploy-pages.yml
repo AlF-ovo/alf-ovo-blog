@@ -27,20 +27,17 @@ jobs:
         with:
           node-version: 22
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
+      - name: Enable Corepack
+        run: corepack enable
 
       - name: Configure Pages
         uses: actions/configure-pages@v5
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: corepack pnpm install --frozen-lockfile
 
       - name: Build site
-        run: pnpm build
+        run: corepack pnpm build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
