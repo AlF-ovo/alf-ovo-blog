@@ -45,6 +45,10 @@ export const navBarConfig: NavBarConfig = {
 		LinkPreset.Archive,
 		LinkPreset.About,
 		{
+			name: "Dashboard",
+			url: "/dashboard/",
+		},
+		{
 			name: "GitHub",
 			url: "https://github.com/AlF-ovo/alf-ovo-blog", // Internal links should not include the base path, as it is automatically added
 			external: true, // Show an external link icon and will open in a new tab
