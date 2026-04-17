@@ -252,6 +252,7 @@ const expressionNames = [
 			initPromise: null,
 			baseSize: null,
 			expressionIndex: 0,
+			expressionTimer: null,
 		};
 
 		const setStatus = (message, mode = "info") => {
@@ -339,6 +340,30 @@ const expressionNames = [
 			state.model.expression(expressionName);
 		};
 
+		const playRandomExpression = () => {
+			if (
+				!state.model ||
+				typeof state.model.expression !== "function" ||
+				expressionNames.length === 0
+			) {
+				return;
+			}
+
+			const randomIndex = Math.floor(Math.random() * expressionNames.length);
+			state.expressionIndex = randomIndex + 1;
+			state.model.expression(expressionNames[randomIndex]);
+		};
+
+		const startExpressionTimer = () => {
+			if (state.expressionTimer) {
+				window.clearInterval(state.expressionTimer);
+			}
+
+			state.expressionTimer = window.setInterval(() => {
+				playRandomExpression();
+			}, 15000);
+		};
+
 		const initMascot = async () => {
 			if (state.initPromise) {
 				return state.initPromise;
@@ -380,6 +405,7 @@ const expressionNames = [
 				}
 
 				fitModel();
+				startExpressionTimer();
 				setStatus("");
 				setCollapsed(false);
 			})().catch((error) => {
