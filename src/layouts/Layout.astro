@@ -70,6 +70,10 @@ const bannerOffsetByPosition = {
 };
 const bannerOffset =
 	bannerOffsetByPosition[siteConfig.banner.position || "center"];
+const PAGE_LOADING_TEXT = "loading...";
+const PAGE_LOADING_TYPE_STEP_MS = 520;
+const PAGE_LOADING_TYPE_DURATION_MS =
+	PAGE_LOADING_TEXT.length * PAGE_LOADING_TYPE_STEP_MS;
 ---
 
 <!DOCTYPE html>
@@ -154,16 +158,10 @@ const bannerOffset =
 		<ConfigCarrier></ConfigCarrier>
 		<div class="page-loading-overlay" aria-hidden="true">
 			<div class="page-loading-shell">
-				<div class="page-loading-orbit" aria-hidden="true"></div>
 				<div class="page-loading-label">
-					<span class="page-loading-word">loading</span>
-					<span class="page-loading-dots" aria-hidden="true">
-						<span>.</span>
-						<span>.</span>
-						<span>.</span>
-					</span>
+					<span class="page-loading-text" data-page-loading-text>{PAGE_LOADING_TEXT}</span>
+					<span class="page-loading-cursor" aria-hidden="true"></span>
 				</div>
-				<div class="page-loading-subline" aria-hidden="true">switching interface layer</div>
 			</div>
 		</div>
 		<slot />
@@ -177,6 +175,7 @@ const bannerOffset =
 	bannerOffset,
 	'banner-height-home': `${BANNER_HEIGHT_HOME}vh`,
 	'banner-height': `${BANNER_HEIGHT}vh`,
+	'page-loading-type-duration': `${PAGE_LOADING_TYPE_DURATION_MS}ms`,
 }}>
 @tailwind components;
 @layer components {
@@ -218,21 +217,19 @@ const bannerOffset =
 	visibility: hidden;
 	pointer-events: none;
 	background:
-		radial-gradient(circle at 50% 24%, rgba(34, 211, 238, 0.16), transparent 22rem),
-		radial-gradient(circle at 50% 76%, rgba(56, 189, 248, 0.08), transparent 28rem),
-		linear-gradient(180deg, rgba(248, 250, 252, 0.92), rgba(241, 245, 249, 0.97));
-	backdrop-filter: blur(18px);
+		radial-gradient(circle at 50% 36%, rgba(120, 113, 108, 0.08), transparent 24rem),
+		linear-gradient(180deg, rgba(251, 247, 239, 0.95), rgba(241, 233, 220, 0.97));
+	backdrop-filter: blur(14px);
 	transition:
-		opacity 620ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		visibility 620ms cubic-bezier(0.2, 0.8, 0.2, 1),
-		backdrop-filter 620ms cubic-bezier(0.2, 0.8, 0.2, 1);
+		opacity 820ms ease,
+		visibility 820ms ease,
+		backdrop-filter 820ms ease;
 }
 
 .dark .page-loading-overlay {
 	background:
-		radial-gradient(circle at 50% 24%, rgba(34, 211, 238, 0.14), transparent 22rem),
-		radial-gradient(circle at 50% 76%, rgba(14, 165, 233, 0.1), transparent 28rem),
-		linear-gradient(180deg, rgba(2, 6, 23, 0.93), rgba(15, 23, 42, 0.97));
+		radial-gradient(circle at 50% 36%, rgba(250, 245, 235, 0.06), transparent 24rem),
+		linear-gradient(180deg, rgba(18, 18, 16, 0.95), rgba(10, 10, 11, 0.98));
 }
 
 body.page-loading-active {
@@ -250,244 +247,97 @@ body.page-loading-leaving .page-loading-overlay {
 }
 
 .page-loading-shell {
-	position: relative;
-	display: grid;
-	place-items: center;
-	min-width: min(36rem, 100%);
-	gap: 0.75rem;
-	padding: 3.2rem 2rem 2.7rem;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	min-width: min(32rem, 100%);
+	padding: 2.5rem 1.5rem;
 	opacity: 0;
-	transform: translate3d(0, 3rem, 0) scale(0.9);
-	filter: saturate(0.9);
+	transform: translate3d(0, 2.4rem, 0);
 	transition:
-		opacity 760ms cubic-bezier(0.16, 1, 0.3, 1),
-		transform 760ms cubic-bezier(0.16, 1, 0.3, 1),
-		filter 760ms cubic-bezier(0.16, 1, 0.3, 1);
+		opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
+		transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
 }
 
 body.page-loading-active .page-loading-shell {
 	opacity: 1;
-	transform: translate3d(0, 0, 0) scale(1);
-	filter: saturate(1);
+	transform: translate3d(0, 0, 0);
 }
 
 body.page-loading-leaving .page-loading-shell {
 	opacity: 0;
-	transform: translate3d(0, -2.8rem, 0) scale(0.95);
-	filter: saturate(0.82);
-}
-
-.page-loading-shell::before,
-.page-loading-shell::after {
-	content: "";
-	position: absolute;
-	inset: 50% auto auto 50%;
-	pointer-events: none;
-}
-
-.page-loading-shell::before {
-	width: min(34rem, 92vw);
-	height: min(34rem, 92vw);
-	border-radius: 999px;
-	background:
-		radial-gradient(circle, rgba(34, 211, 238, 0.2), rgba(34, 211, 238, 0.06) 38%, transparent 72%);
-	transform: translate(-50%, -50%);
-	filter: blur(24px);
-	animation: page-loading-pulse 1.8s ease-in-out infinite;
-}
-
-.page-loading-shell::after {
-	width: min(30rem, 86vw);
-	height: 1px;
-	background: linear-gradient(
-		90deg,
-		transparent,
-		rgba(34, 211, 238, 0.2),
-		rgba(34, 211, 238, 0.9),
-		rgba(96, 165, 250, 0.8),
-		rgba(34, 211, 238, 0.2),
-		transparent
-	);
-	transform: translate(-50%, -50%);
-	box-shadow:
-		0 0 18px rgba(34, 211, 238, 0.45),
-		0 0 36px rgba(34, 211, 238, 0.22);
-	animation: page-loading-flow 1.45s linear infinite;
-}
-
-.page-loading-orbit {
-	position: absolute;
-	inset: 50% auto auto 50%;
-	width: min(23rem, 74vw);
-	height: min(23rem, 74vw);
-	border-radius: 999px;
-	border: 1px solid rgba(103, 232, 249, 0.18);
-	transform: translate(-50%, -50%);
-	box-shadow:
-		inset 0 0 0 1px rgba(34, 211, 238, 0.06),
-		0 0 24px rgba(34, 211, 238, 0.08);
-	overflow: hidden;
-}
-
-.page-loading-orbit::before,
-.page-loading-orbit::after {
-	content: "";
-	position: absolute;
-	inset: -18%;
-	border-radius: inherit;
-}
-
-.page-loading-orbit::before {
-	border: 1px solid rgba(34, 211, 238, 0.14);
-	clip-path: polygon(0 0, 42% 0, 42% 100%, 0 100%);
-	animation: page-loading-rotate 5.6s linear infinite;
-}
-
-.page-loading-orbit::after {
-	background:
-		conic-gradient(
-			from 0deg,
-			transparent 0deg,
-			transparent 288deg,
-			rgba(103, 232, 249, 0.9) 324deg,
-			rgba(96, 165, 250, 0.4) 344deg,
-			transparent 360deg
-		);
-	mask: radial-gradient(circle, transparent 60%, #000 63%, #000 67%, transparent 70%);
-	-webkit-mask: radial-gradient(circle, transparent 60%, #000 63%, #000 67%, transparent 70%);
-	animation: page-loading-rotate 2.4s linear infinite;
+	transform: translate3d(0, -1.8rem, 0);
 }
 
 .page-loading-label {
-	position: relative;
-	z-index: 1;
 	display: inline-flex;
-	align-items: baseline;
+	align-items: center;
 	justify-content: center;
-	min-width: 11ch;
-	font-size: clamp(2.35rem, 6vw, 4.8rem);
-	font-weight: 800;
-	letter-spacing: 0.18em;
+	min-width: 10ch;
+	font-family:
+		"JetBrains Mono Variable",
+		"JetBrains Mono",
+		ui-monospace,
+		SFMono-Regular,
+		monospace;
+	font-size: clamp(2.5rem, 7vw, 5.2rem);
+	font-weight: 700;
+	letter-spacing: 0.12em;
 	text-transform: lowercase;
-	color: #67e8f9;
-	opacity: 0.96;
-	text-shadow:
-		0 0 12px rgba(34, 211, 238, 0.32),
-		0 0 28px rgba(34, 211, 238, 0.2),
-		0 0 56px rgba(96, 165, 250, 0.12);
+	color: rgba(28, 25, 23, 0.92);
+	text-shadow: 0 0.08rem 0 rgba(255, 255, 255, 0.55);
 }
 
-.page-loading-word {
-	background: linear-gradient(90deg, #67e8f9, #22d3ee, #60a5fa, #67e8f9);
-	background-size: 220% 100%;
-	-webkit-background-clip: text;
-	background-clip: text;
-	color: transparent;
-	animation: page-loading-shimmer 1.4s linear infinite;
+.dark .page-loading-label {
+	color: rgba(245, 245, 244, 0.94);
+	text-shadow: 0 0.08rem 0 rgba(0, 0, 0, 0.4);
 }
 
-.page-loading-dots {
-	display: inline-flex;
-	width: 2.2ch;
-	justify-content: flex-start;
+.page-loading-text {
+	display: inline-block;
+	width: 0;
+	overflow: hidden;
+	white-space: nowrap;
 }
 
-.page-loading-dots span {
+body.page-loading-active .page-loading-text {
+	animation: page-loading-type var(--page-loading-type-duration) steps(10, end) forwards;
+}
+
+.page-loading-cursor {
+	display: inline-block;
+	width: 0.08em;
+	height: 1.05em;
+	margin-left: 0.14em;
+	background: currentColor;
+	transform: translateY(0.04em);
 	opacity: 0;
-	animation: page-loading-dots 1.05s steps(1) infinite;
 }
 
-.page-loading-dots span:nth-child(2) {
-	animation-delay: 0.18s;
+body.page-loading-active .page-loading-cursor {
+	opacity: 1;
+	animation: page-loading-cursor-blink 0.9s steps(1, end) infinite;
 }
 
-.page-loading-dots span:nth-child(3) {
-	animation-delay: 0.36s;
-}
-
-.page-loading-subline {
-	position: relative;
-	z-index: 1;
-	font-size: 0.72rem;
-	font-weight: 600;
-	letter-spacing: 0.34em;
-	text-transform: uppercase;
-	color: rgba(103, 232, 249, 0.62);
-	text-shadow: 0 0 12px rgba(34, 211, 238, 0.2);
-	animation: page-loading-subline 1.8s ease-in-out infinite;
-}
-
-@keyframes page-loading-shimmer {
-	0% {
-		background-position: 0% 50%;
-	}
-
-	100% {
-		background-position: 220% 50%;
-	}
-}
-
-@keyframes page-loading-flow {
-	0% {
-		opacity: 0.5;
-		transform: translate(-50%, -50%) scaleX(0.9);
-	}
-
-	50% {
-		opacity: 1;
-		transform: translate(-50%, -50%) scaleX(1.04);
-	}
-
-	100% {
-		opacity: 0.5;
-		transform: translate(-50%, -50%) scaleX(0.9);
-	}
-}
-
-@keyframes page-loading-rotate {
+@keyframes page-loading-type {
 	from {
-		transform: rotate(0deg);
+		width: 0;
 	}
 
 	to {
-		transform: rotate(360deg);
+		width: 10ch;
 	}
 }
 
-@keyframes page-loading-pulse {
+@keyframes page-loading-cursor-blink {
 	0%,
-	100% {
-		opacity: 0.72;
-		transform: translate(-50%, -50%) scale(0.92);
-	}
-
-	50% {
+	49% {
 		opacity: 1;
-		transform: translate(-50%, -50%) scale(1.04);
 	}
-}
 
-@keyframes page-loading-dots {
-	0%,
+	50%,
 	100% {
 		opacity: 0;
-	}
-
-	50% {
-		opacity: 1;
-	}
-}
-
-@keyframes page-loading-subline {
-	0%,
-	100% {
-		opacity: 0.5;
-		transform: translateY(0);
-	}
-
-	50% {
-		opacity: 0.92;
-		transform: translateY(0.08rem);
 	}
 }
 
@@ -495,34 +345,28 @@ body.page-loading-leaving .page-loading-shell {
 	.page-loading-shell {
 		min-width: auto;
 		width: 100%;
-		padding: 2.5rem 1rem 2.1rem;
+		padding: 2rem 1rem;
 	}
 
 	.page-loading-label {
-		min-width: 0;
-		letter-spacing: 0.12em;
-	}
-
-	.page-loading-subline {
-		font-size: 0.62rem;
-		letter-spacing: 0.24em;
+		letter-spacing: 0.08em;
 	}
 }
 
 @media (prefers-reduced-motion: reduce) {
 	.page-loading-overlay,
-	.page-loading-shell::before,
-	.page-loading-shell::after,
-	.page-loading-orbit::before,
-	.page-loading-orbit::after,
-	.page-loading-word,
-	.page-loading-dots span,
-	.page-loading-subline {
+	.page-loading-shell,
+	.page-loading-text,
+	.page-loading-cursor {
 		transition: none;
 		animation: none;
 	}
 
-	.page-loading-dots span {
+	.page-loading-text {
+		width: 10ch;
+	}
+
+	.page-loading-cursor {
 		opacity: 1;
 	}
 }
@@ -592,7 +436,11 @@ function disableAnimation() {
 
 const bannerEnabled = !!document.getElementById('banner-wrapper')
 const loadingRoutePaths = [url('/'), url('/dashboard/')]
-const MIN_LOADING_OVERLAY_MS = 2000
+const LOADING_TEXT = 'loading...'
+const MIN_LOADING_OVERLAY_MS = 5000
+const LOADING_TYPE_STEP_MS = 520
+const LOADING_TYPE_DURATION_MS = LOADING_TEXT.length * LOADING_TYPE_STEP_MS
+const REQUIRED_LOADING_OVERLAY_MS = Math.max(MIN_LOADING_OVERLAY_MS, LOADING_TYPE_DURATION_MS + 240)
 const LOADING_OVERLAY_EXIT_MS = 760
 let loadingOverlayTimer: number | null = null
 let loadingOverlayExitTimer: number | null = null
@@ -633,7 +481,7 @@ function setLoadingOverlay(active: boolean) {
 	}
 
 	const elapsed = Date.now() - loadingOverlayActivatedAt
-	const remaining = Math.max(MIN_LOADING_OVERLAY_MS - elapsed, 0)
+	const remaining = Math.max(REQUIRED_LOADING_OVERLAY_MS - elapsed, 0)
 
 	loadingOverlayTimer = window.setTimeout(() => {
 		document.body.classList.add('page-loading-leaving')
