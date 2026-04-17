@@ -851,8 +851,26 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 			"你回来了，AlF。",
 			"好的，AlF，让我们继续。",
 		];
+		const storageKey = "alf-dashboard-last-greeting";
+		let lastGreeting = "";
 
-		const nextGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+		try {
+			lastGreeting = window.localStorage.getItem(storageKey) || "";
+		} catch (_error) {
+			lastGreeting = "";
+		}
+
+		const availableGreetings =
+			greetings.length > 1 ? greetings.filter((greeting) => greeting !== lastGreeting) : greetings;
+		const nextGreeting =
+			availableGreetings[Math.floor(Math.random() * availableGreetings.length)] || greetings[0];
+
+		try {
+			window.localStorage.setItem(storageKey, nextGreeting);
+		} catch (_error) {
+			// Ignore storage write failures and keep the greeting randomized for this visit.
+		}
+
 		const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 		const typingRunId = `${Date.now()}-${Math.random()}`;
 
