@@ -4,6 +4,7 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 
 import ConfigCarrier from "@components/ConfigCarrier.astro";
+import Mascot from "@components/Mascot.astro";
 import { profileConfig, siteConfig } from "@/config";
 import {
 	AUTO_MODE,
@@ -161,6 +162,7 @@ const PAGE_LOADING_TEXT = "loading...";
 				</div>
 			</div>
 		</div>
+		<Mascot />
 		<slot />
 
 		<!-- increase the page height during page transition to prevent the scrolling animation from jumping -->
@@ -451,9 +453,11 @@ function disableAnimation() {
 */
 
 const bannerEnabled = !!document.getElementById('banner-wrapper')
-const loadingReadyPaths = [url('/'), url('/dashboard/')]
+const homePath = url('/')
+const dashboardPath = url('/dashboard/')
 const LOADING_TEXT = 'loading...'
 const LOADING_TYPE_STEP_MS = 520
+const LOADING_TYPE_MIN_DURATION_MS = LOADING_TYPE_STEP_MS * Math.max(LOADING_TEXT.length - 1, 0)
 const LOADING_POST_TYPE_DELAY_MS = 2000
 const LOADING_OVERLAY_EXIT_MS = 760
 const LOADING_PAGE_READY_FALLBACK_MS = 5000
@@ -467,6 +471,7 @@ let loadingTextTypingEndsAt = 0
 let loadingOverlayVisible = false
 let loadingOverlayAwaitingPageReady = false
 let loadingOverlayAwaitedPath = ""
+let loadingOverlayRequiresReadySignal = false
 
 function getPathname(path: string) {
 	try {
@@ -477,8 +482,17 @@ function getPathname(path: string) {
 }
 
 function shouldShowLoadingOverlay(nextPath: string) {
+	const currentPath = getPathname(window.location.pathname)
 	const normalizedNextPath = getPathname(nextPath)
-	return loadingReadyPaths.some((route) => pathsEqual(normalizedNextPath, route))
+	const isCurrentHome = pathsEqual(currentPath, homePath)
+	const isCurrentDashboard = pathsEqual(currentPath, dashboardPath)
+	const isNextHome = pathsEqual(normalizedNextPath, homePath)
+	const isNextDashboard = pathsEqual(normalizedNextPath, dashboardPath)
+
+	return (
+		(isCurrentHome && isNextDashboard) ||
+		(isCurrentDashboard && isNextHome)
+	)
 }
 
 function clearLoadingTextTypingTimer() {
@@ -548,16 +562,19 @@ function resetLoadingOverlay() {
 	loadingOverlayVisible = false
 	loadingOverlayAwaitingPageReady = false
 	loadingOverlayAwaitedPath = ""
+	loadingOverlayRequiresReadySignal = false
 	setLoadingText(LOADING_TEXT)
 }
 
 function waitForPageReady(nextPath: string) {
+	loadingOverlayRequiresReadySignal = true
 	loadingOverlayAwaitingPageReady = true
 	loadingOverlayAwaitedPath = getPathname(nextPath)
 	if (loadingPageReadyFallbackTimer) {
 		window.clearTimeout(loadingPageReadyFallbackTimer)
 	}
 	loadingPageReadyFallbackTimer = window.setTimeout(() => {
+		loadingOverlayRequiresReadySignal = false
 		loadingOverlayAwaitingPageReady = false
 		loadingOverlayAwaitedPath = ""
 		setLoadingOverlay(false)
@@ -610,7 +627,9 @@ function finishLoadingOverlay() {
 	}
 
 	clearLoadingOverlayPhaseTimers()
-	const previewDelay = Math.max(loadingTextTypingEndsAt - Date.now(), 0)
+	const typingDelay = Math.max(loadingTextTypingEndsAt - Date.now(), 0)
+	const minimumTypingDelay = Math.max(loadingOverlayActivatedAt + LOADING_TYPE_MIN_DURATION_MS - Date.now(), 0)
+	const previewDelay = Math.max(typingDelay, minimumTypingDelay)
 
 	loadingOverlayPreviewTimer = window.setTimeout(() => {
 		addLoadingStateClasses('page-loading-preview')
@@ -786,12 +805,13 @@ const setup = () => {
 	window.swup.hooks.on('content:replace', initCustomScrollbar)
 	window.swup.hooks.on('visit:start', (visit: {to: {url: string}}) => {
 		const shouldShow = shouldShowLoadingOverlay(visit.to.url)
+		loadingOverlayRequiresReadySignal = shouldShow
 		loadingOverlayAwaitingPageReady = false
 		loadingOverlayAwaitedPath = ""
-		setLoadingOverlay(shouldShow)
 		if (shouldShow) {
 			waitForPageReady(visit.to.url)
 		}
+		setLoadingOverlay(shouldShow)
 
 		// change banner height immediately when a link is clicked
 		const bodyElement = document.querySelector('body')
@@ -821,7 +841,7 @@ const setup = () => {
 		}
 	});
 	window.swup.hooks.on('visit:end', (_visit: {to: {url: string}}) => {
-		if (!loadingOverlayAwaitingPageReady) {
+		if (!loadingOverlayRequiresReadySignal && loadingOverlayVisible) {
 			setLoadingOverlay(false)
 		}
 
@@ -846,6 +866,7 @@ const setup = () => {
 			return
 		}
 
+		loadingOverlayRequiresReadySignal = false
 		loadingOverlayAwaitingPageReady = false
 		loadingOverlayAwaitedPath = ""
 		setLoadingOverlay(false)
