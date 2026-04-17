@@ -1,29 +1,25 @@
----
+﻿---
 title: CTFshow pwn113 ret2libc + mprotect
 published: 2026-04-17
 updated: 2026-04-17
-description: 两段式利用，先 leak puts 算 libc，再调 gets 和 mprotect 把可写段改成可执行，最后灌 shellcode 读 flag。
+description: 涓ゆ寮忓埄鐢紝鍏?leak puts 绠?libc锛屽啀璋?gets 鍜?mprotect 鎶婂彲鍐欐鏀规垚鍙墽琛岋紝鏈€鍚庣亴 shellcode 璇?flag銆
 tags: [CTFshow, Pwn, Stack, ROP, Ret2Libc, Mprotect]
 category: ctfshow
 draft: false
 ---
 
-# 题目结论
+# 棰樼洰缁撹
 
-这题已经不是单纯 ret2text，而是完整的两段式 ROP。
+杩欓宸茬粡涓嶆槸鍗曠函 ret2text锛岃€屾槸瀹屾暣鐨勪袱娈靛紡 ROP銆?
+绗竴娈靛厛娉勯湶 `puts@got` 鎷垮埌 libc 鍩哄潃銆傜浜屾璋冪敤 `gets` 鎶?shellcode 鍐欏叆 `.bss`锛屽啀璋冪敤 `mprotect` 鎶婂搴旈〉鏀规垚 `rwx`锛屾渶鍚庤烦杩囧幓鎵ц璇?flag 鐨?shellcode銆?
+## 鍒╃敤閾?
+1. `pop rdi; ret` 鎶?`puts@got` 浼犵粰 `puts@plt`
+2. 杩斿洖 `main`锛岃绋嬪簭閲嶆柊杩涘叆鍙帶鐘舵€?3. 鏍规嵁娉勯湶鍊艰绠?`libc_base`
+4. 鐢?ROP 璋?`gets(data)` 寰€ `.bss` 鍐?shellcode
+5. 璋?`mprotect(data_page, 0x1000, 7)`
+6. 璺宠浆鍒?`data`
 
-第一段先泄露 `puts@got` 拿到 libc 基址。第二段调用 `gets` 把 shellcode 写入 `.bss`，再调用 `mprotect` 把对应页改成 `rwx`，最后跳过去执行读 flag 的 shellcode。
-
-## 利用链
-
-1. `pop rdi; ret` 把 `puts@got` 传给 `puts@plt`
-2. 返回 `main`，让程序重新进入可控状态
-3. 根据泄露值计算 `libc_base`
-4. 用 ROP 调 `gets(data)` 往 `.bss` 写 shellcode
-5. 调 `mprotect(data_page, 0x1000, 7)`
-6. 跳转到 `data`
-
-## 关键 exp 片段
+## 鍏抽敭 exp 鐗囨
 
 ```python
 payload = b"A" * 0x418 + p8(0x28)
@@ -40,13 +36,14 @@ payload += p64(mprotect_addr) + p64(data)
 sl(payload)
 ```
 
-## 下载
+## 涓嬭浇
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn113/pwn)
-- [下载利用脚本 `程序流分析.py`](../../attachments/ctfshow/pwn113/程序流分析.py)
-- [下载原始笔记 `Bypass_pwn113.md`](../../attachments/ctfshow/pwn113/Bypass_pwn113.md)
-- [下载题目附带 libc 包 `libc6_2.27-3ubuntu1_amd64.deb`](../../attachments/ctfshow/pwn113/libc6_2.27-3ubuntu1_amd64.deb)
+- [涓嬭浇棰樼洰闄勪欢 `pwn`](../../attachments/ctfshow/pwn113/pwn)
+- [涓嬭浇鍒╃敤鑴氭湰 `绋嬪簭娴佸垎鏋?py`](../../attachments/ctfshow/pwn113/绋嬪簭娴佸垎鏋?py)
+- [涓嬭浇鍘熷绗旇 `Bypass_pwn113.md`](../../attachments/ctfshow/pwn113/Bypass_pwn113.md)
+- [涓嬭浇棰樼洰闄勫甫 libc 鍖?`libc6_2.27-3ubuntu1_amd64.deb`](../../attachments/ctfshow/pwn113/libc6_2.27-3ubuntu1_amd64.deb)
 
-## 适合记住的点
+## 閫傚悎璁颁綇鐨勭偣
 
-当题目既不给 system，也不方便 one_gadget 时，`leak libc -> gets shellcode -> mprotect -> jump` 是一条很通用的备用路线。
+褰撻鐩棦涓嶇粰 system锛屼篃涓嶆柟渚?one_gadget 鏃讹紝`leak libc -> gets shellcode -> mprotect -> jump` 鏄竴鏉″緢閫氱敤鐨勫鐢ㄨ矾绾裤€?
+

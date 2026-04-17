@@ -1,20 +1,18 @@
----
-title: CTFshow pwn118 格式化字符串改 GOT
+﻿---
+title: CTFshow pwn118 鏍煎紡鍖栧瓧绗︿覆鏀?GOT
 published: 2026-04-17
 updated: 2026-04-17
-description: 只有一次输入机会时，不再先 leak canary，而是直接把 __stack_chk_fail@got 改到 get_flag。
+description: 鍙湁涓€娆¤緭鍏ユ満浼氭椂锛屼笉鍐嶅厛 leak canary锛岃€屾槸鐩存帴鎶?__stack_chk_fail@got 鏀瑰埌 get_flag銆
 tags: [CTFshow, Pwn, Stack, Format String, GOT Hijack]
 category: ctfshow
 draft: false
 ---
 
-# 题目结论
+# 棰樼洰缁撹
 
-因为这题只给一次读入机会，所以 pwn115 / pwn116 那种“先 leak 再第二次溢出”的打法走不通。
-
-更直接的做法是用格式化字符串一次性把 `__stack_chk_fail@got` 改成 `get_flag`。这样程序一旦走到栈保护失败路径，实际调用的就不是报错函数，而是目标函数。
-
-## 关键 exp 片段
+鍥犱负杩欓鍙粰涓€娆¤鍏ユ満浼氾紝鎵€浠?pwn115 / pwn116 閭ｇ鈥滃厛 leak 鍐嶇浜屾婧㈠嚭鈥濈殑鎵撴硶璧颁笉閫氥€?
+鏇寸洿鎺ョ殑鍋氭硶鏄敤鏍煎紡鍖栧瓧绗︿覆涓€娆℃€ф妸 `__stack_chk_fail@got` 鏀规垚 `get_flag`銆傝繖鏍风▼搴忎竴鏃﹁蛋鍒版爤淇濇姢澶辫触璺緞锛屽疄闄呰皟鐢ㄧ殑灏变笉鏄姤閿欏嚱鏁帮紝鑰屾槸鐩爣鍑芥暟銆?
+## 鍏抽敭 exp 鐗囨
 
 ```python
 stackcheck = elf.got['__stack_chk_fail']
@@ -24,18 +22,18 @@ payload = payload.ljust(0x50, b'a')
 p.sendline(payload)
 ```
 
-这题里最重要的数字是格式化字符串偏移 `7`。
+杩欓閲屾渶閲嶈鐨勬暟瀛楁槸鏍煎紡鍖栧瓧绗︿覆鍋忕Щ `7`銆?
+## 涓嬭浇
 
-## 下载
+- [涓嬭浇棰樼洰闄勪欢 `pwn`](../../attachments/ctfshow/pwn118/pwn)
+- [涓嬭浇鍒╃敤鑴氭湰 `exp.py`](../../attachments/ctfshow/pwn118/exp.py)
+- [涓嬭浇鍘熷绗旇 `Bypass_pwn118.md`](../../attachments/ctfshow/pwn118/Bypass_pwn118.md)
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn118/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn118/exp.py)
-- [下载原始笔记 `Bypass_pwn118.md`](../../attachments/ctfshow/pwn118/Bypass_pwn118.md)
+## 閫傚悎璁颁綇鐨勭偣
 
-## 适合记住的点
+鈥滃彧鏈変竴娆¤緭鍏ユ満浼氣€濇椂锛岃浼樺厛鑰冭檻鍗曞彂鎵撴硶锛?
+- GOT 瑕嗗啓
+- 杩斿洖鍦板潃鐩磋烦
+- 涓€娆℃€у啓瀹岀殑鏍煎紡鍖栧瓧绗︿覆鍒╃敤
 
-“只有一次输入机会”时，要优先考虑单发打法：
 
-- GOT 覆写
-- 返回地址直跳
-- 一次性写完的格式化字符串利用

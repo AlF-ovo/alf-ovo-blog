@@ -1,30 +1,28 @@
----
-title: CTFshow pwn162 Double Free + stdout 泄露
+﻿---
+title: CTFshow pwn162 Double Free + stdout 娉勯湶
 published: 2026-04-17
 updated: 2026-04-17
-description: 先靠 double free 拿回伪造 chunk，再伪造 stdout 结构泄露 libc，最后第二次 fastbin dup 命中 __malloc_hook。
+description: 鍏堥潬 double free 鎷垮洖浼€?chunk锛屽啀浼€?stdout 缁撴瀯娉勯湶 libc锛屾渶鍚庣浜屾 fastbin dup 鍛戒腑 __malloc_hook銆
 tags: [CTFshow, Pwn, Heap, Double Free, stdout, Fastbin]
 category: ctfshow
 draft: false
 ---
 
-# 题目结论
+# 棰樼洰缁撹
 
-`pwn162` 的关键不是单点漏洞，而是两段组合：
+`pwn162` 鐨勫叧閿笉鏄崟鐐规紡娲烇紝鑰屾槸涓ゆ缁勫悎锛?
+- 鍓嶅崐娈靛埄鐢?double free 鎷垮埌鍙帶鍒嗛厤浣嶇疆锛屽啀浼€?`_IO_2_1_stdout_` 鐩稿叧缁撴瀯娉勯湶 libc
+- 鍚庡崐娈靛啀娆?fastbin dup锛屾妸 chunk 鎵撳埌 `__malloc_hook - 0x23`
 
-- 前半段利用 double free 拿到可控分配位置，再伪造 `_IO_2_1_stdout_` 相关结构泄露 libc
-- 后半段再次 fastbin dup，把 chunk 打到 `__malloc_hook - 0x23`
+## 鍒╃敤閾?
+1. 甯冨眬澶氫釜 note锛屼娇涓€涓?`0x30` 灏忓潡鑳借鍚庣画 note 缁撴瀯澶嶇敤
+2. 鍒堕€?unsorted bin锛屽啀鎶婂叾涓殑浣庝袱瀛楄妭鏀瑰埌 `stdout` 闄勮繎
+3. 閫氳繃 fake stdout 鎷垮埌 libc 娉勯湶
+4. 鍐嶅仛涓€娆?double free锛屽懡涓?`__malloc_hook - 0x23`
+5. 鍐欏叆 `one_gadget` 鍜?`realloc + 0xd`
+6. 瑙﹀彂涓嬩竴娆?`malloc`
 
-## 利用链
-
-1. 布局多个 note，使一个 `0x30` 小块能被后续 note 结构复用
-2. 制造 unsorted bin，再把其中的低两字节改到 `stdout` 附近
-3. 通过 fake stdout 拿到 libc 泄露
-4. 再做一次 double free，命中 `__malloc_hook - 0x23`
-5. 写入 `one_gadget` 和 `realloc + 0xd`
-6. 触发下一次 `malloc`
-
-## 关键 exp 片段
+## 鍏抽敭 exp 鐗囨
 
 ```python
 delete(1)
@@ -49,13 +47,14 @@ add(0x68, hook_payload)
 cmd(1)
 ```
 
-## 下载
+## 涓嬭浇
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn162/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn162/exp.py)
-- [下载对应 libc `libc-2.23.so`](../../attachments/ctfshow/pwn162/libc-2.23.so)
-- [下载原始笔记 `pwn162.md`](../../attachments/ctfshow/pwn162/pwn162.md)
+- [涓嬭浇棰樼洰闄勪欢 `pwn`](../../attachments/ctfshow/pwn162/pwn)
+- [涓嬭浇鍒╃敤鑴氭湰 `exp.py`](../../attachments/ctfshow/pwn162/exp.py)
+- [涓嬭浇瀵瑰簲 libc `libc-2.23.so`](../../attachments/ctfshow/pwn162/libc-2.23.so)
+- [涓嬭浇鍘熷绗旇 `pwn162.md`](../../attachments/ctfshow/pwn162/pwn162.md)
 
-## 适合记住的点
+## 閫傚悎璁颁綇鐨勭偣
 
-fake stdout 依然是老版本 glibc 堆题里非常高频的 libc 泄露手法。只要能把分配命中 `_IO_2_1_stdout_` 附近，就要马上想到它。
+fake stdout 渚濈劧鏄€佺増鏈?glibc 鍫嗛閲岄潪甯搁珮棰戠殑 libc 娉勯湶鎵嬫硶銆傚彧瑕佽兘鎶婂垎閰嶅懡涓?`_IO_2_1_stdout_` 闄勮繎锛屽氨瑕侀┈涓婃兂鍒板畠銆?
+

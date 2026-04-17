@@ -1,40 +1,35 @@
----
-title: CTFshow pwn117 利用 SSP 报错链路的 argv[0]
+﻿---
+title: CTFshow pwn117 鍒╃敤 SSP 鎶ラ敊閾捐矾鐨?argv[0]
 published: 2026-04-17
 updated: 2026-04-17
-description: 这题不直接跳 shell，而是利用老版本 glibc 在 stack smashing 报错时会打印 argv[0] 的特性做文章。
+description: 杩欓涓嶇洿鎺ヨ烦 shell锛岃€屾槸鍒╃敤鑰佺増鏈?glibc 鍦?stack smashing 鎶ラ敊鏃朵細鎵撳嵃 argv[0] 鐨勭壒鎬у仛鏂囩珷銆
 tags: [CTFshow, Pwn, Stack, SSP, argv]
 category: ctfshow
 draft: false
 ---
 
-# 题目结论
+# 棰樼洰缁撹
 
-这题比较有意思。不是普通地泄露 canary 再劫持返回地址，而是利用老版本 glibc 在触发 `stack smashing detected` 时会引用 `argv[0]` 的行为。
+杩欓姣旇緝鏈夋剰鎬濄€備笉鏄櫘閫氬湴娉勯湶 canary 鍐嶅姭鎸佽繑鍥炲湴鍧€锛岃€屾槸鍒╃敤鑰佺増鏈?glibc 鍦ㄨЕ鍙?`stack smashing detected` 鏃朵細寮曠敤 `argv[0]` 鐨勮涓恒€?
+濡傛灉鑳芥妸閭ｄ釜琚墦鍗扮殑鎸囬拡鏀瑰埌鎴戜滑鎯宠鐨勪綅缃紝鎶ラ敊璺緞鏈韩灏辫兘鍙樻垚鍒╃敤閾剧殑涓€閮ㄥ垎銆?
+## 鍒╃敤鎬濊矾
 
-如果能把那个被打印的指针改到我们想要的位置，报错路径本身就能变成利用链的一部分。
-
-## 利用思路
-
-1. 找到溢出点到目标指针的偏移。
-2. 用溢出把相关指针改到可控或敏感地址。
-3. 触发 stack smashing，让报错逻辑替我们“读出”那块内容。
-
-## 关键 exp 片段
+1. 鎵惧埌婧㈠嚭鐐瑰埌鐩爣鎸囬拡鐨勫亸绉汇€?2. 鐢ㄦ孩鍑烘妸鐩稿叧鎸囬拡鏀瑰埌鍙帶鎴栨晱鎰熷湴鍧€銆?3. 瑙﹀彂 stack smashing锛岃鎶ラ敊閫昏緫鏇挎垜浠€滆鍑衡€濋偅鍧楀唴瀹广€?
+## 鍏抽敭 exp 鐗囨
 
 ```python
 payload = b"a" * 504 + p64(0x6020A0)
 p.sendline(payload)
 ```
 
-原始材料里记录的关键点是：这个方法依赖较老的 glibc 行为，高版本环境下往往不再好用。
+鍘熷鏉愭枡閲岃褰曠殑鍏抽敭鐐规槸锛氳繖涓柟娉曚緷璧栬緝鑰佺殑 glibc 琛屼负锛岄珮鐗堟湰鐜涓嬪線寰€涓嶅啀濂界敤銆?
+## 涓嬭浇
 
-## 下载
+- [涓嬭浇棰樼洰闄勪欢 `pwn`](../../attachments/ctfshow/pwn117/pwn)
+- [涓嬭浇鍒╃敤鑴氭湰 `exp.py`](../../attachments/ctfshow/pwn117/exp.py)
+- [涓嬭浇鍘熷绗旇 `Bypass_pwn117.md`](../../attachments/ctfshow/pwn117/Bypass_pwn117.md)
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn117/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn117/exp.py)
-- [下载原始笔记 `Bypass_pwn117.md`](../../attachments/ctfshow/pwn117/Bypass_pwn117.md)
+## 閫傚悎璁颁綇鐨勭偣
 
-## 适合记住的点
+SSP 涓嶅彧鏄槻寰＄偣锛屾湁鏃跺畠鐨勬姤閿欒矾寰勬湰韬篃浼氭毚闇查澶栨敾鍑婚潰銆傞亣鍒拌€?glibc 棰樼洰鏃讹紝鍊煎緱涓撻棬鐩竴涓嬫姤閿欒緭鍑洪€昏緫銆?
 
-SSP 不只是防御点，有时它的报错路径本身也会暴露额外攻击面。遇到老 glibc 题目时，值得专门盯一下报错输出逻辑。
