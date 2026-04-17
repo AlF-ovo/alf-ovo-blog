@@ -260,6 +260,44 @@ function disableAnimation() {
 */
 
 const bannerEnabled = !!document.getElementById('banner-wrapper')
+const DOWNLOAD_REFRESH_DELAY_MS = 1200
+
+function isDownloadLink(anchor: HTMLAnchorElement) {
+	const rawHref = anchor.getAttribute('href') || ''
+	const linkText = anchor.textContent?.trim() || ''
+	if (!rawHref) {
+		return false
+	}
+
+	if (anchor.hasAttribute('download')) {
+		return true
+	}
+
+	const isAttachmentPath = rawHref.includes('/attachments/')
+	const looksLikeFile = !rawHref.endsWith('/')
+	const looksDownloadLabel = linkText.includes('下载')
+	return isAttachmentPath && looksLikeFile && looksDownloadLabel
+}
+
+function setupDownloadRefresh() {
+	document.addEventListener('click', event => {
+		const target = event.target
+		if (!(target instanceof Element)) {
+			return
+		}
+
+		const anchor = target.closest('a')
+		if (!(anchor instanceof HTMLAnchorElement) || !isDownloadLink(anchor)) {
+			return
+		}
+
+		window.setTimeout(() => {
+			window.location.reload()
+		}, DOWNLOAD_REFRESH_DELAY_MS)
+	})
+}
+
+setupDownloadRefresh()
 
 function setClickOutsideToClose(panel: string, ignores: string[]) {
 	document.addEventListener("click", event => {
