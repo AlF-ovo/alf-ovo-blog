@@ -44,5 +44,3 @@ python3 exp.py REMOTE CMD='cat /ctfshow_flag; exit'
 `ctfshow{80caa981-bbd0-4db2-8799-251bcd9c6859}`
 
 
-
-

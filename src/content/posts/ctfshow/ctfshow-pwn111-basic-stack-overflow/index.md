@@ -1,37 +1,41 @@
-﻿---
-title: CTFshow pwn111 鍩虹鏍堟孩鍑
+---
+title: CTFshow pwn111 基础栈溢出
 published: 2026-04-17
 updated: 2026-04-17
-description: 鏈€鍩虹鐨勪竴閬?ret2text锛屾牳蹇冨氨鏄‘璁よ鐩栭暱搴︼紝鐒跺悗琛ヤ竴涓?ret 瀵归綈鍚庣洿鎺ヨ烦鍒板悗闂ㄣ€
+description: 最基础的一道 ret2text，核心就是确认覆盖长度，然后补一个 ret 对齐后直接跳到后门。
 tags: [CTFshow, Pwn, Stack, Ret2Text]
 category: ctfshow
 draft: false
 ---
 
-# 棰樼洰缁撹
+# 题目结论
 
-杩欓灏辨槸鏈€鏍囧噯鐨?64 浣嶆爤婧㈠嚭鍏ラ棬棰樸€傛爤涓婄紦鍐插尯鍙鐩存帴瑕嗙洊鍒拌繑鍥炲湴鍧€锛屼繚鎶や篃涓嶅鏉傦紝鍒╃敤閾惧緢鐭€?
-## 鍒╃敤鎬濊矾
+这题就是最标准的 64 位栈溢出入门题。栈上缓冲区可被直接覆盖到返回地址，保护也不复杂，利用链很短。
 
-1. 鍏堢敤 `0x88` 瀛楄妭瑕嗙洊鍒拌繑鍥炲湴鍧€銆?2. 鐢变簬鏄?amd64锛屽厛琛ヤ竴涓?`ret` 鍋氭爤瀵归綈銆?3. 鏈€鍚庣洿鎺ヨ繑鍥炲埌鍚庨棬鍑芥暟鎷?flag銆?
-## 鍏抽敭 exp 鐗囨
+## 利用思路
+
+1. 先用 `0x88` 字节覆盖到返回地址。
+2. 由于是 amd64，先补一个 `ret` 做栈对齐。
+3. 最后直接返回到后门函数拿 flag。
+
+## 关键 exp 片段
 
 ```python
 payload = b'A' * 0x88 + p64(0x40025c) + p64(0x400697)
 p.sendline(payload)
 ```
 
-杩欓噷锛?
-- `0x40025c` 鏄崟鐙殑 `ret`
-- `0x400697` 鏄悗闂?/ get_flag 涓€绫荤洰鏍囧湴鍧€
+这里：
 
-## 涓嬭浇
+- `0x40025c` 是单独的 `ret`
+- `0x400697` 是后门 / get_flag 一类目标地址
 
-- [涓嬭浇棰樼洰闄勪欢 `pwn`](../../attachments/ctfshow/pwn111/pwn)
-- [涓嬭浇鍒╃敤鑴氭湰 `exp.py`](../../attachments/ctfshow/pwn111/exp.py)
-- [涓嬭浇鍘熷绗旇 `Bypass_pwn111.md`](../../attachments/ctfshow/pwn111/Bypass_pwn111.md)
+## 下载
 
-## 閫傚悎璁颁綇鐨勭偣
+- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn111/pwn)
+- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn111/exp.py)
+- [下载原始笔记 `Bypass_pwn111.md`](../../attachments/ctfshow/pwn111/Bypass_pwn111.md)
 
-鍋?amd64 鐨?ret2text 鏃讹紝濡傛灉鐩存帴璺崇洰鏍囧嚱鏁颁笉绋冲畾锛屼紭鍏堣€冭檻鍏堝涓€涓?`ret` 瀵归綈鏍堛€?
+## 适合记住的点
 
+做 amd64 的 ret2text 时，如果直接跳目标函数不稳定，优先考虑先塞一个 `ret` 对齐栈。

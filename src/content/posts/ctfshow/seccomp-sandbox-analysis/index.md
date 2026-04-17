@@ -232,5 +232,3 @@ seccomp-tools dump ./pwn
 - 蹇呴』 ORW 璇籪lag
 
 
-
-

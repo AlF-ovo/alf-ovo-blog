@@ -331,5 +331,3 @@ pwn129-vsyscall.py
 ROPgadget --binary pwn --ropchain(one_gadget涓€鎶婃)
 
 
-
-

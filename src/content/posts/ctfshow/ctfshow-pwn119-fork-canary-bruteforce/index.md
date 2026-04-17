@@ -1,25 +1,27 @@
-﻿---
-title: CTFshow pwn119 fork 鐖嗙牬 Canary
+---
+title: CTFshow pwn119 fork 爆破 Canary
 published: 2026-04-17
 updated: 2026-04-17
-description: 瀛愯繘绋嬪穿婧冧笉浼氬奖鍝嶇埗杩涚▼锛屼簬鏄彲浠ユ寜瀛楄妭鐖嗙牬 canary锛屾渶鍚庡啀琛ュ畬鏁?payload 杩涘悗闂ㄣ€
+description: 子进程崩溃不会影响父进程，于是可以按字节爆破 canary，最后再补完整 payload 进后门。
 tags: [CTFshow, Pwn, Stack, Canary, Brute Force, Fork]
 category: ctfshow
 draft: false
 ---
 
-# 棰樼洰缁撹
+# 题目结论
 
-杩欓鐨勬牳蹇冧笉鏄牸寮忓寲瀛楃涓诧紝鑰屾槸 `fork`銆?
-鏈嶅姟绔瘡娆¤瀛愯繘绋嬪鐞嗚緭鍏ワ紝瀛愯繘绋嬪洜涓?canary 閿欒宕╂帀鏃讹紝鐖惰繘绋嬭繕娲荤潃锛屾墍浠ユ垜浠彲浠ヤ竴瀛楄妭涓€瀛楄妭璇曟帰 canary銆傚彧瑕佸洖鏄鹃噷娌℃湁鍑虹幇 `stack smashing detected`锛屽氨璇存槑褰撳墠瀛楄妭鐚滃浜嗐€?
-## 鍒╃敤鎬濊矾
+这题的核心不是格式化字符串，而是 `fork`。
 
-1. canary 绗竴瀛楄妭鍥哄畾鏄?`0x00`
-2. 閫愬瓧鑺備粠 `0x00` 鍒?`0xff` 璇曟帰
-3. 鏌愪竴瀛楄妭鐚滃鏃讹紝鏈嶅姟涓嶄細绔嬪埢鎶?stack smashing
-4. 鎷煎嚭瀹屾暣 canary 鍚庯紝姝ｅ父瑕嗙洊杩斿洖鍦板潃
+服务端每次让子进程处理输入，子进程因为 canary 错误崩掉时，父进程还活着，所以我们可以一字节一字节试探 canary。只要回显里没有出现 `stack smashing detected`，就说明当前字节猜对了。
 
-## 鍏抽敭 exp 鐗囨
+## 利用思路
+
+1. canary 第一字节固定是 `0x00`
+2. 逐字节从 `0x00` 到 `0xff` 试探
+3. 某一字节猜对时，服务不会立刻报 stack smashing
+4. 拼出完整 canary 后，正常覆盖返回地址
+
+## 关键 exp 片段
 
 ```python
 canary = b'\x00'
@@ -38,13 +40,12 @@ payload = b'a' * (0x70 - 0xc) + canary + b'a' * 0xc + p32(backdoor)
 io.send(payload)
 ```
 
-## 涓嬭浇
+## 下载
 
-- [涓嬭浇棰樼洰闄勪欢 `pwn`](../../attachments/ctfshow/pwn119/pwn)
-- [涓嬭浇鍒╃敤鑴氭湰 `exp.py`](../../attachments/ctfshow/pwn119/exp.py)
-- [涓嬭浇鍘熷绗旇 `Bypass_pwn119.md`](../../attachments/ctfshow/pwn119/Bypass_pwn119.md)
+- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn119/pwn)
+- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn119/exp.py)
+- [下载原始笔记 `Bypass_pwn119.md`](../../attachments/ctfshow/pwn119/Bypass_pwn119.md)
 
-## 閫傚悎璁颁綇鐨勭偣
+## 适合记住的点
 
-鐪嬪埌 `fork` / `accept -> fork` 杩欑被鏈嶅姟绔ā鍨嬫椂锛岃绔嬪埢鑱旀兂鍒?canary 鐖嗙牬銆丄SLR 鐖嗙牬鍜岄€愬瓧鑺傝瘯鎺€?
-
+看到 `fork` / `accept -> fork` 这类服务端模型时，要立刻联想到 canary 爆破、ASLR 爆破和逐字节试探。
