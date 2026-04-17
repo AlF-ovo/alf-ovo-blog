@@ -451,7 +451,7 @@ function disableAnimation() {
 */
 
 const bannerEnabled = !!document.getElementById('banner-wrapper')
-const loadingRoutePaths = [url('/'), url('/dashboard/')]
+const loadingDashboardPath = url('/dashboard/')
 const LOADING_TEXT = 'loading...'
 const LOADING_TYPE_STEP_MS = 520
 const LOADING_POST_TYPE_DELAY_MS = 2000
@@ -472,12 +472,8 @@ function getPathname(path: string) {
 	}
 }
 
-function isLoadingRoute(path: string) {
-	return loadingRoutePaths.some(route => pathsEqual(getPathname(path), route))
-}
-
 function shouldShowLoadingOverlay(nextPath: string) {
-	return isLoadingRoute(window.location.pathname) && isLoadingRoute(nextPath)
+	return pathsEqual(getPathname(nextPath), loadingDashboardPath)
 }
 
 function clearLoadingTextTypingTimer() {
