@@ -71,9 +71,18 @@ const chartDatasets: Record<"week" | "month" | "year", ActivityDataset> = {
 		label: "近1个月",
 		points: buildDailyPoints(
 			new Date(2026, 2, 19),
-			[1, 0, 2, 1, 3, 2, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 2, 1, 4, 2, 1, 3, 2, 5, 2, 1, 4, 3, 2, 4],
-			[0, 1, 1, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 4, 2, 2, 3, 1, 2, 4, 2, 1, 3, 2, 1, 2, 3, 2, 4, 3],
-			[0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 2, 1, 0, 1, 0, 1, 1, 0, 1, 0, 2, 1, 0, 1, 1, 0, 1],
+			[
+				1, 0, 2, 1, 3, 2, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 2, 1, 4, 2, 1, 3, 2, 5,
+				2, 1, 4, 3, 2, 4,
+			],
+			[
+				0, 1, 1, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 4, 2, 2, 3, 1, 2, 4, 2, 1, 3, 2,
+				1, 2, 3, 2, 4, 3,
+			],
+			[
+				0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 2, 1, 0, 1, 0, 1, 1, 0, 1, 0, 2,
+				1, 0, 1, 1, 0, 1,
+			],
 		),
 	},
 	year: {
@@ -89,7 +98,9 @@ const chartDatasets: Record<"week" | "month" | "year", ActivityDataset> = {
 
 const getChartMetrics = (points: ActivityPoint[]): ActivityMetric[] => {
 	const maxTotal = Math.max(
-		...points.map((point: ActivityPoint) => point.publish + point.update + point.delete),
+		...points.map(
+			(point: ActivityPoint) => point.publish + point.update + point.delete,
+		),
 		1,
 	);
 
@@ -136,7 +147,8 @@ const dashboardMetrics = {
 	lastVisitedPost: {
 		title: "《Fuwari 仪表盘改造记录》",
 		url: "/posts/guide/",
-		excerpt: "记录仪表盘布局、时间切换图表、最近修改侧栏和欢迎语打字机效果的调整过程。",
+		excerpt:
+			"记录仪表盘布局、时间切换图表、最近修改侧栏和欢迎语打字机效果的调整过程。",
 	},
 };
 ---
