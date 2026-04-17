@@ -10,8 +10,8 @@ draft: false
 ---
 ## 附件下载
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn160/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn160/exp.py)
+- [下载题目附件 `pwn`](../../../attachments/ctfshow/pwn160/pwn)
+- [下载利用脚本 `exp.py`](../../../attachments/ctfshow/pwn160/exp.py)
 ![程序逻辑截图 1](./heap-logic-1.png)
 ![程序逻辑截图 2](./heap-logic-2.png)
 有个指针在删除时没有清零！被空置的指针如果被再次访问会出问题\[确信♥\]其实这题没用到
@@ -146,7 +146,7 @@ fgets(desc_ptr, len + 1, stdin);
 
   
 
-脚本见：[exp.py](../../attachments/ctfshow/pwn160/exp.py)
+脚本见：[exp.py](../../../attachments/ctfshow/pwn160/exp.py)
 
   
 

@@ -39,7 +39,7 @@ p.send(payload2)
 
 ## 下载
 
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn120/exp.py)
+- [下载利用脚本 `exp.py`](../../../attachments/ctfshow/pwn120/exp.py)
 
 ## 说明
 

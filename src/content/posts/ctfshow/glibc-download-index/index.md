@@ -11,16 +11,16 @@ draft: false
 
 ## 整包下载
 
-- [下载整包 `libcs.zip`](../../attachments/ctfshow/libcs.zip)
+- [下载整包 `libcs.zip`](../../../attachments/ctfshow/libcs.zip)
 
 ## 单文件下载
 
 | Ubuntu 环境 | 32 位 | 64 位 |
 | --- | --- | --- |
-| Ubuntu 16.04 / glibc 2.23 | [libc-2.23.so](../../attachments/ctfshow/ubuntu16/32bit/libc-2.23.so) | [libc-2.23.so](../../attachments/ctfshow/ubuntu16/64bit/libc-2.23.so) |
-| Ubuntu 18.04 / glibc 2.27 | [libc-2.27.so](../../attachments/ctfshow/ubuntu18/32bit/libc-2.27.so) | [libc-2.27.so](../../attachments/ctfshow/ubuntu18/64bit/libc-2.27.so) |
-| Ubuntu 19.04 / glibc 2.29 | [libc-2.29.so](../../attachments/ctfshow/ubuntu19/32bit/libc-2.29.so) | [libc-2.29.so](../../attachments/ctfshow/ubuntu19/64bit/libc-2.29.so) |
-| Ubuntu 20.04 / glibc 2.30 | [libc-2.30.so](../../attachments/ctfshow/ubuntu20/32bit/libc-2.30.so) | [libc-2.30.so](../../attachments/ctfshow/ubuntu20/64bit/libc-2.30.so) |
+| Ubuntu 16.04 / glibc 2.23 | [libc-2.23.so](../../../attachments/ctfshow/ubuntu16/32bit/libc-2.23.so) | [libc-2.23.so](../../../attachments/ctfshow/ubuntu16/64bit/libc-2.23.so) |
+| Ubuntu 18.04 / glibc 2.27 | [libc-2.27.so](../../../attachments/ctfshow/ubuntu18/32bit/libc-2.27.so) | [libc-2.27.so](../../../attachments/ctfshow/ubuntu18/64bit/libc-2.27.so) |
+| Ubuntu 19.04 / glibc 2.29 | [libc-2.29.so](../../../attachments/ctfshow/ubuntu19/32bit/libc-2.29.so) | [libc-2.29.so](../../../attachments/ctfshow/ubuntu19/64bit/libc-2.29.so) |
+| Ubuntu 20.04 / glibc 2.30 | [libc-2.30.so](../../../attachments/ctfshow/ubuntu20/32bit/libc-2.30.so) | [libc-2.30.so](../../../attachments/ctfshow/ubuntu20/64bit/libc-2.30.so) |
 
 ## 做题时最该先区分什么
 

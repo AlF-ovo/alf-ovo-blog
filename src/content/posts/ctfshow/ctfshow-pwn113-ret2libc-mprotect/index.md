@@ -42,10 +42,10 @@ sl(payload)
 
 ## 下载
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn113/pwn)
-- [下载利用脚本 `程序流分析.py`](../../attachments/ctfshow/pwn113/程序流分析.py)
-- [下载原始笔记 `Bypass_pwn113.md`](../../attachments/ctfshow/pwn113/Bypass_pwn113.md)
-- [下载题目附带 libc 包 `libc6_2.27-3ubuntu1_amd64.deb`](../../attachments/ctfshow/pwn113/libc6_2.27-3ubuntu1_amd64.deb)
+- [下载题目附件 `pwn`](../../../attachments/ctfshow/pwn113/pwn)
+- [下载利用脚本 `程序流分析.py`](../../../attachments/ctfshow/pwn113/程序流分析.py)
+- [下载原始笔记 `Bypass_pwn113.md`](../../../attachments/ctfshow/pwn113/Bypass_pwn113.md)
+- [下载题目附带 libc 包 `libc6_2.27-3ubuntu1_amd64.deb`](../../../attachments/ctfshow/pwn113/libc6_2.27-3ubuntu1_amd64.deb)
 
 ## 适合记住的点
 

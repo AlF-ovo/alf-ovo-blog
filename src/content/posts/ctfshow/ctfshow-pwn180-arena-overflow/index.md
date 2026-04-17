@@ -9,8 +9,8 @@ draft: false
 ---
 ## 附件下载
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn180/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn180/exp.py)
+- [下载题目附件 `pwn`](../../../attachments/ctfshow/pwn180/pwn)
+- [下载利用脚本 `exp.py`](../../../attachments/ctfshow/pwn180/exp.py)
 # CTFshow PWN Arena (28160) WP
 
 ## 1. 程序关键点

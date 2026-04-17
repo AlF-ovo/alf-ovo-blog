@@ -46,11 +46,11 @@ add(0x68)
 
 ## 下载
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn161/pwn)
-- [下载稳定版利用脚本 `exp_remote.py`](../../attachments/ctfshow/pwn161/exp_remote.py)
-- [下载爆破版脚本 `exp_brute.py`](../../attachments/ctfshow/pwn161/exp_brute.py)
-- [下载对应 libc `libc-2.23.so`](../../attachments/ctfshow/pwn161/libc-2.23.so)
-- [下载原始笔记 `pwn161.md`](../../attachments/ctfshow/pwn161/pwn161.md)
+- [下载题目附件 `pwn`](../../../attachments/ctfshow/pwn161/pwn)
+- [下载稳定版利用脚本 `exp_remote.py`](../../../attachments/ctfshow/pwn161/exp_remote.py)
+- [下载爆破版脚本 `exp_brute.py`](../../../attachments/ctfshow/pwn161/exp_brute.py)
+- [下载对应 libc `libc-2.23.so`](../../../attachments/ctfshow/pwn161/libc-2.23.so)
+- [下载原始笔记 `pwn161.md`](../../../attachments/ctfshow/pwn161/pwn161.md)
 
 ## 适合记住的点
 

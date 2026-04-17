@@ -9,9 +9,9 @@ draft: false
 ---
 ## 附件下载
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn163/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn163/exp.py)
-- [下载对应 libc `libc-2.23.so`](../../attachments/ctfshow/ubuntu16/64bit/libc-2.23.so)
+- [下载题目附件 `pwn`](../../../attachments/ctfshow/pwn163/pwn)
+- [下载利用脚本 `exp.py`](../../../attachments/ctfshow/pwn163/exp.py)
+- [下载对应 libc `libc-2.23.so`](../../../attachments/ctfshow/ubuntu16/64bit/libc-2.23.so)
 # pwn163 WP
 
 ## 题目信息

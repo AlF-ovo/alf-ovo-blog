@@ -29,9 +29,9 @@ p.sendline(payload)
 
 ## 下载
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn112/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn112/exp.py)
-- [下载原始笔记 `Bypass_pwn112.md`](../../attachments/ctfshow/pwn112/Bypass_pwn112.md)
+- [下载题目附件 `pwn`](../../../attachments/ctfshow/pwn112/pwn)
+- [下载利用脚本 `exp.py`](../../../attachments/ctfshow/pwn112/exp.py)
+- [下载原始笔记 `Bypass_pwn112.md`](../../../attachments/ctfshow/pwn112/Bypass_pwn112.md)
 
 ## 适合记住的点
 

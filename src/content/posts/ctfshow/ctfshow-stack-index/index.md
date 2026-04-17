@@ -9,8 +9,8 @@ draft: false
 ---
 ## 下载
 
-- [下载整包脚本 `stack-scripts.zip`](../../attachments/ctfshow/stack-scripts.zip)
-- [在线浏览栈题脚本目录](../../attachments/ctfshow/stack-scripts/)
+- [下载整包脚本 `stack-scripts.zip`](../../../attachments/ctfshow/stack-scripts.zip)
+- [在线浏览栈题脚本目录](../../../attachments/ctfshow/stack-scripts/)
 # CTFshow 栈溢出题目知识点索引
 
 ## 一、按位数分类

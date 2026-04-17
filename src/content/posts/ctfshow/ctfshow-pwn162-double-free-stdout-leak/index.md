@@ -51,10 +51,10 @@ cmd(1)
 
 ## 下载
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn162/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn162/exp.py)
-- [下载对应 libc `libc-2.23.so`](../../attachments/ctfshow/pwn162/libc-2.23.so)
-- [下载原始笔记 `pwn162.md`](../../attachments/ctfshow/pwn162/pwn162.md)
+- [下载题目附件 `pwn`](../../../attachments/ctfshow/pwn162/pwn)
+- [下载利用脚本 `exp.py`](../../../attachments/ctfshow/pwn162/exp.py)
+- [下载对应 libc `libc-2.23.so`](../../../attachments/ctfshow/pwn162/libc-2.23.so)
+- [下载原始笔记 `pwn162.md`](../../../attachments/ctfshow/pwn162/pwn162.md)
 
 ## 适合记住的点
 

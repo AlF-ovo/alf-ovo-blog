@@ -36,9 +36,9 @@ payload = b'a' * (0xd4 - 0xc) + p32(canary) + b'a' * 0xc + p32(backdoor)
 
 ## 下载
 
-- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn115/pwn)
-- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn115/exp.py)
-- [下载原始笔记 `Bypass_pwn115.md`](../../attachments/ctfshow/pwn115/Bypass_pwn115.md)
+- [下载题目附件 `pwn`](../../../attachments/ctfshow/pwn115/pwn)
+- [下载利用脚本 `exp.py`](../../../attachments/ctfshow/pwn115/exp.py)
+- [下载原始笔记 `Bypass_pwn115.md`](../../../attachments/ctfshow/pwn115/Bypass_pwn115.md)
 
 ## 适合记住的点
 
