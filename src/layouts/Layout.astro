@@ -451,21 +451,22 @@ function disableAnimation() {
 */
 
 const bannerEnabled = !!document.getElementById('banner-wrapper')
-const loadingDashboardPath = url('/dashboard/')
+const loadingReadyPaths = [url('/'), url('/dashboard/')]
 const LOADING_TEXT = 'loading...'
 const LOADING_TYPE_STEP_MS = 520
 const LOADING_POST_TYPE_DELAY_MS = 2000
 const LOADING_OVERLAY_EXIT_MS = 760
-const LOADING_DASHBOARD_FALLBACK_MS = 5000
+const LOADING_PAGE_READY_FALLBACK_MS = 5000
 let loadingTextTypingTimer: number | null = null
 let loadingOverlayPreviewTimer: number | null = null
 let loadingOverlayLeaveTimer: number | null = null
 let loadingOverlayCleanupTimer: number | null = null
-let loadingDashboardFallbackTimer: number | null = null
+let loadingPageReadyFallbackTimer: number | null = null
 let loadingOverlayActivatedAt = 0
 let loadingTextTypingEndsAt = 0
 let loadingOverlayVisible = false
-let loadingOverlayAwaitingDashboardReady = false
+let loadingOverlayAwaitingPageReady = false
+let loadingOverlayAwaitedPath = ""
 
 function getPathname(path: string) {
 	try {
@@ -476,7 +477,8 @@ function getPathname(path: string) {
 }
 
 function shouldShowLoadingOverlay(nextPath: string) {
-	return pathsEqual(getPathname(nextPath), loadingDashboardPath)
+	const normalizedNextPath = getPathname(nextPath)
+	return loadingReadyPaths.some((route) => pathsEqual(normalizedNextPath, route))
 }
 
 function clearLoadingTextTypingTimer() {
@@ -502,9 +504,9 @@ function clearLoadingOverlayPhaseTimers() {
 		loadingOverlayCleanupTimer = null
 	}
 
-	if (loadingDashboardFallbackTimer) {
-		window.clearTimeout(loadingDashboardFallbackTimer)
-		loadingDashboardFallbackTimer = null
+	if (loadingPageReadyFallbackTimer) {
+		window.clearTimeout(loadingPageReadyFallbackTimer)
+		loadingPageReadyFallbackTimer = null
 	}
 }
 
@@ -526,19 +528,22 @@ function resetLoadingOverlay() {
 	loadingOverlayActivatedAt = 0
 	loadingTextTypingEndsAt = 0
 	loadingOverlayVisible = false
-	loadingOverlayAwaitingDashboardReady = false
+	loadingOverlayAwaitingPageReady = false
+	loadingOverlayAwaitedPath = ""
 	setLoadingText(LOADING_TEXT)
 }
 
-function waitForDashboardReady() {
-	loadingOverlayAwaitingDashboardReady = true
-	if (loadingDashboardFallbackTimer) {
-		window.clearTimeout(loadingDashboardFallbackTimer)
+function waitForPageReady(nextPath: string) {
+	loadingOverlayAwaitingPageReady = true
+	loadingOverlayAwaitedPath = getPathname(nextPath)
+	if (loadingPageReadyFallbackTimer) {
+		window.clearTimeout(loadingPageReadyFallbackTimer)
 	}
-	loadingDashboardFallbackTimer = window.setTimeout(() => {
-		loadingOverlayAwaitingDashboardReady = false
+	loadingPageReadyFallbackTimer = window.setTimeout(() => {
+		loadingOverlayAwaitingPageReady = false
+		loadingOverlayAwaitedPath = ""
 		setLoadingOverlay(false)
-	}, LOADING_DASHBOARD_FALLBACK_MS)
+	}, LOADING_PAGE_READY_FALLBACK_MS)
 }
 
 function restartLoadingTextTyping() {
@@ -763,10 +768,11 @@ const setup = () => {
 	window.swup.hooks.on('content:replace', initCustomScrollbar)
 	window.swup.hooks.on('visit:start', (visit: {to: {url: string}}) => {
 		const shouldShow = shouldShowLoadingOverlay(visit.to.url)
-		loadingOverlayAwaitingDashboardReady = false
+		loadingOverlayAwaitingPageReady = false
+		loadingOverlayAwaitedPath = ""
 		setLoadingOverlay(shouldShow)
 		if (shouldShow) {
-			waitForDashboardReady()
+			waitForPageReady(visit.to.url)
 		}
 
 		// change banner height immediately when a link is clicked
@@ -797,7 +803,7 @@ const setup = () => {
 		}
 	});
 	window.swup.hooks.on('visit:end', (_visit: {to: {url: string}}) => {
-		if (!loadingOverlayAwaitingDashboardReady) {
+		if (!loadingOverlayAwaitingPageReady) {
 			setLoadingOverlay(false)
 		}
 
@@ -812,12 +818,18 @@ const setup = () => {
 			toc.classList.remove('toc-not-ready')
 		}
 	});
-	document.addEventListener('alf:dashboard-ready', () => {
-		if (!loadingOverlayAwaitingDashboardReady) {
+	document.addEventListener('alf:page-ready', (event) => {
+		if (!loadingOverlayAwaitingPageReady) {
 			return
 		}
 
-		loadingOverlayAwaitingDashboardReady = false
+		const readyPath = getPathname((event as CustomEvent<{ path?: string }>).detail?.path || window.location.pathname)
+		if (loadingOverlayAwaitedPath && !pathsEqual(readyPath, loadingOverlayAwaitedPath)) {
+			return
+		}
+
+		loadingOverlayAwaitingPageReady = false
+		loadingOverlayAwaitedPath = ""
 		setLoadingOverlay(false)
 	});
 }

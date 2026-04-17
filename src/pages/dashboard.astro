@@ -809,7 +809,7 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 	const initDashboardChart = () => {
 		const notifyDashboardReady = () => {
 			document.dispatchEvent(
-				new CustomEvent("alf:dashboard-ready", {
+				new CustomEvent("alf:page-ready", {
 					detail: { path: window.location.pathname },
 				}),
 			);
