@@ -128,6 +128,17 @@ const recentUpdates = [
 		time: "2026-04-16 19:35",
 	},
 ];
+const dashboardMetrics = {
+	updatedPosts: 3,
+	updatedWords: 4286,
+	totalUsage: "86 小时 24 分",
+	totalUsageNote: "近 30 天累计写作、整理与调试时间",
+	lastVisitedPost: {
+		title: "《Fuwari 仪表盘改造记录》",
+		url: "/posts/guide/",
+		excerpt: "记录仪表盘布局、时间切换图表、最近修改侧栏和欢迎语打字机效果的调整过程。",
+	},
+};
 ---
 
 <Layout title="Dashboard" description="Dashboard UI example">
@@ -184,7 +195,7 @@ const recentUpdates = [
 			<header class="dashboard-topbar">
 				<div>
 					<p class="topbar-label">AIXJ style example</p>
-					<h2 class="topbar-title">Blog使用情况</h2>
+					<h2 class="topbar-title">AlF-0v0-blog</h2>
 				</div>
 				<div class="topbar-actions">
 					<div class="ghost-input">
@@ -207,46 +218,63 @@ const recentUpdates = [
 			<section id="overview" class="hero-panel dashboard-card">
 				<div>
 					<p class="hero-eyebrow">Overview</p>
-					<h3 class="hero-title" data-dashboard-greeting>欢迎回来，AlF！</h3>
-					<p class="hero-copy">
-						这是一版按照参考站仪表盘风格制作的空数据示例，先对齐布局、层级、色彩和交互密度。
+					<h3 class="hero-title hero-title-typing" data-dashboard-greeting aria-live="polite">
+						<span data-dashboard-greeting-text>欢迎回来，AlF！</span>
+						<span class="hero-title-cursor" aria-hidden="true">|</span>
+					</h3>
+					<p class="hero-copy" data-dashboard-intro>
+						AlF's blog is a quiet archive of pwn notes, CTF writeups, and scattered reflections, a place where exploit chains, debugging traces, and passing thoughts are written down before they fade into the background.
 					</p>
 				</div>
 				<div class="hero-actions">
-					<button class="primary-button" type="button">主操作占位</button>
-					<button class="secondary-button" type="button">次操作占位</button>
+					<button class="primary-button" type="button">写文章</button>
+					<button class="secondary-button" type="button">本地上传</button>
 				</div>
 			</section>
 
 			<section class="metrics-grid">
 				<article class="metric-card dashboard-card">
 					<div class="metric-head">
-						<span>总览卡片 A</span>
+						<span>新修改文章</span>
 						<Icon name="fa6-solid:arrow-trend-up" />
 					</div>
-					<div class="metric-value placeholder-block"></div>
+					<div class="metric-value metric-value-rich">
+						<p class="metric-primary">{dashboardMetrics.updatedPosts} 篇</p>
+						<p class="metric-secondary">累计新增与修订 {dashboardMetrics.updatedWords.toLocaleString("zh-CN")} 字</p>
+					</div>
 					<div class="metric-foot">
-						<div class="skeleton-line w-58"></div>
+						<div class="metric-badges">
+							<span class="metric-badge">发布后更新</span>
+							<span class="metric-badge is-accent">{dashboardMetrics.updatedWords.toLocaleString("zh-CN")} 字</span>
+						</div>
 					</div>
 				</article>
 				<article class="metric-card dashboard-card">
 					<div class="metric-head">
-						<span>总览卡片 B</span>
+						<span>Blog 总使用时间</span>
 						<Icon name="fa6-solid:chart-column" />
 					</div>
-					<div class="metric-value placeholder-block"></div>
+					<div class="metric-value metric-value-rich">
+						<p class="metric-primary">{dashboardMetrics.totalUsage}</p>
+						<p class="metric-secondary">{dashboardMetrics.totalUsageNote}</p>
+					</div>
 					<div class="metric-foot">
-						<div class="skeleton-line w-46"></div>
+						<p class="metric-footnote">包含写作、改稿、部署与页面调整</p>
 					</div>
 				</article>
 				<article class="metric-card dashboard-card">
 					<div class="metric-head">
-						<span>总览卡片 C</span>
+						<span>最近访问文章</span>
 						<Icon name="fa6-solid:rocket" />
 					</div>
-					<div class="metric-value placeholder-block"></div>
+					<div class="metric-value metric-article">
+						<a class="metric-article-link" href={dashboardMetrics.lastVisitedPost.url}>
+							{dashboardMetrics.lastVisitedPost.title}
+						</a>
+						<p class="metric-article-excerpt">{dashboardMetrics.lastVisitedPost.excerpt}</p>
+					</div>
 					<div class="metric-foot">
-						<div class="skeleton-line w-62"></div>
+						<p class="metric-footnote">点击可进入文章详情</p>
 					</div>
 				</article>
 				<article class="metric-card dashboard-card">
@@ -433,8 +461,9 @@ const recentUpdates = [
 <script is:inline>
 	const setDashboardGreeting = () => {
 		const greetingNode = document.querySelector("[data-dashboard-greeting]");
+		const greetingTextNode = greetingNode?.querySelector("[data-dashboard-greeting-text]");
 
-		if (!greetingNode) {
+		if (!greetingNode || !greetingTextNode) {
 			return;
 		}
 
@@ -445,11 +474,60 @@ const recentUpdates = [
 		];
 
 		const nextGreeting = greetings[Math.floor(Math.random() * greetings.length)];
-		greetingNode.textContent = nextGreeting;
+		const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+		const typingRunId = `${Date.now()}-${Math.random()}`;
+
+		greetingNode.dataset.typingRun = typingRunId;
+		greetingNode.dataset.typing = "true";
+		greetingTextNode.textContent = "";
+
+		if (prefersReducedMotion) {
+			greetingTextNode.textContent = nextGreeting;
+			greetingNode.dataset.typing = "false";
+			return;
+		}
+
+		const typeNextCharacter = (index = 0) => {
+			if (greetingNode.dataset.typingRun !== typingRunId) {
+				return;
+			}
+
+			greetingTextNode.textContent = nextGreeting.slice(0, index + 1);
+
+			if (index + 1 >= nextGreeting.length) {
+				greetingNode.dataset.typing = "false";
+				return;
+			}
+
+			window.setTimeout(() => typeNextCharacter(index + 1), 85);
+		};
+
+		typeNextCharacter();
+	};
+
+	const setDashboardIntro = () => {
+		const introNode = document.querySelector("[data-dashboard-intro]");
+
+		if (!introNode) {
+			return;
+		}
+
+		const intros = [
+			"AlF's blog is a quiet archive of pwn notes, CTF writeups, and scattered reflections, a place where exploit chains, debugging traces, and passing thoughts are written down before they fade into the background.",
+			"AlF's blog gathers CTF-pwn articles, exploit records, and occasional essays into one slow-growing corner of the web, where technical details and personal observations are kept with equal care.",
+			"AlF's blog is a personal space for pwn writeups, challenge breakdowns, and late-night miscellany, shaped by curiosity, repetition, and the habit of turning difficult moments into something worth recording.",
+			"AlF's blog keeps track of CTF-pwn practice, exploit experiments, and fragments of everyday thought, preserving both the precision of technical work and the quieter mood that often surrounds it.",
+			"AlF's blog is written between terminals, notes, and passing hours, collecting pwn-related articles, CTF records, and occasional reflections into a small archive of things solved, things attempted, and things remembered.",
+			"AlF's blog is a place for exploit writeups, binary notes, CTF-pwn practice, and a few words about everything in between, where technical effort and personal voice are allowed to stay on the same page.",
+		];
+
+		const nextIntro = intros[Math.floor(Math.random() * intros.length)];
+		introNode.textContent = nextIntro;
 	};
 
 	const initDashboardChart = () => {
 		setDashboardGreeting();
+		setDashboardIntro();
 
 		const chartRoot = document.querySelector("[data-chart-root]");
 		const barsContainer = document.querySelector("[data-chart-bars]");
@@ -853,6 +931,25 @@ const recentUpdates = [
 		font-weight: 800;
 	}
 
+	.hero-title-typing {
+		display: inline-flex;
+		align-items: baseline;
+		gap: 0.08em;
+		font-family: "Courier New", "SFMono-Regular", Consolas, monospace;
+		letter-spacing: -0.02em;
+		min-height: 1.4em;
+	}
+
+	.hero-title-cursor {
+		display: inline-block;
+		color: rgba(37, 99, 235, 0.95);
+		animation: blink-cursor 900ms steps(1) infinite;
+	}
+
+	:global(.dark) .hero-title-cursor {
+		color: rgba(94, 234, 212, 0.95);
+	}
+
 	.hero-copy {
 		max-width: 42rem;
 		margin: 0.75rem 0 0;
@@ -925,9 +1022,98 @@ const recentUpdates = [
 		border-radius: 1rem;
 	}
 
+	.metric-value-rich,
+	.metric-article {
+		height: auto;
+		display: grid;
+		gap: 0.45rem;
+		align-content: start;
+	}
+
+	.metric-primary,
+	.metric-secondary,
+	.metric-footnote,
+	.metric-article-excerpt {
+		margin: 0;
+	}
+
+	.metric-primary {
+		font-size: 1.4rem;
+		font-weight: 800;
+		letter-spacing: -0.04em;
+		color: rgba(15, 23, 42, 0.96);
+	}
+
+	.metric-secondary,
+	.metric-footnote,
+	.metric-article-excerpt {
+		font-size: 0.84rem;
+		line-height: 1.65;
+		color: rgba(71, 85, 105, 0.88);
+	}
+
+	.metric-badges {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.5rem;
+	}
+
+	.metric-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.34rem 0.65rem;
+		border-radius: 999px;
+		background: rgba(37, 99, 235, 0.08);
+		color: rgba(37, 99, 235, 0.9);
+		font-size: 0.76rem;
+		font-weight: 700;
+	}
+
+	.metric-badge.is-accent {
+		background: rgba(139, 92, 246, 0.1);
+		color: rgba(109, 40, 217, 0.92);
+	}
+
+	.metric-article-link {
+		font-size: 1rem;
+		font-weight: 800;
+		line-height: 1.5;
+		color: rgba(15, 23, 42, 0.96);
+		text-decoration: none;
+	}
+
+	.metric-article-link:hover {
+		color: rgba(37, 99, 235, 0.94);
+	}
+
 	.metric-foot {
 		display: flex;
 		align-items: center;
+	}
+
+	:global(.dark) .metric-primary,
+	:global(.dark) .metric-article-link {
+		color: rgba(248, 250, 252, 0.96);
+	}
+
+	:global(.dark) .metric-secondary,
+	:global(.dark) .metric-footnote,
+	:global(.dark) .metric-article-excerpt {
+		color: rgba(203, 213, 225, 0.82);
+	}
+
+	:global(.dark) .metric-badge {
+		background: rgba(59, 130, 246, 0.16);
+		color: rgba(191, 219, 254, 0.96);
+	}
+
+	:global(.dark) .metric-badge.is-accent {
+		background: rgba(139, 92, 246, 0.16);
+		color: rgba(221, 214, 254, 0.96);
+	}
+
+	:global(.dark) .metric-article-link:hover {
+		color: rgba(125, 211, 252, 0.96);
 	}
 
 	.content-grid {
@@ -1169,13 +1355,14 @@ const recentUpdates = [
 	.chart-label {
 		font-size: 0.76rem;
 		font-weight: 700;
-		color: rgba(100, 116, 139, 0.88);
+		color: rgba(255, 255, 255, 0.96);
 		text-align: center;
 		white-space: nowrap;
+		text-shadow: 0 1px 10px rgba(15, 23, 42, 0.35);
 	}
 
 	:global(.dark) .chart-label {
-		color: rgba(148, 163, 184, 0.88);
+		color: rgba(255, 255, 255, 0.98);
 	}
 
 	.stack-skeleton {
@@ -1378,6 +1565,18 @@ const recentUpdates = [
 	@keyframes shimmer {
 		to {
 			transform: translateX(100%);
+		}
+	}
+
+	@keyframes blink-cursor {
+		0%,
+		49% {
+			opacity: 1;
+		}
+
+		50%,
+		100% {
+			opacity: 0;
 		}
 	}
 
