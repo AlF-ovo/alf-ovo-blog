@@ -158,15 +158,15 @@ const defaultSummary = summarizeDataset(defaultDataset);
 const chartDataJson = JSON.stringify(chartDatasets);
 const recentUpdates = [
 	{
-		title: "《Astro 部署记录》",
+		title: "《常用 glibc / libc 下载索引与利用差异说明》",
 		time: "2026-04-17 08:12",
 	},
 	{
-		title: "《Fuwari 主题初始化》",
+		title: "《Seccomp 沙箱机制详解》",
 		time: "2026-04-16 22:48",
 	},
 	{
-		title: "《博客导航结构调整》",
+		title: "《CTFshow pwn180 Arena Overflow WP》",
 		time: "2026-04-16 19:35",
 	},
 ];
@@ -176,16 +176,16 @@ const dashboardMetrics = {
 	totalUsage: "86 小时 24 分",
 	totalUsageNote: "近 30 天累计写作、整理与调试时间",
 	lastVisitedPost: {
-		title: "《Fuwari 仪表盘改造记录》",
-		url: "/posts/guide/",
+		title: "《常用 glibc / libc 下载索引与利用差异说明》",
+		url: "/posts/ctfshow/glibc-download-index/",
 		excerpt:
-			"记录仪表盘布局、时间切换图表、最近修改侧栏和欢迎语打字机效果的调整过程。",
+			"整理 Ubuntu 16 到 20 常用 libc 下载链接，并补充不同版本在 PWN 利用场景下的差异说明。",
 	},
-	latestEssayPost: {
-		title: "《雨后的窗口与凌晨的终端》",
-		url: "/posts/markdown/",
+	latestPost: {
+		title: "《Seccomp 沙箱机制详解》",
+		url: "/posts/ctfshow/seccomp-sandbox-analysis/",
 		excerpt:
-			"写一点与二进制无关的东西，关于深夜、重复、停顿，以及那些在终端熄灭后还留在脑海里的杂乱想法。",
+			"从系统调用白名单、ORW 思路到常见绕过方式，集中梳理 Seccomp 沙箱题的分析路径。",
 	},
 };
 const dashboardHints = {
@@ -227,31 +227,31 @@ const dashboardSearchItems: DashboardSearchItem[] = [
 		url: url(dashboardMetrics.lastVisitedPost.url),
 	},
 	{
-		title: dashboardMetrics.latestEssayPost.title,
-		type: "最新杂谈",
-		description: dashboardMetrics.latestEssayPost.excerpt,
-		url: url(dashboardMetrics.latestEssayPost.url),
+		title: dashboardMetrics.latestPost.title,
+		type: "最新文章",
+		description: dashboardMetrics.latestPost.excerpt,
+		url: url(dashboardMetrics.latestPost.url),
 	},
 	{
 		title: recentUpdates[0].title,
 		type: "最近修改",
-		description: "Astro 部署、Pages 检查与发布流程整理。",
+		description: "整理常用 glibc 与 libc 下载索引，并补充版本差异说明。",
 		time: recentUpdates[0].time,
-		url: url("/posts/guide/"),
+		url: url("/posts/ctfshow/glibc-download-index/"),
 	},
 	{
 		title: recentUpdates[1].title,
 		type: "最近修改",
-		description: "Fuwari 博客初始化、主题接入与首页结构搭建。",
+		description: "梳理 Seccomp 白名单限制、系统调用范围与 ORW 利用思路。",
 		time: recentUpdates[1].time,
-		url: url("/posts/markdown-extended/"),
+		url: url("/posts/ctfshow/seccomp-sandbox-analysis/"),
 	},
 	{
 		title: recentUpdates[2].title,
 		type: "最近修改",
-		description: "导航、侧栏与仪表盘入口的布局调整。",
+		description: "记录 arena 相关结构覆写与 callback hijack 的利用过程。",
 		time: recentUpdates[2].time,
-		url: url("/archive/"),
+		url: url("/posts/ctfshow/ctfshow-pwn180-arena-overflow/"),
 	},
 ];
 const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
@@ -442,15 +442,15 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 				</article>
 				<article class="metric-card dashboard-card">
 					<div class="metric-head">
-						<span>最新的杂谈</span>
+						<span>最新文章</span>
 						<Icon name="fa6-solid:bolt" />
 					</div>
 					<div class="metric-value metric-article">
-						<p class="metric-article-title">{dashboardMetrics.latestEssayPost.title}</p>
-						<p class="metric-article-excerpt">{dashboardMetrics.latestEssayPost.excerpt}</p>
+						<p class="metric-article-title">{dashboardMetrics.latestPost.title}</p>
+						<p class="metric-article-excerpt">{dashboardMetrics.latestPost.excerpt}</p>
 					</div>
 					<div class="metric-foot">
-						<a class="metric-footnote-link" href={dashboardMetrics.latestEssayPost.url}>
+						<a class="metric-footnote-link" href={dashboardMetrics.latestPost.url}>
 							点击可进入文章详情
 						</a>
 					</div>
@@ -530,15 +530,6 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 										d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.deleteY}`).join(" ")} L 100 100 Z`}
 									></path>
 									<path
-										class="chart-line-glow is-publish"
-										fill="none"
-										stroke={chartPalette.publish.glow}
-										stroke-width="4.6"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.publishY}`).join(" L ")}`}
-									></path>
-									<path
 										class="chart-line is-publish"
 										fill="none"
 										stroke={chartPalette.publish.line}
@@ -547,16 +538,6 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 										stroke-linejoin="round"
 										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.publishY}`).join(" L ")}`}
 									></path>
-									<path
-										class="chart-line-glow is-update"
-										fill="none"
-										stroke={chartPalette.update.glow}
-										stroke-width="4.6"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.updateY}`).join(" L ")}`}
-									></path>
-									<path
 										class="chart-line is-update"
 										fill="none"
 										stroke={chartPalette.update.line}
@@ -565,16 +546,6 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 										stroke-linejoin="round"
 										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.updateY}`).join(" L ")}`}
 									></path>
-									<path
-										class="chart-line-glow is-delete"
-										fill="none"
-										stroke={chartPalette.delete.glow}
-										stroke-width="4.6"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.deleteY}`).join(" L ")}`}
-									></path>
-									<path
 										class="chart-line is-delete"
 										fill="none"
 										stroke={chartPalette.delete.line}
@@ -583,13 +554,6 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 										stroke-linejoin="round"
 										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.deleteY}`).join(" L ")}`}
 									></path>
-									{
-										defaultMetrics.flatMap((point) => [
-											<circle class="chart-dot is-publish" cx={point.x} cy={point.publishY} r="1.45" fill="var(--chart-dot-fill)" stroke={chartPalette.publish.line}></circle>,
-											<circle class="chart-dot is-update" cx={point.x} cy={point.updateY} r="1.45" fill="var(--chart-dot-fill)" stroke={chartPalette.update.line}></circle>,
-											<circle class="chart-dot is-delete" cx={point.x} cy={point.deleteY} r="1.45" fill="var(--chart-dot-fill)" stroke={chartPalette.delete.line}></circle>,
-										])
-									}
 								</svg>
 								<div
 									class="chart-labels"
@@ -1030,21 +994,9 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 				<path class="chart-area is-publish" fill="${chartPalette.publish.area}" stroke="none" d="${buildAreaPath(metrics, "publishY")}"></path>
 				<path class="chart-area is-update" fill="${chartPalette.update.area}" stroke="none" d="${buildAreaPath(metrics, "updateY")}"></path>
 				<path class="chart-area is-delete" fill="${chartPalette.delete.area}" stroke="none" d="${buildAreaPath(metrics, "deleteY")}"></path>
-				<path class="chart-line-glow is-publish" fill="none" stroke="${chartPalette.publish.glow}" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "publishY")}"></path>
-				<path class="chart-line-glow is-update" fill="none" stroke="${chartPalette.update.glow}" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "updateY")}"></path>
-				<path class="chart-line-glow is-delete" fill="none" stroke="${chartPalette.delete.glow}" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "deleteY")}"></path>
 				<path class="chart-line is-publish" fill="none" stroke="${chartPalette.publish.line}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "publishY")}"></path>
 				<path class="chart-line is-update" fill="none" stroke="${chartPalette.update.line}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "updateY")}"></path>
 				<path class="chart-line is-delete" fill="none" stroke="${chartPalette.delete.line}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "deleteY")}"></path>
-				${metrics
-					.map(
-						(point) => `
-							<circle class="chart-dot is-publish" cx="${point.x}" cy="${point.publishY}" r="1.45" fill="var(--chart-dot-fill)" stroke="${chartPalette.publish.line}"></circle>
-							<circle class="chart-dot is-update" cx="${point.x}" cy="${point.updateY}" r="1.45" fill="var(--chart-dot-fill)" stroke="${chartPalette.update.line}"></circle>
-							<circle class="chart-dot is-delete" cx="${point.x}" cy="${point.deleteY}" r="1.45" fill="var(--chart-dot-fill)" stroke="${chartPalette.delete.line}"></circle>
-						`,
-					)
-					.join("")}
 			`;
 			chartLabels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(${minColumnWidth}, 1fr))`;
 			chartLabels.innerHTML = metrics
@@ -2130,13 +2082,6 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 		fill: rgba(250, 204, 21, 0.18);
 	}
 
-	.chart-line-glow {
-		fill: none;
-		vector-effect: non-scaling-stroke;
-		opacity: 0.85;
-		filter: blur(1.4px);
-	}
-
 	.chart-line {
 		fill: none;
 		vector-effect: non-scaling-stroke;
@@ -2145,28 +2090,16 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 		filter: drop-shadow(0 0 8px rgba(15, 23, 42, 0.18));
 	}
 
-	.chart-line.is-publish,
-	.chart-dot.is-publish {
+	.chart-line.is-publish {
 		stroke: rgb(59, 130, 246);
-		fill: rgb(59, 130, 246);
 	}
 
-	.chart-line.is-update,
-	.chart-dot.is-update {
+	.chart-line.is-update {
 		stroke: rgb(139, 92, 246);
-		fill: rgb(139, 92, 246);
 	}
 
-	.chart-line.is-delete,
-	.chart-dot.is-delete {
+	.chart-line.is-delete {
 		stroke: rgb(250, 204, 21);
-		fill: rgb(250, 204, 21);
-	}
-
-	.chart-dot {
-		stroke-width: 1.35;
-		vector-effect: non-scaling-stroke;
-		filter: drop-shadow(0 0 10px rgba(15, 23, 42, 0.18));
 	}
 
 	.chart-labels {

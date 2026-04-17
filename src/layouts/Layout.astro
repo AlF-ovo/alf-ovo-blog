@@ -223,13 +223,21 @@ const PAGE_LOADING_TYPE_DURATION_MS =
 	transition:
 		opacity 820ms ease,
 		visibility 820ms ease,
-		backdrop-filter 820ms ease;
+		backdrop-filter 820ms ease,
+		background 820ms ease;
 }
 
 .dark .page-loading-overlay {
 	background:
 		radial-gradient(circle at 50% 36%, rgba(250, 245, 235, 0.06), transparent 24rem),
 		linear-gradient(180deg, rgba(18, 18, 16, 0.95), rgba(10, 10, 11, 0.98));
+}
+
+body > :not(.page-loading-overlay) {
+	transition:
+		filter 760ms ease,
+		transform 760ms ease,
+		opacity 760ms ease;
 }
 
 body.page-loading-active {
@@ -239,6 +247,28 @@ body.page-loading-active {
 body.page-loading-active .page-loading-overlay {
 	opacity: 1;
 	visibility: visible;
+}
+
+body.page-loading-preview .page-loading-overlay {
+	background:
+		radial-gradient(circle at 50% 36%, rgba(255, 255, 255, 0.12), transparent 26rem),
+		linear-gradient(180deg, rgba(251, 247, 239, 0.36), rgba(241, 233, 220, 0.28));
+	backdrop-filter: blur(22px) saturate(1.12);
+}
+
+body.page-loading-preview > :not(.page-loading-overlay) {
+	filter: blur(18px);
+	transform: scale(1.015);
+}
+
+body.page-loading-preview .page-loading-shell {
+	opacity: 0.92;
+}
+
+.dark body.page-loading-preview .page-loading-overlay {
+	background:
+		radial-gradient(circle at 50% 36%, rgba(248, 250, 252, 0.08), transparent 26rem),
+		linear-gradient(180deg, rgba(15, 23, 42, 0.36), rgba(2, 6, 23, 0.26));
 }
 
 body.page-loading-leaving .page-loading-overlay {
@@ -437,14 +467,15 @@ function disableAnimation() {
 const bannerEnabled = !!document.getElementById('banner-wrapper')
 const loadingRoutePaths = [url('/'), url('/dashboard/')]
 const LOADING_TEXT = 'loading...'
-const MIN_LOADING_OVERLAY_MS = 5000
 const LOADING_TYPE_STEP_MS = 520
 const LOADING_TYPE_DURATION_MS = LOADING_TEXT.length * LOADING_TYPE_STEP_MS
-const REQUIRED_LOADING_OVERLAY_MS = Math.max(MIN_LOADING_OVERLAY_MS, LOADING_TYPE_DURATION_MS + 240)
+const LOADING_POST_TYPE_DELAY_MS = 2000
 const LOADING_OVERLAY_EXIT_MS = 760
-let loadingOverlayTimer: number | null = null
-let loadingOverlayExitTimer: number | null = null
+let loadingOverlayPreviewTimer: number | null = null
+let loadingOverlayLeaveTimer: number | null = null
+let loadingOverlayCleanupTimer: number | null = null
 let loadingOverlayActivatedAt = 0
+let loadingOverlayVisible = false
 
 function getPathname(path: string) {
 	try {
@@ -462,36 +493,74 @@ function shouldShowLoadingOverlay(nextPath: string) {
 	return isLoadingRoute(window.location.pathname) && isLoadingRoute(nextPath)
 }
 
-function setLoadingOverlay(active: boolean) {
-	if (loadingOverlayTimer) {
-		window.clearTimeout(loadingOverlayTimer)
-		loadingOverlayTimer = null
+function clearLoadingOverlayTimers() {
+	if (loadingOverlayPreviewTimer) {
+		window.clearTimeout(loadingOverlayPreviewTimer)
+		loadingOverlayPreviewTimer = null
 	}
 
-	if (loadingOverlayExitTimer) {
-		window.clearTimeout(loadingOverlayExitTimer)
-		loadingOverlayExitTimer = null
+	if (loadingOverlayLeaveTimer) {
+		window.clearTimeout(loadingOverlayLeaveTimer)
+		loadingOverlayLeaveTimer = null
 	}
 
-	if (active) {
-		document.body.classList.remove('page-loading-leaving')
-		loadingOverlayActivatedAt = Date.now()
-		document.body.classList.add('page-loading-active')
+	if (loadingOverlayCleanupTimer) {
+		window.clearTimeout(loadingOverlayCleanupTimer)
+		loadingOverlayCleanupTimer = null
+	}
+}
+
+function resetLoadingOverlay() {
+	document.body.classList.remove('page-loading-active', 'page-loading-preview', 'page-loading-leaving')
+	loadingOverlayActivatedAt = 0
+	loadingOverlayVisible = false
+}
+
+function getLoadingTypeDurationMs() {
+	return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : LOADING_TYPE_DURATION_MS
+}
+
+function startLoadingOverlay() {
+	clearLoadingOverlayTimers()
+	document.body.classList.remove('page-loading-preview', 'page-loading-leaving')
+	loadingOverlayActivatedAt = Date.now()
+	loadingOverlayVisible = true
+	document.body.classList.add('page-loading-active')
+}
+
+function finishLoadingOverlay() {
+	if (!loadingOverlayVisible || !loadingOverlayActivatedAt) {
 		return
 	}
 
 	const elapsed = Date.now() - loadingOverlayActivatedAt
-	const remaining = Math.max(REQUIRED_LOADING_OVERLAY_MS - elapsed, 0)
+	const previewDelay = Math.max(getLoadingTypeDurationMs() - elapsed, 0)
 
-	loadingOverlayTimer = window.setTimeout(() => {
-		document.body.classList.add('page-loading-leaving')
-		loadingOverlayExitTimer = window.setTimeout(() => {
-			document.body.classList.remove('page-loading-active', 'page-loading-leaving')
-			loadingOverlayActivatedAt = 0
-			loadingOverlayExitTimer = null
-		}, LOADING_OVERLAY_EXIT_MS)
-		loadingOverlayTimer = null
-	}, remaining)
+	clearLoadingOverlayTimers()
+
+	loadingOverlayPreviewTimer = window.setTimeout(() => {
+		document.body.classList.add('page-loading-preview')
+		loadingOverlayPreviewTimer = null
+
+		loadingOverlayLeaveTimer = window.setTimeout(() => {
+			document.body.classList.add('page-loading-leaving')
+			loadingOverlayLeaveTimer = null
+
+			loadingOverlayCleanupTimer = window.setTimeout(() => {
+				resetLoadingOverlay()
+				loadingOverlayCleanupTimer = null
+			}, LOADING_OVERLAY_EXIT_MS)
+		}, LOADING_POST_TYPE_DELAY_MS)
+	}, previewDelay)
+}
+
+function setLoadingOverlay(active: boolean) {
+	if (active) {
+		startLoadingOverlay()
+		return
+	}
+
+	finishLoadingOverlay()
 }
 
 function setClickOutsideToClose(panel: string, ignores: string[]) {
@@ -672,20 +741,18 @@ const setup = () => {
 		}
 	});
 	window.swup.hooks.on('visit:end', (_visit: {to: {url: string}}) => {
-		setTimeout(() => {
-			setLoadingOverlay(false)
+		setLoadingOverlay(false)
 
-			const heightExtend = document.getElementById('page-height-extend')
-			if (heightExtend) {
-				heightExtend.classList.add('hidden')
-			}
+		const heightExtend = document.getElementById('page-height-extend')
+		if (heightExtend) {
+			heightExtend.classList.add('hidden')
+		}
 
-            // Just make the transition looks better
-            const toc = document.getElementById('toc-wrapper');
-            if (toc) {
-                toc.classList.remove('toc-not-ready')
-            }
-        }, 200)
+		// Just make the transition looks better
+		const toc = document.getElementById('toc-wrapper');
+		if (toc) {
+			toc.classList.remove('toc-not-ready')
+		}
 	});
 }
 if (window?.swup?.hooks) {
