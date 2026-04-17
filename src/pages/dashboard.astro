@@ -1,6 +1,133 @@
 ---
 import { Icon } from "astro-icon/components";
 import Layout from "../layouts/Layout.astro";
+
+type ActivityPoint = {
+	label: string;
+	publish: number;
+	update: number;
+	delete: number;
+};
+
+type ActivityDataset = {
+	label: string;
+	points: ActivityPoint[];
+};
+
+type ActivityMetric = ActivityPoint & {
+	total: number;
+	publishHeight: string;
+	updateHeight: string;
+	deleteHeight: string;
+};
+
+const buildDailyPoints = (
+	startDate: Date,
+	publish: number[],
+	update: number[],
+	remove: number[],
+): ActivityPoint[] =>
+	publish.map((value: number, index: number) => {
+		const date = new Date(startDate);
+		date.setDate(startDate.getDate() + index);
+
+		return {
+			label: `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`,
+			publish: value,
+			update: update[index],
+			delete: remove[index],
+		};
+	});
+
+const buildMonthlyPoints = (
+	startDate: Date,
+	publish: number[],
+	update: number[],
+	remove: number[],
+): ActivityPoint[] =>
+	publish.map((value: number, index: number) => {
+		const date = new Date(startDate);
+		date.setMonth(startDate.getMonth() + index);
+
+		return {
+			label: `${date.getMonth() + 1}月`,
+			publish: value,
+			update: update[index],
+			delete: remove[index],
+		};
+	});
+
+const chartDatasets: Record<"week" | "month" | "year", ActivityDataset> = {
+	week: {
+		label: "近7日",
+		points: buildDailyPoints(
+			new Date(2026, 3, 11),
+			[2, 1, 3, 1, 4, 2, 5],
+			[1, 2, 2, 1, 3, 4, 2],
+			[0, 1, 0, 1, 1, 0, 1],
+		),
+	},
+	month: {
+		label: "近1个月",
+		points: buildDailyPoints(
+			new Date(2026, 2, 19),
+			[1, 0, 2, 1, 3, 2, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 2, 1, 4, 2, 1, 3, 2, 5, 2, 1, 4, 3, 2, 4],
+			[0, 1, 1, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 4, 2, 2, 3, 1, 2, 4, 2, 1, 3, 2, 1, 2, 3, 2, 4, 3],
+			[0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 2, 1, 0, 1, 0, 1, 1, 0, 1, 0, 2, 1, 0, 1, 1, 0, 1],
+		),
+	},
+	year: {
+		label: "近1年",
+		points: buildMonthlyPoints(
+			new Date(2025, 4, 1),
+			[8, 6, 9, 5, 10, 7, 11, 8, 9, 12, 10, 13],
+			[14, 12, 16, 11, 17, 13, 18, 15, 16, 19, 17, 21],
+			[2, 1, 2, 1, 3, 2, 2, 1, 2, 3, 2, 4],
+		),
+	},
+};
+
+const getChartMetrics = (points: ActivityPoint[]): ActivityMetric[] => {
+	const maxTotal = Math.max(
+		...points.map((point: ActivityPoint) => point.publish + point.update + point.delete),
+		1,
+	);
+
+	return points.map((point: ActivityPoint) => {
+		const total = point.publish + point.update + point.delete;
+
+		return {
+			...point,
+			total,
+			publishHeight: `${(point.publish / maxTotal) * 100}%`,
+			updateHeight: `${(point.update / maxTotal) * 100}%`,
+			deleteHeight: `${(point.delete / maxTotal) * 100}%`,
+		};
+	});
+};
+
+const summarizeDataset = (dataset: ActivityDataset) =>
+	`本${dataset.label}共发布 ${dataset.points.reduce((sum: number, point: ActivityPoint) => sum + point.publish, 0)} 篇，修改 ${dataset.points.reduce((sum: number, point: ActivityPoint) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum: number, point: ActivityPoint) => sum + point.delete, 0)} 次。`;
+
+const defaultRange = "week";
+const defaultDataset = chartDatasets[defaultRange];
+const defaultMetrics = getChartMetrics(defaultDataset.points);
+const defaultSummary = summarizeDataset(defaultDataset);
+const chartDataJson = JSON.stringify(chartDatasets);
+const recentUpdates = [
+	{
+		title: "《Astro 部署记录》",
+		time: "2026-04-17 08:12",
+	},
+	{
+		title: "《Fuwari 主题初始化》",
+		time: "2026-04-16 22:48",
+	},
+	{
+		title: "《博客导航结构调整》",
+		time: "2026-04-16 19:35",
+	},
+];
 ---
 
 <Layout title="Dashboard" description="Dashboard UI example">
@@ -57,7 +184,7 @@ import Layout from "../layouts/Layout.astro";
 			<header class="dashboard-topbar">
 				<div>
 					<p class="topbar-label">AIXJ style example</p>
-					<h2 class="topbar-title">仪表盘示例</h2>
+					<h2 class="topbar-title">Blog使用情况</h2>
 				</div>
 				<div class="topbar-actions">
 					<div class="ghost-input">
@@ -80,7 +207,7 @@ import Layout from "../layouts/Layout.astro";
 			<section id="overview" class="hero-panel dashboard-card">
 				<div>
 					<p class="hero-eyebrow">Overview</p>
-					<h3 class="hero-title">保留结构，内容暂空</h3>
+					<h3 class="hero-title" data-dashboard-greeting>欢迎回来，AlF！</h3>
 					<p class="hero-copy">
 						这是一版按照参考站仪表盘风格制作的空数据示例，先对齐布局、层级、色彩和交互密度。
 					</p>
@@ -139,20 +266,65 @@ import Layout from "../layouts/Layout.astro";
 					<div class="section-head">
 						<div>
 							<p class="section-eyebrow">Workspace</p>
-							<h3 class="section-title">主视图区</h3>
+							<h3 class="section-title">近日Blog发布、修改及删除情况</h3>
 						</div>
-						<button class="ghost-link" type="button">空内容占位</button>
+						<div
+							class="range-switch"
+							data-chart-switch
+							data-active-index="0"
+							role="tablist"
+							aria-label="图表时间范围"
+						>
+							<span class="range-switch-thumb" aria-hidden="true"></span>
+							<button class="range-switch-button is-active" type="button" data-range-option="week" role="tab" aria-selected="true">
+								近7日
+							</button>
+							<button class="range-switch-button" type="button" data-range-option="month" role="tab" aria-selected="false">
+								近1个月
+							</button>
+							<button class="range-switch-button" type="button" data-range-option="year" role="tab" aria-selected="false">
+								近1年
+							</button>
+						</div>
 					</div>
-					<div class="chart-placeholder">
+					<div class="chart-meta">
+						<div class="chart-legend" aria-label="图例">
+							<span class="legend-item">
+								<span class="legend-swatch is-publish"></span>
+								<span>发布</span>
+							</span>
+							<span class="legend-item">
+								<span class="legend-swatch is-update"></span>
+								<span>修改</span>
+							</span>
+							<span class="legend-item">
+								<span class="legend-swatch is-delete"></span>
+								<span>删除</span>
+							</span>
+						</div>
+						<p class="chart-summary" data-chart-summary>{defaultSummary}</p>
+					</div>
+					<div class="chart-placeholder" data-chart-root data-default-range={defaultRange}>
 						<div class="grid-lines"></div>
-						<div class="bars">
-							<span class="bar h-32"></span>
-							<span class="bar h-56"></span>
-							<span class="bar h-44"></span>
-							<span class="bar h-68"></span>
-							<span class="bar h-38"></span>
-							<span class="bar h-74"></span>
-							<span class="bar h-48"></span>
+						<div class="chart-scroll">
+							<div
+								class="bars"
+								data-chart-bars
+								style={`grid-template-columns: repeat(${defaultMetrics.length}, minmax(${defaultMetrics.length > 12 ? "1.9rem" : "3.2rem"}, 1fr));`}
+							>
+								{
+									defaultMetrics.map((point) => (
+										<div class="chart-column">
+											<div class="chart-stack">
+												<span class="chart-segment is-publish" style={`height: ${point.publishHeight};`}></span>
+												<span class="chart-segment is-update" style={`height: ${point.updateHeight};`}></span>
+												<span class="chart-segment is-delete" style={`height: ${point.deleteHeight};`}></span>
+											</div>
+											<span class="chart-label">{point.label}</span>
+										</div>
+									))
+								}
+							</div>
 						</div>
 					</div>
 				</article>
@@ -160,38 +332,28 @@ import Layout from "../layouts/Layout.astro";
 				<article id="usage" class="dashboard-card side-card">
 					<div class="section-head">
 						<div>
-							<p class="section-eyebrow">Usage</p>
-							<h3 class="section-title">侧栏信息区</h3>
+							<p class="section-eyebrow">Recent Updates</p>
+							<h3 class="section-title">最近的修改</h3>
 						</div>
 					</div>
 					<div class="stack-skeleton">
-						<div class="mini-stat">
-							<div class="mini-stat-icon">
-								<Icon name="fa6-solid:layer-group" />
-							</div>
-							<div class="mini-stat-body">
-								<div class="skeleton-line w-68"></div>
-								<div class="skeleton-line w-42"></div>
-							</div>
-						</div>
-						<div class="mini-stat">
-							<div class="mini-stat-icon">
-								<Icon name="fa6-solid:key" />
-							</div>
-							<div class="mini-stat-body">
-								<div class="skeleton-line w-64"></div>
-								<div class="skeleton-line w-36"></div>
-							</div>
-						</div>
-						<div class="mini-stat">
-							<div class="mini-stat-icon">
-								<Icon name="fa6-solid:database" />
-							</div>
-							<div class="mini-stat-body">
-								<div class="skeleton-line w-70"></div>
-								<div class="skeleton-line w-40"></div>
-							</div>
-						</div>
+						{
+							recentUpdates.map((item, index) => (
+								<div class="mini-stat">
+									<div class="mini-stat-icon">
+										<Icon name={index === 0 ? "fa6-solid:pen-to-square" : "fa6-solid:clock-rotate-left"} />
+									</div>
+									<div class="mini-stat-body">
+										<p class="mini-stat-label">修改对象</p>
+										<p class="mini-stat-title">{item.title}</p>
+										<div class="mini-stat-meta">
+											<span class="mini-stat-meta-label">修改时间</span>
+											<time datetime={item.time}>{item.time}</time>
+										</div>
+									</div>
+								</div>
+							))
+						}
 					</div>
 				</article>
 
@@ -266,6 +428,114 @@ import Layout from "../layouts/Layout.astro";
 		</div>
 	</div>
 </Layout>
+
+<script id="blog-chart-data" type="application/json" is:inline set:html={chartDataJson}></script>
+<script is:inline>
+	const setDashboardGreeting = () => {
+		const greetingNode = document.querySelector("[data-dashboard-greeting]");
+
+		if (!greetingNode) {
+			return;
+		}
+
+		const greetings = [
+			"欢迎回来，AlF！",
+			"你回来了，AlF。",
+			"好的，AlF，让我们继续。",
+		];
+
+		const nextGreeting = greetings[Math.floor(Math.random() * greetings.length)];
+		greetingNode.textContent = nextGreeting;
+	};
+
+	const initDashboardChart = () => {
+		setDashboardGreeting();
+
+		const chartRoot = document.querySelector("[data-chart-root]");
+		const barsContainer = document.querySelector("[data-chart-bars]");
+		const switchRoot = document.querySelector("[data-chart-switch]");
+		const summary = document.querySelector("[data-chart-summary]");
+		const dataNode = document.querySelector("#blog-chart-data");
+
+		if (!chartRoot || !barsContainer || !switchRoot || !summary || !dataNode) {
+			return;
+		}
+
+		const datasets = JSON.parse(dataNode.textContent || "{}");
+		const buttons = Array.from(switchRoot.querySelectorAll("[data-range-option]"));
+
+		const getMetrics = (points) => {
+			const maxTotal = Math.max(
+				...points.map((point) => point.publish + point.update + point.delete),
+				1,
+			);
+
+			return points.map((point) => ({
+				...point,
+				publishHeight: `${(point.publish / maxTotal) * 100}%`,
+				updateHeight: `${(point.update / maxTotal) * 100}%`,
+				deleteHeight: `${(point.delete / maxTotal) * 100}%`,
+			}));
+		};
+
+		const renderChart = (rangeKey) => {
+			const dataset = datasets[rangeKey];
+
+			if (!dataset) {
+				return;
+			}
+
+			const metrics = getMetrics(dataset.points);
+			const minColumnWidth = metrics.length > 20 ? "1.85rem" : metrics.length > 12 ? "2.2rem" : "3.2rem";
+			const publishTotal = dataset.points.reduce((sum, point) => sum + point.publish, 0);
+			const updateTotal = dataset.points.reduce((sum, point) => sum + point.update, 0);
+			const deleteTotal = dataset.points.reduce((sum, point) => sum + point.delete, 0);
+
+			barsContainer.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(${minColumnWidth}, 1fr))`;
+			barsContainer.innerHTML = metrics
+				.map(
+					(point) => `
+						<div class="chart-column">
+							<div class="chart-stack">
+								<span class="chart-segment is-publish" style="height: ${point.publishHeight};"></span>
+								<span class="chart-segment is-update" style="height: ${point.updateHeight};"></span>
+								<span class="chart-segment is-delete" style="height: ${point.deleteHeight};"></span>
+							</div>
+							<span class="chart-label">${point.label}</span>
+						</div>
+					`,
+				)
+				.join("");
+
+			summary.textContent = `本${dataset.label}共发布 ${publishTotal} 篇，修改 ${updateTotal} 次，删除 ${deleteTotal} 次。`;
+			chartRoot.dataset.range = rangeKey;
+			switchRoot.dataset.activeIndex = String(buttons.findIndex((button) => button.dataset.rangeOption === rangeKey));
+
+			buttons.forEach((button) => {
+				const isActive = button.dataset.rangeOption === rangeKey;
+				button.classList.toggle("is-active", isActive);
+				button.setAttribute("aria-selected", String(isActive));
+			});
+		};
+
+		if (chartRoot.dataset.initialized === "true") {
+			renderChart(chartRoot.dataset.range || chartRoot.dataset.defaultRange || "week");
+			return;
+		}
+
+		buttons.forEach((button) => {
+			button.addEventListener("click", () => {
+				renderChart(button.dataset.rangeOption || "week");
+			});
+		});
+
+		chartRoot.dataset.initialized = "true";
+		renderChart(chartRoot.dataset.defaultRange || "week");
+	};
+
+	document.addEventListener("astro:page-load", initDashboardChart);
+	document.addEventListener("DOMContentLoaded", initDashboardChart);
+</script>
 
 <style>
 	:global(body) {
@@ -698,6 +968,123 @@ import Layout from "../layouts/Layout.astro";
 		color: rgba(94, 234, 212, 0.88);
 	}
 
+	.range-switch {
+		position: relative;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		align-items: center;
+		padding: 0.28rem;
+		border-radius: 999px;
+		background: rgba(226, 232, 240, 0.72);
+		border: 1px solid rgba(148, 163, 184, 0.16);
+		min-width: min(100%, 18rem);
+	}
+
+	:global(.dark) .range-switch {
+		background: rgba(15, 23, 42, 0.74);
+		border-color: rgba(148, 163, 184, 0.1);
+	}
+
+	.range-switch-thumb {
+		position: absolute;
+		top: 0.28rem;
+		bottom: 0.28rem;
+		left: 0.28rem;
+		width: calc((100% - 0.56rem) / 3);
+		border-radius: 999px;
+		background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(99, 102, 241, 0.92));
+		box-shadow: 0 10px 22px rgba(37, 99, 235, 0.18);
+		transition: transform 220ms ease;
+	}
+
+	.range-switch[data-active-index="1"] .range-switch-thumb {
+		transform: translateX(100%);
+	}
+
+	.range-switch[data-active-index="2"] .range-switch-thumb {
+		transform: translateX(200%);
+	}
+
+	.range-switch-button {
+		position: relative;
+		z-index: 1;
+		border: 0;
+		background: transparent;
+		color: rgba(71, 85, 105, 0.92);
+		padding: 0.72rem 0.9rem;
+		font-size: 0.88rem;
+		font-weight: 700;
+		border-radius: 999px;
+	}
+
+	.range-switch-button.is-active {
+		color: white;
+	}
+
+	:global(.dark) .range-switch-button {
+		color: rgba(203, 213, 225, 0.88);
+	}
+
+	:global(.dark) .range-switch-button.is-active {
+		color: rgba(248, 250, 252, 0.98);
+	}
+
+	.chart-meta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		margin-bottom: 0.85rem;
+	}
+
+	.chart-legend {
+		display: flex;
+		align-items: center;
+		flex-wrap: wrap;
+		gap: 0.85rem;
+		color: rgba(71, 85, 105, 0.86);
+		font-size: 0.88rem;
+	}
+
+	:global(.dark) .chart-legend,
+	:global(.dark) .chart-summary {
+		color: rgba(203, 213, 225, 0.8);
+	}
+
+	.legend-item {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.45rem;
+	}
+
+	.legend-swatch {
+		width: 0.78rem;
+		height: 0.78rem;
+		border-radius: 999px;
+	}
+
+	.legend-swatch.is-publish,
+	.chart-segment.is-publish {
+		background: linear-gradient(180deg, rgba(59, 130, 246, 0.96), rgba(37, 99, 235, 0.96));
+	}
+
+	.legend-swatch.is-update,
+	.chart-segment.is-update {
+		background: linear-gradient(180deg, rgba(139, 92, 246, 0.96), rgba(124, 58, 237, 0.96));
+	}
+
+	.legend-swatch.is-delete,
+	.chart-segment.is-delete {
+		background: linear-gradient(180deg, rgba(250, 204, 21, 0.98), rgba(234, 179, 8, 0.94));
+	}
+
+	.chart-summary {
+		margin: 0;
+		color: rgba(71, 85, 105, 0.86);
+		font-size: 0.88rem;
+		text-align: right;
+	}
+
 	.chart-placeholder {
 		position: relative;
 		min-height: 21rem;
@@ -725,30 +1112,71 @@ import Layout from "../layouts/Layout.astro";
 		mask-image: linear-gradient(180deg, transparent 0%, black 18%, black 82%, transparent 100%);
 	}
 
-	.bars {
+	.chart-scroll {
 		position: relative;
 		z-index: 1;
+		overflow-x: auto;
+		padding-bottom: 0.3rem;
+	}
+
+	.chart-scroll::-webkit-scrollbar {
+		height: 0.45rem;
+	}
+
+	.chart-scroll::-webkit-scrollbar-thumb {
+		background: rgba(148, 163, 184, 0.38);
+		border-radius: 999px;
+	}
+
+	.bars {
+		position: relative;
 		height: 18rem;
 		display: grid;
-		grid-template-columns: repeat(7, minmax(0, 1fr));
 		align-items: end;
-		gap: 0.9rem;
+		gap: 0.8rem;
+		min-width: 100%;
 	}
 
-	.bar {
+	.chart-column {
+		display: grid;
+		gap: 0.65rem;
+		align-items: end;
+		min-width: 0;
+	}
+
+	.chart-stack {
+		height: 16rem;
+		display: flex;
+		flex-direction: column-reverse;
+		justify-content: flex-start;
+		border-radius: 1rem 1rem 0.85rem 0.85rem;
+		overflow: hidden;
+		background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(148, 163, 184, 0.08));
+		box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.08);
+	}
+
+	:global(.dark) .chart-stack {
+		background: linear-gradient(180deg, rgba(30, 41, 59, 0.3), rgba(15, 23, 42, 0.18));
+		box-shadow: inset 0 0 0 1px rgba(148, 163, 184, 0.06);
+	}
+
+	.chart-segment {
 		display: block;
-		border-radius: 999px 999px 0.9rem 0.9rem;
-		background: linear-gradient(180deg, rgba(45, 212, 191, 0.9), rgba(37, 99, 235, 0.92));
-		box-shadow: 0 12px 20px rgba(37, 99, 235, 0.12);
+		min-height: 0;
+		box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.06) inset;
 	}
 
-	.h-32 { height: 32%; }
-	.h-38 { height: 38%; }
-	.h-44 { height: 44%; }
-	.h-48 { height: 48%; }
-	.h-56 { height: 56%; }
-	.h-68 { height: 68%; }
-	.h-74 { height: 74%; }
+	.chart-label {
+		font-size: 0.76rem;
+		font-weight: 700;
+		color: rgba(100, 116, 139, 0.88);
+		text-align: center;
+		white-space: nowrap;
+	}
+
+	:global(.dark) .chart-label {
+		color: rgba(148, 163, 184, 0.88);
+	}
 
 	.stack-skeleton {
 		display: grid;
@@ -786,6 +1214,46 @@ import Layout from "../layouts/Layout.astro";
 		flex: 1;
 		display: grid;
 		gap: 0.5rem;
+	}
+
+	.mini-stat-label,
+	.mini-stat-meta-label {
+		margin: 0;
+		font-size: 0.72rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: rgba(100, 116, 139, 0.82);
+	}
+
+	.mini-stat-title {
+		margin: 0;
+		font-size: 0.96rem;
+		font-weight: 700;
+		line-height: 1.5;
+		color: rgba(15, 23, 42, 0.94);
+	}
+
+	.mini-stat-meta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		font-size: 0.82rem;
+		color: rgba(71, 85, 105, 0.86);
+	}
+
+	:global(.dark) .mini-stat-label,
+	:global(.dark) .mini-stat-meta-label {
+		color: rgba(148, 163, 184, 0.8);
+	}
+
+	:global(.dark) .mini-stat-title {
+		color: rgba(248, 250, 252, 0.94);
+	}
+
+	:global(.dark) .mini-stat-meta {
+		color: rgba(203, 213, 225, 0.82);
 	}
 
 	.table-placeholder {
@@ -945,6 +1413,12 @@ import Layout from "../layouts/Layout.astro";
 
 		.hero-panel,
 		.dashboard-topbar {
+			flex-direction: column;
+			align-items: stretch;
+		}
+
+		.section-head,
+		.chart-meta {
 			flex-direction: column;
 			align-items: stretch;
 		}
