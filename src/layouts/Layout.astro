@@ -278,6 +278,7 @@ body.page-loading-leaving .page-loading-overlay {
 	justify-content: center;
 	min-width: min(32rem, 100%);
 	padding: 2.5rem 1.5rem;
+	overflow: visible;
 	opacity: 0;
 	transform: translate3d(0, 2.4rem, 0);
 	transition:
@@ -299,7 +300,11 @@ body.page-loading-leaving .page-loading-shell {
 	display: inline-flex;
 	align-items: center;
 	justify-content: center;
-	min-width: 10ch;
+	gap: 0.14em;
+	width: max-content;
+	max-width: 100%;
+	padding-inline: 0.18em 0.34em;
+	overflow: visible;
 	font-family:
 		"JetBrains Mono Variable",
 		"JetBrains Mono",
@@ -322,13 +327,14 @@ body.page-loading-leaving .page-loading-shell {
 .page-loading-text {
 	display: inline-block;
 	white-space: nowrap;
+	overflow: visible;
 }
 
 .page-loading-cursor {
 	display: inline-block;
 	width: 0.08em;
 	height: 1.05em;
-	margin-left: 0.14em;
+	flex: 0 0 auto;
 	background: currentColor;
 	transform: translateY(0.04em);
 	opacity: 0;
