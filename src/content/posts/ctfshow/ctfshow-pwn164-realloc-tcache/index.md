@@ -1,4 +1,4 @@
-﻿---
+---
 title: CTFshow pwn164 Realloc Tcache Poisoning WP
 published: 2026-04-16
 updated: 2026-04-17
@@ -7,101 +7,118 @@ tags: [CTFshow, Pwn, Heap, Tcache Poisoning, Realloc]
 category: ctfshow
 draft: false
 ---
+## 附件下载
+
+- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn164/pwn)
+- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn164/exp.py)
+- [下载对应 libc `libc-2.27.so`](../../attachments/ctfshow/pwn164/libc-2.27.so)
 # pwn164 WP
 
-## 鍩烘湰淇℃伅
+## 基本信息
 
-- 杩滅▼锛歚pwn.challenge.ctf.show:28240`
-- 鏋舵瀯锛歚amd64`
-- 淇濇姢锛歚Full RELRO / Canary / NX / PIE`
-- libc锛歚glibc 2.27`
+- 远程：`pwn.challenge.ctf.show:28240`
+- 架构：`amd64`
+- 保护：`Full RELRO / Canary / NX / PIE`
+- libc：`glibc 2.27`
 
-## 闄勪欢涓嬭浇
+## 程序逻辑
 
-- [涓嬭浇棰樼洰闄勪欢 `pwn`](../../attachments/ctfshow/pwn164/pwn)
-- [涓嬭浇鍒╃敤鑴氭湰 `exp.py`](../../attachments/ctfshow/pwn164/exp.py)
-- [涓嬭浇瀵瑰簲 libc `libc-2.27.so`](../../attachments/ctfshow/pwn164/libc-2.27.so)
-
-## 绋嬪簭閫昏緫
-
-棰樼洰鏈川涓婂彧鏈変竴涓叏灞€鍫嗘寚閽堬細
+题目本质上只有一个全局堆指针：
 
 - `1. Add`
-  - 璇诲叆 `size`
-  - 鎵ц `ptr = realloc(ptr, size)`
+  - 读入 `size`
+  - 执行 `ptr = realloc(ptr, size)`
   - `read(0, ptr, size)`
 - `2. Delete`
-  - 鐩存帴 `free(ptr)`
-  - 浣?**涓嶄細缃┖**
+  - 直接 `free(ptr)`
+  - 但 **不会置空**
 - `3. Exit`
-  - 瀹為檯鏄亣鐨勶紝鍙細鍥炲埌寰幆
+  - 实际是假的，只会回到循环
 
-杩樻湁涓€涓殣钘忓垎鏀細
+还有一个隐藏分支：
 
-- 褰撹緭鍏?`1433233`锛堝嵆 `0x15de91`锛夋椂锛?  - 鑻ヨ繕娌¤Е鍙戣繃锛屽氨鎶婂叏灞€鎸囬拡缃浂
-  - 绗簩娆″啀瑙﹀彂浼氱洿鎺ラ€€鍑?
-杩欑浉褰撲簬缁欎簡鎴戜滑涓€娆♀€滈噸缃叏灞€鎸囬拡浣嗕笉娓呯┖ tcache 鐘舵€佲€濈殑鏈轰細銆?
-## 婕忔礊鐐?
-鏍稿績鐐规湁涓や釜锛?
-1. `realloc + free` 鍙搷浣滀竴涓叏灞€鎸囬拡锛屽彲浠ュ弽澶嶅湪涓嶅悓澶у皬鐨?bin 闂存惉杩?chunk銆?2. 闅愯棌鍒嗘敮 `1433233` 鍙互鍦?chunk 浠嶇暀鍦?tcache/unsorted bin 鏃舵妸鍏ㄥ眬鎸囬拡娓呴浂锛屼究浜庝笅涓€娆￠噸鏂扮敵璇峰悓灏哄 chunk銆?
-杩欐牱鍙互鍒嗕袱娈靛埄鐢細
+- 当输入 `1433233`（即 `0x15de91`）时：
+  - 若还没触发过，就把全局指针置零
+  - 第二次再触发会直接退出
 
-1. 鍏堟瀯閫?libc 娉勯湶
-2. 鍐嶅仛 tcache poisoning锛屾敼鍐?`__free_hook` 涓?`system`
+这相当于给了我们一次“重置全局指针但不清空 tcache 状态”的机会。
 
-## 鍒╃敤鎬濊矾
+## 漏洞点
 
-### 1. 浼€?`stdout` 娉勯湶 libc
+核心点有两个：
 
-鍏堥€氳繃澶氭 `realloc(ptr, 0)` / `realloc(ptr, size)` 鍜?`free(ptr)` 璋冩暣鍫嗙姸鎬侊紝鎶?unsorted bin chunk 鐨勬寚閽堜綆涓ゅ瓧鑺傛敼鍒?`_IO_2_1_stdout_` 闄勮繎锛?
+1. `realloc + free` 只操作一个全局指针，可以反复在不同大小的 bin 间搬运 chunk。
+2. 隐藏分支 `1433233` 可以在 chunk 仍留在 tcache/unsorted bin 时把全局指针清零，便于下一次重新申请同尺寸 chunk。
+
+这样可以分两段利用：
+
+1. 先构造 libc 泄露
+2. 再做 tcache poisoning，改写 `__free_hook` 为 `system`
+
+## 利用思路
+
+### 1. 伪造 `stdout` 泄露 libc
+
+先通过多次 `realloc(ptr, 0)` / `realloc(ptr, size)` 和 `free(ptr)` 调整堆状态，把 unsorted bin chunk 的指针低两字节改到 `_IO_2_1_stdout_` 附近：
+
 - `_IO_2_1_stdout_ = 0x3ec760`
 - `__malloc_initialize_hook = 0x3ed8f0`
-- 浣庝袱瀛楄妭瑕嗙洊鐢ㄧ殑鏄?`0xc760`
+- 低两字节覆盖用的是 `0xc760`
 
-闅忓悗浼€?`stdout`锛?
+随后伪造 `stdout`：
+
 - `flags = 0xfbad1800`
-- 鍏朵綑璇诲啓鎸囬拡娓呴浂
+- 其余读写指针清零
 
-杩欐牱绋嬪簭杈撳嚭鏃朵細鎶?libc 鍦板潃甯﹀嚭鏉ャ€?
-璁＄畻鏂瑰紡锛?
+这样程序输出时会把 libc 地址带出来。
+
+计算方式：
+
 ```python
 libc.address = leak + 0x40 - libc.sym["__malloc_initialize_hook"]
 ```
 
-### 2. tcache poisoning 鎵?`__free_hook`
+### 2. tcache poisoning 打 `__free_hook`
 
-娉勯湶瀹?libc 鍚庯紝璋冪敤闅愯棌鍒嗘敮 `1433233` 鎶婂叏灞€鎸囬拡娓呴浂锛岄噸鏂板紑濮嬬浜屾鍫嗛姘淬€?
-杩欐鎶?tcache 閾捐〃鎸囬拡鏀瑰埌锛?
+泄露完 libc 后，调用隐藏分支 `1433233` 把全局指针清零，重新开始第二段堆风水。
+
+这次把 tcache 链表指针改到：
+
 ```python
 __free_hook - 8
 ```
 
-鐒跺悗鐢宠鍒拌繖涓綅缃紝鍐欏叆锛?
+然后申请到这个位置，写入：
+
 ```python
 b"/bin/sh\\x00" + p64(system)
 ```
 
-鍥犱负鍒嗛厤鍦板潃鏄?`__free_hook - 8`锛?
-- 鍓?8 瀛楄妭鏄瓧绗︿覆 `"/bin/sh\x00"`
-- 鍚?8 瀛楄妭姝ｅソ瑕嗙洊 `__free_hook`
+因为分配地址是 `__free_hook - 8`：
 
-鏈€鍚庡啀娆?`free(ptr)` 鏃讹紝灏辩瓑浠蜂簬锛?
+- 前 8 字节是字符串 `"/bin/sh\x00"`
+- 后 8 字节正好覆盖 `__free_hook`
+
+最后再次 `free(ptr)` 时，就等价于：
+
 ```c
 system("/bin/sh");
 ```
 
-鎷垮埌 shell 鍚庢墽琛岋細
+拿到 shell 后执行：
 
 ```sh
 cat /flag
 ```
 
-## 娉ㄦ剰鐐?
-- 杩欓鍒╃敤瀵逛氦浜掕妭濂忔瘮杈冩晱鎰燂紝`read` 鐭鏃舵洿瀹规槗绋冲畾鍛戒腑銆?- 杩滅▼ flag 涓嶅湪 `/ctfshow_flag`锛屽疄闄呰矾寰勬槸 `/flag`銆?- 鎴戝湪鏈€缁?`exp.py` 閲屽姞浜嗛噸璇曢€昏緫锛岃繙绋嬩笉绋冲畾鏃朵細鑷姩閲嶈繛銆?
+## 注意点
+
+- 这题利用对交互节奏比较敏感，`read` 短读时更容易稳定命中。
+- 远程 flag 不在 `/ctfshow_flag`，实际路径是 `/flag`。
+- 我在最终 `exp.py` 里加了重试逻辑，远程不稳定时会自动重连。
+
 ## Flag
 
 ```text
 ctfshow{d0c0d146-fb79-43b3-8a64-520b33ea84d4}
 ```
-
-

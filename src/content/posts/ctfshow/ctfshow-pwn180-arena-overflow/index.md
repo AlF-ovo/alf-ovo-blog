@@ -1,4 +1,4 @@
-﻿---
+---
 title: CTFshow pwn180 Arena Overflow WP
 published: 2026-04-15
 updated: 2026-04-17
@@ -7,40 +7,49 @@ tags: [CTFshow, Pwn, Heap, Arena, Callback Hijack]
 category: ctfshow
 draft: false
 ---
+## 附件下载
+
+- [下载题目附件 `pwn`](../../attachments/ctfshow/pwn180/pwn)
+- [下载利用脚本 `exp.py`](../../attachments/ctfshow/pwn180/exp.py)
 # CTFshow PWN Arena (28160) WP
 
-## 1. 绋嬪簭鍏抽敭鐐?
+## 1. 程序关键点
+
 - 64-bit, `Full RELRO + Canary + NX + No PIE`
-- 鍏堣繃鍙ｄ护锛歚WTF Arena has a secret!`
-- 鑿滃崟鏍稿績鍦ㄥ瓙绾跨▼閲岋細
+- 先过口令：`WTF Arena has a secret!`
+- 菜单核心在子线程里：
   - `add(size, pad_blocks, content)`
-  - 鏈€鍚庝細璋冪敤涓€涓叏灞€鍑芥暟鎸囬拡 `callback`锛堝垵濮嬫槸 `data neutralized`锛?
-## 2. 婕忔礊鐐?
-璇诲叆鍑芥暟锛坄0x400afa`锛夊惊鐜噷姣忔閮界敤鍘熷 `n` 鍋?`read(fd, buf+off, n)`锛岃€屼笉鏄?`n-off`銆? 
-鍙璁╃涓€娆?`read` 涓嶈婊★紙鍒嗘鍙戦€侊級锛岀浜屾杩樿兘缁х画鍐欙紝褰㈡垚鍫嗘孩鍑恒€?
-## 3. 鍒╃敤鎬濊矾
+  - 最后会调用一个全局函数指针 `callback`（初始是 `data neutralized`）
 
-1. 閫氳繃鍙ｄ护杩涘叆鑿滃崟銆?2. 鐢ㄥぇ閲?`add(0x4000, 1000)` 鍋氬爢/arena 甯冨眬銆?3. `add(0x4000, 262, b'0'*0x3ff0)`锛屽厛鍙?`0x3ff0`锛屽啀琛ュ彂婧㈠嚭 payload锛屽埄鐢ㄤ笂杩拌鍏ラ€昏緫鎵撶┛鍒?arena 鍏冩暟鎹紝杩涗竴姝ユ敼鍐欏洖璋冪浉鍏崇粨鏋勩€?4. 鏈€鍚庡彂涓€涓皬鍧楋細`/bin/sh\x00 + p64(system@plt)`锛岃Е鍙戝洖璋冨悗鎵ц `system("/bin/sh")`銆?5. 鍙戦€佸懡浠よ flag锛歚cat /ctfshow_flag`銆?
-## 4. 闄勪欢涓?EXP
+## 2. 漏洞点
 
-- [涓嬭浇棰樼洰闄勪欢 `pwn`](../../attachments/ctfshow/pwn180/pwn)
-- [涓嬭浇鍒╃敤鑴氭湰 `exp.py`](../../attachments/ctfshow/pwn180/exp.py)
+读入函数（`0x400afa`）循环里每次都用原始 `n` 做 `read(fd, buf+off, n)`，而不是 `n-off`。  
+只要让第一次 `read` 不读满（分段发送），第二次还能继续写，形成堆溢出。
 
-宸插啓濂斤細`exp.py`
+## 3. 利用思路
 
-杩滅▼鐩存帴鎵擄細
+1. 通过口令进入菜单。
+2. 用大量 `add(0x4000, 1000)` 做堆/arena 布局。
+3. `add(0x4000, 262, b'0'*0x3ff0)`，先发 `0x3ff0`，再补发溢出 payload，利用上述读入逻辑打穿到 arena 元数据，进一步改写回调相关结构。
+4. 最后发一个小块：`/bin/sh\x00 + p64(system@plt)`，触发回调后执行 `system("/bin/sh")`。
+5. 发送命令读 flag：`cat /flag`。
+
+## 4. EXP
+
+已写好：`exp.py`
+
+远程直接打：
 
 ```bash
 python3 exp.py REMOTE
 ```
 
-鐩存帴璇?flag锛?
+直接读 flag：
+
 ```bash
-python3 exp.py REMOTE CMD='cat /ctfshow_flag; exit'
+python3 exp.py REMOTE CMD='cat /flag; exit'
 ```
 
 ## 5. Flag
 
 `ctfshow{80caa981-bbd0-4db2-8799-251bcd9c6859}`
-
-
