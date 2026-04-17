@@ -290,14 +290,6 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 					<Icon name="fa6-solid:border-all" />
 					<span>工作区</span>
 				</a>
-				<a class="menu-item" href="#usage">
-					<Icon name="fa6-solid:chart-line" />
-					<span>使用分析</span>
-				</a>
-				<a class="menu-item" href="#billing">
-					<Icon name="fa6-solid:credit-card" />
-					<span>账单</span>
-				</a>
 				<a class="menu-item" href={url("/")}>
 					<Icon name="fa6-solid:house" />
 					<span>主页</span>
@@ -611,70 +603,6 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 									}
 								</div>
 							</div>
-						</div>
-					</div>
-				</article>
-
-				<article id="usage" class="dashboard-card side-card">
-					<div class="section-head">
-						<div>
-							<p class="section-eyebrow">Recent Updates</p>
-							<h3 class="section-title">最近的修改</h3>
-						</div>
-					</div>
-					<div class="stack-skeleton">
-						{
-							recentUpdates.map((item, index) => (
-								<div class="mini-stat">
-									<div class="mini-stat-icon">
-										<Icon name={index === 0 ? "fa6-solid:pen-to-square" : "fa6-solid:clock-rotate-left"} />
-									</div>
-									<div class="mini-stat-body">
-										<p class="mini-stat-label">修改对象</p>
-										<p class="mini-stat-title">{item.title}</p>
-										<div class="mini-stat-meta">
-											<span class="mini-stat-meta-label">修改时间</span>
-											<time datetime={item.time}>{item.time}</time>
-										</div>
-									</div>
-								</div>
-							))
-						}
-					</div>
-				</article>
-
-				<article id="billing" class="dashboard-card wide-card">
-					<div class="section-head">
-						<div>
-							<p class="section-eyebrow">Billing</p>
-							<h3 class="section-title">表格区占位</h3>
-						</div>
-						<button class="ghost-link" type="button">导出占位</button>
-					</div>
-					<div class="table-placeholder">
-						<div class="table-row table-head-row">
-							<span>名称</span>
-							<span>状态</span>
-							<span>日期</span>
-							<span>备注</span>
-						</div>
-						<div class="table-row">
-							<div class="skeleton-line w-70"></div>
-							<div class="pill-placeholder"></div>
-							<div class="skeleton-line w-42"></div>
-							<div class="skeleton-line w-58"></div>
-						</div>
-						<div class="table-row">
-							<div class="skeleton-line w-64"></div>
-							<div class="pill-placeholder"></div>
-							<div class="skeleton-line w-38"></div>
-							<div class="skeleton-line w-52"></div>
-						</div>
-						<div class="table-row">
-							<div class="skeleton-line w-76"></div>
-							<div class="pill-placeholder"></div>
-							<div class="skeleton-line w-48"></div>
-							<div class="skeleton-line w-44"></div>
 						</div>
 					</div>
 				</article>
