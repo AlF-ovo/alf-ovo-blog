@@ -475,7 +475,9 @@ function disableAnimation() {
 
 const bannerEnabled = !!document.getElementById('banner-wrapper')
 const loadingRoutePaths = [url('/'), url('/dashboard/')]
+const MIN_LOADING_OVERLAY_MS = 2000
 let loadingOverlayTimer: number | null = null
+let loadingOverlayActivatedAt = 0
 
 function getPathname(path: string) {
 	try {
@@ -500,14 +502,19 @@ function setLoadingOverlay(active: boolean) {
 	}
 
 	if (active) {
+		loadingOverlayActivatedAt = Date.now()
 		document.body.classList.add('page-loading-active')
 		return
 	}
 
+	const elapsed = Date.now() - loadingOverlayActivatedAt
+	const remaining = Math.max(MIN_LOADING_OVERLAY_MS - elapsed, 0)
+
 	loadingOverlayTimer = window.setTimeout(() => {
 		document.body.classList.remove('page-loading-active')
+		loadingOverlayActivatedAt = 0
 		loadingOverlayTimer = null
-	}, 120)
+	}, remaining)
 }
 
 function setClickOutsideToClose(panel: string, ignores: string[]) {
