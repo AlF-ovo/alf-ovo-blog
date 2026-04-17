@@ -3,7 +3,7 @@ title: Markdown Example
 published: 2023-10-01
 description: A simple example of a Markdown blog post.
 tags: [Markdown, Blogging, Demo]
-category: ctfshow_pwn
+category: demo
 draft: false
 ---
 
