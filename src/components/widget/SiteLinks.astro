@@ -1,0 +1,52 @@
+---
+import { Icon } from "astro-icon/components";
+import { url } from "../../utils/url-utils";
+import WidgetLayout from "./WidgetLayout.astro";
+
+interface Props {
+	class?: string;
+	style?: string;
+}
+
+const className = Astro.props.class;
+const style = Astro.props.style;
+
+const links = [
+	{
+		name: "札记",
+		url: url("/notes/"),
+		icon: "fa6-regular:note-sticky",
+	},
+	{
+		name: "友链",
+		url: url("/links/"),
+		icon: "fa6-solid:link",
+	},
+	{
+		name: "RSS",
+		url: url("/rss.xml"),
+		icon: "fa6-solid:rss",
+	},
+	{
+		name: "Sitemap",
+		url: url("/sitemap-index.xml"),
+		icon: "fa6-solid:sitemap",
+	},
+];
+---
+
+<WidgetLayout name="站点入口" id="site-links" class={className} style={style}>
+	<div class="grid gap-2">
+		{
+			links.map((link) => (
+				<a href={link.url} class="btn-regular h-10 rounded-xl px-3 justify-between active:scale-95">
+					<span class="flex items-center gap-2 font-medium">
+						<Icon name={link.icon} class="text-[1rem]" />
+						{link.name}
+					</span>
+					<Icon name="material-symbols:chevron-right-rounded" class="text-[1.2rem] text-[var(--primary)]" />
+				</a>
+			))
+		}
+	</div>
+</WidgetLayout>

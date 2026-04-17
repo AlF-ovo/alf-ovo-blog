@@ -22,6 +22,7 @@ const config = profileConfig;
         <div class="font-bold text-xl text-center mb-1 dark:text-neutral-50 transition">{config.name}</div>
         <div class="h-1 w-5 bg-[var(--primary)] mx-auto rounded-full mb-2 transition"></div>
         <div class="text-center text-neutral-400 mb-2.5 transition">{config.bio}</div>
+        {config.quote && <div class="profile-quote transition">{config.quote}</div>}
         <div class="flex flex-wrap gap-2 justify-center mb-1">
             {config.links.length > 1 && config.links.map(item =>
                     <a rel="me" aria-label={item.name} href={item.url} target="_blank" class="btn-regular rounded-lg h-10 w-10 active:scale-90">
@@ -36,4 +37,23 @@ const config = profileConfig;
         </div>
     </div>
 </div>
+
+<style>
+    .profile-quote {
+        margin: 0 auto 0.9rem;
+        max-width: 16rem;
+        padding: 0.75rem 0.9rem;
+        border-radius: 0.9rem;
+        background: rgba(99, 102, 241, 0.08);
+        color: rgba(71, 85, 105, 0.92);
+        font-size: 0.86rem;
+        line-height: 1.7;
+        text-align: center;
+    }
+
+    :global(.dark) .profile-quote {
+        background: rgba(99, 102, 241, 0.12);
+        color: rgba(203, 213, 225, 0.88);
+    }
+</style>
 

@@ -1,0 +1,142 @@
+---
+import MainGridLayout from "../layouts/MainGridLayout.astro";
+import { getSortedPostsList } from "../utils/content-utils";
+import { formatDateToYYYYMMDD } from "../utils/date-utils";
+import { getPostUrlBySlug } from "../utils/url-utils";
+
+const posts = (await getSortedPostsList()).slice(0, 8);
+---
+
+<MainGridLayout title="札记" description="短记录、调试碎片与最近更新">
+	<div class="grid gap-4">
+		<section class="card-base rounded-[var(--radius-large)] px-8 py-7">
+			<p class="notes-eyebrow">Notebook</p>
+			<h1 class="notes-title">札记</h1>
+			<p class="notes-copy">
+				这里收纳一些短记录、调试片段、环境踩坑和暂时还不想写成长文的内容。现在先作为最近更新索引来用，后面可以继续扩展成真正的短内容分区。
+			</p>
+		</section>
+
+		<section class="card-base rounded-[var(--radius-large)] px-6 py-4">
+			<div class="notes-list">
+				{
+					posts.map((post) => (
+						<a href={getPostUrlBySlug(post.slug)} class="notes-item">
+							<div class="notes-item-main">
+								<p class="notes-item-title">{post.data.title}</p>
+								<p class="notes-item-desc">
+									{post.data.description || "暂无摘要，后续会补充更多内容。"}
+								</p>
+							</div>
+							<div class="notes-item-meta">
+								<span class="notes-item-date">
+									{formatDateToYYYYMMDD(post.data.updated ?? post.data.published)}
+								</span>
+								<span class="notes-item-tags">
+									{post.data.tags.slice(0, 3).join(" / ") || "无标签"}
+								</span>
+							</div>
+						</a>
+					))
+				}
+			</div>
+		</section>
+	</div>
+</MainGridLayout>
+
+<style>
+	.notes-eyebrow {
+		margin: 0;
+		font-size: 0.78rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(99, 102, 241, 0.9);
+	}
+
+	.notes-title {
+		margin: 0.35rem 0 0;
+		font-size: clamp(1.8rem, 4vw, 2.5rem);
+		font-weight: 800;
+	}
+
+	.notes-copy {
+		margin: 1rem 0 0;
+		max-width: 46rem;
+		line-height: 1.8;
+		color: rgba(71, 85, 105, 0.9);
+	}
+
+	.notes-list {
+		display: grid;
+	}
+
+	.notes-item {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 1rem;
+		padding: 1.1rem 0.75rem;
+		border-bottom: 1px dashed rgba(148, 163, 184, 0.28);
+		text-decoration: none;
+	}
+
+	.notes-item:last-child {
+		border-bottom: 0;
+	}
+
+	.notes-item-main {
+		min-width: 0;
+	}
+
+	.notes-item-title {
+		margin: 0;
+		font-size: 1.02rem;
+		font-weight: 700;
+		color: rgba(15, 23, 42, 0.96);
+	}
+
+	.notes-item-desc {
+		margin: 0.45rem 0 0;
+		font-size: 0.9rem;
+		line-height: 1.7;
+		color: rgba(100, 116, 139, 0.9);
+	}
+
+	.notes-item-meta {
+		flex: 0 0 14rem;
+		display: grid;
+		gap: 0.35rem;
+		text-align: right;
+	}
+
+	.notes-item-date,
+	.notes-item-tags {
+		font-size: 0.82rem;
+		color: rgba(99, 102, 241, 0.92);
+	}
+
+	.notes-item:hover .notes-item-title {
+		color: rgba(79, 70, 229, 0.96);
+	}
+
+	:global(.dark) .notes-copy,
+	:global(.dark) .notes-item-desc {
+		color: rgba(203, 213, 225, 0.82);
+	}
+
+	:global(.dark) .notes-item-title {
+		color: rgba(248, 250, 252, 0.96);
+	}
+
+	@media (max-width: 720px) {
+		.notes-item {
+			flex-direction: column;
+			align-items: flex-start;
+		}
+
+		.notes-item-meta {
+			flex: 0 0 auto;
+			text-align: left;
+		}
+	}
+</style>

@@ -1,0 +1,120 @@
+---
+import MainGridLayout from "../layouts/MainGridLayout.astro";
+---
+
+<MainGridLayout title="友链" description="博客友链与站点信息">
+	<div class="grid gap-4">
+		<section class="card-base rounded-[var(--radius-large)] px-8 py-7">
+			<p class="links-eyebrow">Friends</p>
+			<h1 class="links-title">友链</h1>
+			<p class="links-copy">
+				这里会慢慢收录一起写博客、做题、研究技术的站点。现在先放本站信息和交换说明，后面你有想加的友链可以继续补进来。
+			</p>
+		</section>
+
+		<section class="links-grid">
+			<article class="card-base rounded-[var(--radius-large)] px-6 py-6">
+				<h2 class="links-card-title">本站信息</h2>
+				<div class="links-info">
+					<div><span>名称</span><strong>AlF-0v0-blog</strong></div>
+					<div><span>地址</span><a href="https://alf-ovo.github.io/alf-ovo-blog/">https://alf-ovo.github.io/alf-ovo-blog/</a></div>
+					<div><span>简介</span><strong>CTF-Pwn 相关文章与一些杂谈</strong></div>
+					<div><span>头像</span><strong>当前站点头像即可</strong></div>
+				</div>
+			</article>
+
+			<article class="card-base rounded-[var(--radius-large)] px-6 py-6">
+				<h2 class="links-card-title">交换说明</h2>
+				<ul class="links-list">
+					<li>优先欢迎个人博客、技术博客、CTF 或安全方向站点。</li>
+					<li>站点需要能正常访问，内容长期可见。</li>
+					<li>如果你之后想开放交换友链，这里可以再加联系方式或留言入口。</li>
+				</ul>
+			</article>
+		</section>
+	</div>
+</MainGridLayout>
+
+<style>
+	.links-eyebrow {
+		margin: 0;
+		font-size: 0.78rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(37, 99, 235, 0.9);
+	}
+
+	.links-title {
+		margin: 0.35rem 0 0;
+		font-size: clamp(1.8rem, 4vw, 2.5rem);
+		font-weight: 800;
+	}
+
+	.links-copy {
+		margin: 1rem 0 0;
+		max-width: 44rem;
+		line-height: 1.8;
+		color: rgba(71, 85, 105, 0.9);
+	}
+
+	.links-grid {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 1rem;
+	}
+
+	.links-card-title {
+		margin: 0 0 1rem;
+		font-size: 1.1rem;
+		font-weight: 800;
+	}
+
+	.links-info {
+		display: grid;
+		gap: 0.9rem;
+	}
+
+	.links-info div {
+		display: grid;
+		gap: 0.3rem;
+	}
+
+	.links-info span {
+		font-size: 0.82rem;
+		color: rgba(99, 102, 241, 0.9);
+	}
+
+	.links-info strong,
+	.links-info a {
+		font-size: 0.95rem;
+		line-height: 1.7;
+		color: rgba(15, 23, 42, 0.94);
+		word-break: break-all;
+		text-decoration: none;
+	}
+
+	.links-list {
+		margin: 0;
+		padding-left: 1.2rem;
+		display: grid;
+		gap: 0.8rem;
+		line-height: 1.8;
+		color: rgba(71, 85, 105, 0.9);
+	}
+
+	:global(.dark) .links-copy,
+	:global(.dark) .links-list {
+		color: rgba(203, 213, 225, 0.84);
+	}
+
+	:global(.dark) .links-info strong,
+	:global(.dark) .links-info a {
+		color: rgba(248, 250, 252, 0.94);
+	}
+
+	@media (max-width: 820px) {
+		.links-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+</style>
