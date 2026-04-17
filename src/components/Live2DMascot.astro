@@ -142,32 +142,33 @@ const expressionNames = [
 
 	.live2d-mascot__close {
 		position: absolute;
-		top: 0.5rem;
-		right: 0.5rem;
+		top: 0.15rem;
+		right: 0.15rem;
 		z-index: 3;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		width: 1.55rem;
-		height: 1.55rem;
+		width: 1.4rem;
+		height: 1.4rem;
 		border: 0;
 		border-radius: 999px;
-		background: rgb(255 255 255 / 0.34);
-		color: rgb(71 85 105 / 0.9);
-		font-size: 0.95rem;
+		background: rgb(0 0 0);
+		color: rgb(255 255 255);
+		font-size: 0.9rem;
 		line-height: 1;
 		cursor: pointer;
-		backdrop-filter: blur(8px);
-		transition: background-color 160ms ease;
+		box-shadow: 0 0.2rem 0.55rem rgb(0 0 0 / 0.22);
+		transition: background-color 160ms ease, transform 160ms ease;
 	}
 
 	.live2d-mascot__close:hover {
-		background: rgb(255 255 255 / 0.55);
+		background: rgb(17 17 17);
+		transform: translateY(-1px);
 	}
 
 	.dark .live2d-mascot__close {
-		background: rgb(15 23 42 / 0.34);
-		color: rgb(226 232 240 / 0.92);
+		background: rgb(0 0 0);
+		color: rgb(255 255 255);
 	}
 
 	.live2d-mascot__canvas {
@@ -204,6 +205,11 @@ const expressionNames = [
 
 		.live2d-mascot__status {
 			display: none;
+		}
+
+		.live2d-mascot__close {
+			top: 0.1rem;
+			right: 0.1rem;
 		}
 	}
 
@@ -274,6 +280,7 @@ const expressionNames = [
 		const viewportPadding = 8;
 		const dockThreshold = 72;
 		const dockPeek = 56;
+		const expressionIntervalMs = 15000;
 
 		const setStatus = (message, mode = "info") => {
 			status.textContent = message;
@@ -485,7 +492,7 @@ const expressionNames = [
 
 			state.expressionTimer = window.setInterval(() => {
 				playRandomExpression();
-			}, 15000);
+			}, expressionIntervalMs);
 		};
 
 		const dockToNearestEdge = () => {
@@ -582,6 +589,7 @@ const expressionNames = [
 			}
 
 			cycleExpression();
+			startExpressionTimer();
 		};
 
 		const initMascot = async () => {
