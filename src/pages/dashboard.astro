@@ -34,15 +34,18 @@ type DashboardSearchItem = {
 const chartPalette = {
 	publish: {
 		line: "rgb(59, 130, 246)",
-		area: "rgba(59, 130, 246, 0.18)",
+		glow: "rgba(59, 130, 246, 0.34)",
+		area: "rgba(59, 130, 246, 0.1)",
 	},
 	update: {
 		line: "rgb(139, 92, 246)",
-		area: "rgba(139, 92, 246, 0.16)",
+		glow: "rgba(139, 92, 246, 0.32)",
+		area: "rgba(139, 92, 246, 0.09)",
 	},
 	delete: {
 		line: "rgb(250, 204, 21)",
-		area: "rgba(250, 204, 21, 0.18)",
+		glow: "rgba(250, 204, 21, 0.28)",
+		area: "rgba(250, 204, 21, 0.1)",
 	},
 };
 
@@ -535,37 +538,64 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 										d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.deleteY}`).join(" ")} L 100 100 Z`}
 									></path>
 									<path
-										class="chart-line is-publish"
+										class="chart-line-glow is-publish"
 										fill="none"
-										stroke={chartPalette.publish.line}
-										stroke-width="1.8"
+										stroke={chartPalette.publish.glow}
+										stroke-width="4.6"
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.publishY}`).join(" L ")}`}
 									></path>
 									<path
-										class="chart-line is-update"
+										class="chart-line is-publish"
 										fill="none"
-										stroke={chartPalette.update.line}
-										stroke-width="1.8"
+										stroke={chartPalette.publish.line}
+										stroke-width="2.1"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.publishY}`).join(" L ")}`}
+									></path>
+									<path
+										class="chart-line-glow is-update"
+										fill="none"
+										stroke={chartPalette.update.glow}
+										stroke-width="4.6"
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.updateY}`).join(" L ")}`}
 									></path>
 									<path
+										class="chart-line is-update"
+										fill="none"
+										stroke={chartPalette.update.line}
+										stroke-width="2.1"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.updateY}`).join(" L ")}`}
+									></path>
+									<path
+										class="chart-line-glow is-delete"
+										fill="none"
+										stroke={chartPalette.delete.glow}
+										stroke-width="4.6"
+										stroke-linecap="round"
+										stroke-linejoin="round"
+										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.deleteY}`).join(" L ")}`}
+									></path>
+									<path
 										class="chart-line is-delete"
 										fill="none"
 										stroke={chartPalette.delete.line}
-										stroke-width="1.8"
+										stroke-width="2.1"
 										stroke-linecap="round"
 										stroke-linejoin="round"
 										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.deleteY}`).join(" L ")}`}
 									></path>
 									{
 										defaultMetrics.flatMap((point) => [
-											<circle class="chart-dot is-publish" cx={point.x} cy={point.publishY} r="1.1" fill={chartPalette.publish.line} stroke={chartPalette.publish.line}></circle>,
-											<circle class="chart-dot is-update" cx={point.x} cy={point.updateY} r="1.1" fill={chartPalette.update.line} stroke={chartPalette.update.line}></circle>,
-											<circle class="chart-dot is-delete" cx={point.x} cy={point.deleteY} r="1.1" fill={chartPalette.delete.line} stroke={chartPalette.delete.line}></circle>,
+											<circle class="chart-dot is-publish" cx={point.x} cy={point.publishY} r="1.45" fill="var(--chart-dot-fill)" stroke={chartPalette.publish.line}></circle>,
+											<circle class="chart-dot is-update" cx={point.x} cy={point.updateY} r="1.45" fill="var(--chart-dot-fill)" stroke={chartPalette.update.line}></circle>,
+											<circle class="chart-dot is-delete" cx={point.x} cy={point.deleteY} r="1.45" fill="var(--chart-dot-fill)" stroke={chartPalette.delete.line}></circle>,
 										])
 									}
 								</svg>
@@ -692,15 +722,18 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 	const chartPalette = {
 		publish: {
 			line: "rgb(59, 130, 246)",
-			area: "rgba(59, 130, 246, 0.18)",
+			glow: "rgba(59, 130, 246, 0.34)",
+			area: "rgba(59, 130, 246, 0.1)",
 		},
 		update: {
 			line: "rgb(139, 92, 246)",
-			area: "rgba(139, 92, 246, 0.16)",
+			glow: "rgba(139, 92, 246, 0.32)",
+			area: "rgba(139, 92, 246, 0.09)",
 		},
 		delete: {
 			line: "rgb(250, 204, 21)",
-			area: "rgba(250, 204, 21, 0.18)",
+			glow: "rgba(250, 204, 21, 0.28)",
+			area: "rgba(250, 204, 21, 0.1)",
 		},
 	};
 
@@ -1051,15 +1084,18 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 				<path class="chart-area is-publish" fill="${chartPalette.publish.area}" stroke="none" d="${buildAreaPath(metrics, "publishY")}"></path>
 				<path class="chart-area is-update" fill="${chartPalette.update.area}" stroke="none" d="${buildAreaPath(metrics, "updateY")}"></path>
 				<path class="chart-area is-delete" fill="${chartPalette.delete.area}" stroke="none" d="${buildAreaPath(metrics, "deleteY")}"></path>
-				<path class="chart-line is-publish" fill="none" stroke="${chartPalette.publish.line}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "publishY")}"></path>
-				<path class="chart-line is-update" fill="none" stroke="${chartPalette.update.line}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "updateY")}"></path>
-				<path class="chart-line is-delete" fill="none" stroke="${chartPalette.delete.line}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "deleteY")}"></path>
+				<path class="chart-line-glow is-publish" fill="none" stroke="${chartPalette.publish.glow}" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "publishY")}"></path>
+				<path class="chart-line-glow is-update" fill="none" stroke="${chartPalette.update.glow}" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "updateY")}"></path>
+				<path class="chart-line-glow is-delete" fill="none" stroke="${chartPalette.delete.glow}" stroke-width="4.6" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "deleteY")}"></path>
+				<path class="chart-line is-publish" fill="none" stroke="${chartPalette.publish.line}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "publishY")}"></path>
+				<path class="chart-line is-update" fill="none" stroke="${chartPalette.update.line}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "updateY")}"></path>
+				<path class="chart-line is-delete" fill="none" stroke="${chartPalette.delete.line}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "deleteY")}"></path>
 				${metrics
 					.map(
 						(point) => `
-							<circle class="chart-dot is-publish" cx="${point.x}" cy="${point.publishY}" r="1.1" fill="${chartPalette.publish.line}" stroke="${chartPalette.publish.line}"></circle>
-							<circle class="chart-dot is-update" cx="${point.x}" cy="${point.updateY}" r="1.1" fill="${chartPalette.update.line}" stroke="${chartPalette.update.line}"></circle>
-							<circle class="chart-dot is-delete" cx="${point.x}" cy="${point.deleteY}" r="1.1" fill="${chartPalette.delete.line}" stroke="${chartPalette.delete.line}"></circle>
+							<circle class="chart-dot is-publish" cx="${point.x}" cy="${point.publishY}" r="1.45" fill="var(--chart-dot-fill)" stroke="${chartPalette.publish.line}"></circle>
+							<circle class="chart-dot is-update" cx="${point.x}" cy="${point.updateY}" r="1.45" fill="var(--chart-dot-fill)" stroke="${chartPalette.update.line}"></circle>
+							<circle class="chart-dot is-delete" cx="${point.x}" cy="${point.deleteY}" r="1.45" fill="var(--chart-dot-fill)" stroke="${chartPalette.delete.line}"></circle>
 						`,
 					)
 					.join("")}
@@ -2075,6 +2111,7 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 	}
 
 	.chart-placeholder {
+		--chart-dot-fill: rgba(248, 250, 252, 0.96);
 		position: relative;
 		min-height: 21rem;
 		border-radius: 1.25rem;
@@ -2086,6 +2123,7 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 	}
 
 	:global(.dark) .chart-placeholder {
+		--chart-dot-fill: rgba(15, 23, 42, 0.98);
 		background:
 			linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(30, 41, 59, 0.6));
 		border-color: rgba(148, 163, 184, 0.1);
@@ -2146,12 +2184,19 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 		fill: rgba(250, 204, 21, 0.18);
 	}
 
+	.chart-line-glow {
+		fill: none;
+		vector-effect: non-scaling-stroke;
+		opacity: 0.85;
+		filter: blur(1.4px);
+	}
+
 	.chart-line {
 		fill: none;
-		stroke-width: 1.8;
+		vector-effect: non-scaling-stroke;
 		stroke-linecap: round;
 		stroke-linejoin: round;
-		filter: drop-shadow(0 8px 16px rgba(15, 23, 42, 0.16));
+		filter: drop-shadow(0 0 8px rgba(15, 23, 42, 0.18));
 	}
 
 	.chart-line.is-publish,
@@ -2173,8 +2218,9 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 	}
 
 	.chart-dot {
-		stroke-width: 0.75;
-		filter: drop-shadow(0 4px 8px rgba(15, 23, 42, 0.2));
+		stroke-width: 1.35;
+		vector-effect: non-scaling-stroke;
+		filter: drop-shadow(0 0 10px rgba(15, 23, 42, 0.18));
 	}
 
 	.chart-labels {
