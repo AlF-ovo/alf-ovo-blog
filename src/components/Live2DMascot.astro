@@ -8,9 +8,25 @@ const officialCoreUrl =
 const pixiUrl = "https://cdn.jsdelivr.net/npm/pixi.js@6.5.10/dist/browser/pixi.min.js";
 const live2dUrl =
 	"https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js";
+const expressionNames = [
+	"1desk",
+	"2mic",
+	"3clever",
+	"4OAO",
+	"5QAQ",
+	"6i gi a ri",
+	"7keyboard",
+	"8punch",
+	"9",
+];
 ---
 
-<div id="live2d-mascot" class="live2d-mascot" aria-live="polite">
+<div
+	id="live2d-mascot"
+	class="live2d-mascot"
+	data-expression-names={JSON.stringify(expressionNames)}
+	aria-live="polite"
+>
 	<button
 		type="button"
 		class="live2d-mascot__toggle"
@@ -157,7 +173,8 @@ const live2dUrl =
 		display: block;
 		width: 100%;
 		height: 100%;
-		pointer-events: none;
+		pointer-events: auto;
+		cursor: pointer;
 		filter: drop-shadow(0 1rem 2rem rgb(15 23 42 / 0.16));
 	}
 
@@ -212,6 +229,7 @@ const live2dUrl =
 			return;
 		}
 
+		const expressionNames = JSON.parse(root.dataset.expressionNames || "[]");
 		const panel = root.querySelector(".live2d-mascot__panel");
 		const canvas = root.querySelector("[data-live2d-canvas]");
 		const status = root.querySelector("[data-live2d-status]");
@@ -233,6 +251,7 @@ const live2dUrl =
 			model: null,
 			initPromise: null,
 			baseSize: null,
+			expressionIndex: 0,
 		};
 
 		const setStatus = (message, mode = "info") => {
@@ -306,22 +325,18 @@ const live2dUrl =
 			state.model.position.set(width * 0.5, height * 0.99);
 		};
 
-		const focusViewportPointer = (event) => {
-			if (!state.model || typeof state.model.focus !== "function") {
+		const cycleExpression = () => {
+			if (
+				!state.model ||
+				typeof state.model.expression !== "function" ||
+				expressionNames.length === 0
+			) {
 				return;
 			}
 
-			const normalizedX = (event.clientX / Math.max(window.innerWidth, 1)) * 2 - 1;
-			const normalizedY = (event.clientY / Math.max(window.innerHeight, 1)) * 2 - 1;
-			state.model.focus(normalizedX, normalizedY);
-		};
-
-		const resetFocus = () => {
-			if (!state.model || typeof state.model.focus !== "function") {
-				return;
-			}
-
-			state.model.focus(0, 0);
+			const expressionName = expressionNames[state.expressionIndex % expressionNames.length];
+			state.expressionIndex += 1;
+			state.model.expression(expressionName);
 		};
 
 		const initMascot = async () => {
@@ -377,9 +392,8 @@ const live2dUrl =
 			return state.initPromise;
 		};
 
-		window.addEventListener("pointermove", focusViewportPointer, { passive: true });
-		document.addEventListener("mouseleave", resetFocus);
 		window.addEventListener("resize", fitModel);
+		canvas.addEventListener("click", cycleExpression);
 
 		toggleButton.addEventListener("click", () => {
 			setCollapsed(false);
