@@ -31,6 +31,21 @@ type DashboardSearchItem = {
 	url: string;
 };
 
+const chartPalette = {
+	publish: {
+		line: "rgb(59, 130, 246)",
+		area: "rgba(59, 130, 246, 0.18)",
+	},
+	update: {
+		line: "rgb(139, 92, 246)",
+		area: "rgba(139, 92, 246, 0.16)",
+	},
+	delete: {
+		line: "rgb(250, 204, 21)",
+		area: "rgba(250, 204, 21, 0.18)",
+	},
+};
+
 const buildDailyPoints = (
 	startDate: Date,
 	publish: number[],
@@ -503,33 +518,54 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 								>
 									<path
 										class="chart-area is-publish"
+										fill={chartPalette.publish.area}
+										stroke="none"
 										d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.publishY}`).join(" ")} L 100 100 Z`}
 									></path>
 									<path
 										class="chart-area is-update"
+										fill={chartPalette.update.area}
+										stroke="none"
 										d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.updateY}`).join(" ")} L 100 100 Z`}
 									></path>
 									<path
 										class="chart-area is-delete"
+										fill={chartPalette.delete.area}
+										stroke="none"
 										d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.deleteY}`).join(" ")} L 100 100 Z`}
 									></path>
 									<path
 										class="chart-line is-publish"
+										fill="none"
+										stroke={chartPalette.publish.line}
+										stroke-width="1.8"
+										stroke-linecap="round"
+										stroke-linejoin="round"
 										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.publishY}`).join(" L ")}`}
 									></path>
 									<path
 										class="chart-line is-update"
+										fill="none"
+										stroke={chartPalette.update.line}
+										stroke-width="1.8"
+										stroke-linecap="round"
+										stroke-linejoin="round"
 										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.updateY}`).join(" L ")}`}
 									></path>
 									<path
 										class="chart-line is-delete"
+										fill="none"
+										stroke={chartPalette.delete.line}
+										stroke-width="1.8"
+										stroke-linecap="round"
+										stroke-linejoin="round"
 										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.deleteY}`).join(" L ")}`}
 									></path>
 									{
 										defaultMetrics.flatMap((point) => [
-											<circle class="chart-dot is-publish" cx={point.x} cy={point.publishY} r="1.1"></circle>,
-											<circle class="chart-dot is-update" cx={point.x} cy={point.updateY} r="1.1"></circle>,
-											<circle class="chart-dot is-delete" cx={point.x} cy={point.deleteY} r="1.1"></circle>,
+											<circle class="chart-dot is-publish" cx={point.x} cy={point.publishY} r="1.1" fill={chartPalette.publish.line} stroke={chartPalette.publish.line}></circle>,
+											<circle class="chart-dot is-update" cx={point.x} cy={point.updateY} r="1.1" fill={chartPalette.update.line} stroke={chartPalette.update.line}></circle>,
+											<circle class="chart-dot is-delete" cx={point.x} cy={point.deleteY} r="1.1" fill={chartPalette.delete.line} stroke={chartPalette.delete.line}></circle>,
 										])
 									}
 								</svg>
@@ -653,6 +689,21 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 <script id="dashboard-hint-data" type="application/json" is:inline set:html={dashboardHintsJson}></script>
 <script id="dashboard-search-data" type="application/json" is:inline set:html={dashboardSearchJson}></script>
 <script is:inline>
+	const chartPalette = {
+		publish: {
+			line: "rgb(59, 130, 246)",
+			area: "rgba(59, 130, 246, 0.18)",
+		},
+		update: {
+			line: "rgb(139, 92, 246)",
+			area: "rgba(139, 92, 246, 0.16)",
+		},
+		delete: {
+			line: "rgb(250, 204, 21)",
+			area: "rgba(250, 204, 21, 0.18)",
+		},
+	};
+
 	const initDashboardSearch = () => {
 		const searchRoot = document.querySelector("[data-dashboard-search]");
 		const input = document.querySelector("[data-dashboard-search-input]");
@@ -997,18 +1048,18 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 			chartStage.style.setProperty("--chart-column-width", minColumnWidth);
 			chartStage.style.setProperty("--chart-point-count", String(metrics.length));
 			chartSvg.innerHTML = `
-				<path class="chart-area is-publish" d="${buildAreaPath(metrics, "publishY")}"></path>
-				<path class="chart-area is-update" d="${buildAreaPath(metrics, "updateY")}"></path>
-				<path class="chart-area is-delete" d="${buildAreaPath(metrics, "deleteY")}"></path>
-				<path class="chart-line is-publish" d="${buildLinePath(metrics, "publishY")}"></path>
-				<path class="chart-line is-update" d="${buildLinePath(metrics, "updateY")}"></path>
-				<path class="chart-line is-delete" d="${buildLinePath(metrics, "deleteY")}"></path>
+				<path class="chart-area is-publish" fill="${chartPalette.publish.area}" stroke="none" d="${buildAreaPath(metrics, "publishY")}"></path>
+				<path class="chart-area is-update" fill="${chartPalette.update.area}" stroke="none" d="${buildAreaPath(metrics, "updateY")}"></path>
+				<path class="chart-area is-delete" fill="${chartPalette.delete.area}" stroke="none" d="${buildAreaPath(metrics, "deleteY")}"></path>
+				<path class="chart-line is-publish" fill="none" stroke="${chartPalette.publish.line}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "publishY")}"></path>
+				<path class="chart-line is-update" fill="none" stroke="${chartPalette.update.line}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "updateY")}"></path>
+				<path class="chart-line is-delete" fill="none" stroke="${chartPalette.delete.line}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "deleteY")}"></path>
 				${metrics
 					.map(
 						(point) => `
-							<circle class="chart-dot is-publish" cx="${point.x}" cy="${point.publishY}" r="1.1"></circle>
-							<circle class="chart-dot is-update" cx="${point.x}" cy="${point.updateY}" r="1.1"></circle>
-							<circle class="chart-dot is-delete" cx="${point.x}" cy="${point.deleteY}" r="1.1"></circle>
+							<circle class="chart-dot is-publish" cx="${point.x}" cy="${point.publishY}" r="1.1" fill="${chartPalette.publish.line}" stroke="${chartPalette.publish.line}"></circle>
+							<circle class="chart-dot is-update" cx="${point.x}" cy="${point.updateY}" r="1.1" fill="${chartPalette.update.line}" stroke="${chartPalette.update.line}"></circle>
+							<circle class="chart-dot is-delete" cx="${point.x}" cy="${point.deleteY}" r="1.1" fill="${chartPalette.delete.line}" stroke="${chartPalette.delete.line}"></circle>
 						`,
 					)
 					.join("")}
