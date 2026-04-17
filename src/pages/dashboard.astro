@@ -1,6 +1,7 @@
 ---
 import { Icon } from "astro-icon/components";
 import Layout from "../layouts/Layout.astro";
+import { url } from "../utils/url-utils";
 
 type ActivityPoint = {
 	label: string;
@@ -161,6 +162,37 @@ const dashboardMetrics = {
 			"写一点与二进制无关的东西，关于深夜、重复、停顿，以及那些在终端熄灭后还留在脑海里的杂乱想法。",
 	},
 };
+const dashboardHints = {
+	write: {
+		title: "写文章提示",
+		content: `1. 先在仓库根目录运行 pnpm new-post your-slug
+2. 新文章默认会生成到 src/content/posts/your-slug.md
+3. 如果这篇文章还要放封面或插图，更推荐改成目录结构：
+   src/content/posts/your-slug/index.md
+4. 图片、附件放在同目录下，例如：
+   src/content/posts/your-slug/cover.jpeg
+   src/content/posts/your-slug/diagram.png
+5. 在 frontmatter 里补全 title、published、description、tags、category
+6. 如果用了封面，image 写相对路径，例如 ./cover.jpeg
+7. 写完后先本地预览，确认路由、封面和正文都正常
+8. 之后再统一 commit 和 push 到 main，现有 Pages 工作流会重新构建`,
+	},
+	upload: {
+		title: "本地上传提示",
+		content: `1. 这个项目没有在线上传后台，'本地上传' 的正确含义是把文件放进仓库内容目录
+2. 单文件文章可以先改成目录文章，再把资源和 index.md 放在一起：
+   src/content/posts/your-slug/index.md
+   src/content/posts/your-slug/your-image.png
+3. 正文里的图片引用尽量使用相对路径，例如：
+   ![desc](./your-image.png)
+4. 封面图放在同目录时，frontmatter 里的 image 可以写 ./cover.jpeg
+5. 不建议把资源随便丢到仓库根目录或 public 里，这样后续整理文章会很乱
+6. 如果是附件、脚本或二进制样例，也建议跟文章放同一个 slug 目录
+7. 所有文件进了 src/content/posts 后，再本地检查路径是否能正确渲染
+8. 确认无误后再统一 commit 和 push`,
+	},
+};
+const dashboardHintsJson = JSON.stringify(dashboardHints);
 ---
 
 <Layout title="Dashboard" description="Dashboard UI example">
@@ -204,9 +236,9 @@ const dashboardMetrics = {
 					<Icon name="fa6-solid:credit-card" />
 					<span>账单</span>
 				</a>
-				<a class="menu-item" href="#settings">
-					<Icon name="fa6-solid:gear" />
-					<span>设置</span>
+				<a class="menu-item" href={url("/")}>
+					<Icon name="fa6-solid:house" />
+					<span>主页</span>
 				</a>
 			</nav>
 
@@ -260,10 +292,43 @@ const dashboardMetrics = {
 					</p>
 				</div>
 				<div class="hero-actions">
-					<button class="primary-button" type="button">写文章</button>
-					<button class="secondary-button" type="button">本地上传</button>
+					<button class="primary-button" type="button" data-dashboard-hint-trigger="write">写文章</button>
+					<button class="secondary-button" type="button" data-dashboard-hint-trigger="upload">本地上传</button>
 				</div>
 			</section>
+
+			<div class="dashboard-hint-overlay" data-dashboard-hint-overlay hidden>
+				<section
+					class="dashboard-hint-card"
+					data-dashboard-hint-root
+					role="dialog"
+					aria-modal="true"
+					aria-labelledby="dashboard-hint-title"
+				>
+					<div class="dashboard-hint-head">
+						<div>
+							<p class="dashboard-hint-eyebrow">Hint</p>
+							<h3 class="dashboard-hint-title" id="dashboard-hint-title" data-dashboard-hint-title>
+								操作提示
+							</h3>
+						</div>
+						<button
+							class="dashboard-hint-close"
+							type="button"
+							aria-label="关闭提示"
+							data-dashboard-hint-close
+						>
+							<Icon name="fa6-solid:xmark" />
+						</button>
+					</div>
+					<textarea
+						class="dashboard-hint-textbox"
+						data-dashboard-hint-content
+						readonly
+						spellcheck="false"
+					></textarea>
+				</section>
+			</div>
 
 			<section class="metrics-grid">
 				<article class="metric-card dashboard-card">
@@ -530,6 +595,7 @@ const dashboardMetrics = {
 </Layout>
 
 <script id="blog-chart-data" type="application/json" is:inline set:html={chartDataJson}></script>
+<script id="dashboard-hint-data" type="application/json" is:inline set:html={dashboardHintsJson}></script>
 <script is:inline>
 	const setDashboardGreeting = () => {
 		const greetingNode = document.querySelector("[data-dashboard-greeting]");
@@ -635,8 +701,80 @@ const dashboardMetrics = {
 		toggleButton.dataset.bound = "true";
 	};
 
+	const initDashboardHints = () => {
+		const overlay = document.querySelector("[data-dashboard-hint-overlay]");
+		const modal = document.querySelector("[data-dashboard-hint-root]");
+		const titleNode = document.querySelector("[data-dashboard-hint-title]");
+		const contentNode = document.querySelector("[data-dashboard-hint-content]");
+		const closeButton = document.querySelector("[data-dashboard-hint-close]");
+		const dataNode = document.querySelector("#dashboard-hint-data");
+		const triggerButtons = Array.from(
+			document.querySelectorAll("[data-dashboard-hint-trigger]"),
+		);
+
+		if (
+			!overlay ||
+			!modal ||
+			!titleNode ||
+			!contentNode ||
+			!closeButton ||
+			!dataNode ||
+			triggerButtons.length === 0
+		) {
+			return;
+		}
+
+		const hints = JSON.parse(dataNode.textContent || "{}");
+		const openHint = (hintKey) => {
+			const hint = hints[hintKey];
+
+			if (!hint) {
+				return;
+			}
+
+			titleNode.textContent = hint.title;
+			contentNode.value = hint.content;
+			overlay.hidden = false;
+			document.body.style.overflow = "hidden";
+			window.requestAnimationFrame(() => {
+				contentNode.focus();
+				contentNode.setSelectionRange(0, 0);
+			});
+		};
+
+		const closeHint = () => {
+			overlay.hidden = true;
+			document.body.style.overflow = "";
+		};
+
+		if (modal.dataset.bound === "true") {
+			return;
+		}
+
+		triggerButtons.forEach((button) => {
+			button.addEventListener("click", () => {
+				openHint(button.dataset.dashboardHintTrigger || "");
+			});
+		});
+
+		closeButton.addEventListener("click", closeHint);
+		overlay.addEventListener("click", (event) => {
+			if (event.target === overlay) {
+				closeHint();
+			}
+		});
+		document.addEventListener("keydown", (event) => {
+			if (event.key === "Escape" && !overlay.hidden) {
+				closeHint();
+			}
+		});
+
+		modal.dataset.bound = "true";
+	};
+
 	const initDashboardChart = () => {
 		initSidebarToggle();
+		initDashboardHints();
 		setDashboardGreeting();
 		setDashboardIntro();
 
@@ -1167,6 +1305,117 @@ const dashboardMetrics = {
 	.hero-actions {
 		gap: 0.75rem;
 		align-self: flex-start;
+	}
+
+	.dashboard-hint-overlay {
+		position: fixed;
+		inset: 0;
+		z-index: 50;
+		display: grid;
+		place-items: center;
+		padding: 1.5rem;
+		background: rgba(15, 23, 42, 0.48);
+		backdrop-filter: blur(12px);
+	}
+
+	.dashboard-hint-overlay[hidden] {
+		display: none;
+	}
+
+	.dashboard-hint-card {
+		width: min(42rem, 100%);
+		display: grid;
+		gap: 1rem;
+		padding: 1.2rem;
+		border-radius: 1.5rem;
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.94)),
+			radial-gradient(circle at top right, rgba(20, 184, 166, 0.12), transparent 16rem);
+		border: 1px solid rgba(148, 163, 184, 0.22);
+		box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+	}
+
+	:global(.dark) .dashboard-hint-card {
+		background:
+			linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.92)),
+			radial-gradient(circle at top right, rgba(20, 184, 166, 0.14), transparent 16rem);
+		border-color: rgba(148, 163, 184, 0.16);
+	}
+
+	.dashboard-hint-head {
+		display: flex;
+		align-items: flex-start;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.dashboard-hint-eyebrow,
+	.dashboard-hint-title {
+		margin: 0;
+	}
+
+	.dashboard-hint-eyebrow {
+		font-size: 0.78rem;
+		font-weight: 700;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(14, 116, 144, 0.82);
+	}
+
+	.dashboard-hint-title {
+		margin-top: 0.35rem;
+		font-size: 1.25rem;
+		font-weight: 800;
+		color: rgba(15, 23, 42, 0.96);
+	}
+
+	:global(.dark) .dashboard-hint-title {
+		color: rgba(248, 250, 252, 0.94);
+	}
+
+	.dashboard-hint-close {
+		width: 2.75rem;
+		height: 2.75rem;
+		display: grid;
+		place-items: center;
+		border: 0;
+		border-radius: 999px;
+		background: rgba(226, 232, 240, 0.72);
+		color: rgba(15, 23, 42, 0.86);
+		transition: 180ms ease;
+	}
+
+	.dashboard-hint-close:hover {
+		background: rgba(203, 213, 225, 0.88);
+	}
+
+	:global(.dark) .dashboard-hint-close {
+		background: rgba(30, 41, 59, 0.9);
+		color: rgba(226, 232, 240, 0.88);
+	}
+
+	.dashboard-hint-textbox {
+		min-height: 18rem;
+		width: 100%;
+		resize: vertical;
+		padding: 1rem 1.05rem;
+		border: 1px solid rgba(148, 163, 184, 0.22);
+		border-radius: 1rem;
+		background: rgba(255, 255, 255, 0.86);
+		color: rgba(15, 23, 42, 0.92);
+		font: 0.92rem/1.75 "JetBrains Mono Variable", "Courier New", monospace;
+		white-space: pre-wrap;
+	}
+
+	.dashboard-hint-textbox:focus {
+		outline: 2px solid rgba(20, 184, 166, 0.3);
+		outline-offset: 2px;
+	}
+
+	:global(.dark) .dashboard-hint-textbox {
+		background: rgba(2, 6, 23, 0.72);
+		border-color: rgba(148, 163, 184, 0.18);
+		color: rgba(226, 232, 240, 0.9);
 	}
 
 	.primary-button,
@@ -1882,6 +2131,19 @@ const dashboardMetrics = {
 
 		.table-row {
 			grid-template-columns: 1fr 1fr;
+		}
+
+		.dashboard-hint-overlay {
+			padding: 0.9rem;
+		}
+
+		.dashboard-hint-card {
+			padding: 1rem;
+		}
+
+		.dashboard-hint-textbox {
+			min-height: 16rem;
+			font-size: 0.86rem;
 		}
 	}
 </style>
