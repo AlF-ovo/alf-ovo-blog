@@ -4,7 +4,7 @@ import "@fontsource/roboto/500.css";
 import "@fontsource/roboto/700.css";
 
 import ConfigCarrier from "@components/ConfigCarrier.astro";
-import Mascot from "@components/Mascot.astro";
+import Live2DMascot from "@components/Live2DMascot.astro";
 import { profileConfig, siteConfig } from "@/config";
 import {
 	AUTO_MODE,
@@ -71,7 +71,6 @@ const bannerOffsetByPosition = {
 };
 const bannerOffset =
 	bannerOffsetByPosition[siteConfig.banner.position || "center"];
-const PAGE_LOADING_TEXT = "loading...";
 ---
 
 <!DOCTYPE html>
@@ -154,15 +153,7 @@ const PAGE_LOADING_TEXT = "loading...";
 		  data-overlayscrollbars-initialize
 	>
 		<ConfigCarrier></ConfigCarrier>
-		<div class="page-loading-overlay" aria-hidden="true">
-			<div class="page-loading-shell">
-				<div class="page-loading-label">
-					<span class="page-loading-text" data-page-loading-text>{PAGE_LOADING_TEXT}</span>
-					<span class="page-loading-cursor" aria-hidden="true"></span>
-				</div>
-			</div>
-		</div>
-		<Mascot />
+		<Live2DMascot />
 		<slot />
 
 		<!-- increase the page height during page transition to prevent the scrolling animation from jumping -->
@@ -204,190 +195,6 @@ const PAGE_LOADING_TEXT = "loading...";
 	}
 }
 
-.page-loading-overlay {
-	position: fixed;
-	inset: 0;
-	z-index: 999;
-	display: grid;
-	place-items: center;
-	padding: 1.5rem;
-	opacity: 0;
-	visibility: hidden;
-	pointer-events: none;
-	background:
-		radial-gradient(circle at 50% 36%, rgba(120, 113, 108, 0.08), transparent 24rem),
-		linear-gradient(180deg, rgba(251, 247, 239, 0.95), rgba(241, 233, 220, 0.97));
-	backdrop-filter: blur(14px);
-	transition:
-		opacity 820ms ease,
-		visibility 820ms ease,
-		backdrop-filter 820ms ease,
-		background 820ms ease;
-}
-
-.dark .page-loading-overlay {
-	background:
-		radial-gradient(circle at 50% 36%, rgba(250, 245, 235, 0.06), transparent 24rem),
-		linear-gradient(180deg, rgba(18, 18, 16, 0.95), rgba(10, 10, 11, 0.98));
-}
-
-body > :not(.page-loading-overlay) {
-	transition:
-		filter 760ms ease,
-		transform 760ms ease,
-		opacity 760ms ease;
-}
-
-html.page-loading-active body {
-	overflow: hidden;
-}
-
-html.page-loading-active .page-loading-overlay {
-	opacity: 1;
-	visibility: visible;
-}
-
-html.page-loading-preview .page-loading-overlay {
-	background:
-		radial-gradient(circle at 50% 36%, rgba(255, 255, 255, 0.12), transparent 26rem),
-		linear-gradient(180deg, rgba(251, 247, 239, 0.36), rgba(241, 233, 220, 0.28));
-	backdrop-filter: blur(22px) saturate(1.12);
-}
-
-html.page-loading-preview body > :not(.page-loading-overlay) {
-	filter: blur(18px);
-	transform: scale(1.015);
-}
-
-html.page-loading-preview .page-loading-shell {
-	opacity: 0.92;
-}
-
-.dark html.page-loading-preview .page-loading-overlay {
-	background:
-		radial-gradient(circle at 50% 36%, rgba(248, 250, 252, 0.08), transparent 26rem),
-		linear-gradient(180deg, rgba(15, 23, 42, 0.36), rgba(2, 6, 23, 0.26));
-}
-
-html.page-loading-leaving .page-loading-overlay {
-	opacity: 0;
-	visibility: visible;
-}
-
-.page-loading-shell {
-	display: flex;
-	align-items: center;
-	justify-content: center;
-	min-width: min(32rem, 100%);
-	padding: 2.5rem 1.5rem;
-	overflow: visible;
-	opacity: 0;
-	transform: translate3d(0, 2.4rem, 0);
-	transition:
-		opacity 900ms cubic-bezier(0.22, 1, 0.36, 1),
-		transform 900ms cubic-bezier(0.22, 1, 0.36, 1);
-}
-
-html.page-loading-active .page-loading-shell {
-	opacity: 1;
-	transform: translate3d(0, 0, 0);
-}
-
-html.page-loading-leaving .page-loading-shell {
-	opacity: 0;
-	transform: translate3d(0, -1.8rem, 0);
-}
-
-.page-loading-label {
-	display: inline-flex;
-	align-items: center;
-	justify-content: center;
-	gap: 0.14em;
-	width: max-content;
-	max-width: 100%;
-	padding-inline: 0.18em 0.34em;
-	overflow: visible;
-	font-family:
-		"JetBrains Mono Variable",
-		"JetBrains Mono",
-		ui-monospace,
-		SFMono-Regular,
-		monospace;
-	font-size: clamp(2.5rem, 7vw, 5.2rem);
-	font-weight: 700;
-	letter-spacing: 0.12em;
-	text-transform: lowercase;
-	color: rgba(28, 25, 23, 0.92);
-	text-shadow: 0 0.08rem 0 rgba(255, 255, 255, 0.55);
-}
-
-.dark .page-loading-label {
-	color: rgba(245, 245, 244, 0.94);
-	text-shadow: 0 0.08rem 0 rgba(0, 0, 0, 0.4);
-}
-
-.page-loading-text {
-	display: inline-block;
-	white-space: nowrap;
-	overflow: visible;
-}
-
-.page-loading-cursor {
-	display: inline-block;
-	width: 0.08em;
-	height: 1.05em;
-	flex: 0 0 auto;
-	background: currentColor;
-	transform: translateY(0.04em);
-	opacity: 0;
-}
-
-html.page-loading-active .page-loading-cursor {
-	opacity: 1;
-	animation: page-loading-cursor-blink 0.9s steps(1, end) infinite;
-}
-
-@keyframes page-loading-cursor-blink {
-	0%,
-	49% {
-		opacity: 1;
-	}
-
-	50%,
-	100% {
-		opacity: 0;
-	}
-}
-
-@media (max-width: 640px) {
-	.page-loading-shell {
-		min-width: auto;
-		width: 100%;
-		padding: 2rem 1rem;
-	}
-
-	.page-loading-label {
-		letter-spacing: 0.08em;
-	}
-}
-
-@media (prefers-reduced-motion: reduce) {
-	.page-loading-overlay,
-	.page-loading-shell,
-	.page-loading-text,
-	.page-loading-cursor {
-		transition: none;
-		animation: none;
-	}
-
-	.page-loading-text {
-		white-space: nowrap;
-	}
-
-	.page-loading-cursor {
-		opacity: 1;
-	}
-}
 </style>
 
 <script>
@@ -453,208 +260,6 @@ function disableAnimation() {
 */
 
 const bannerEnabled = !!document.getElementById('banner-wrapper')
-const homePath = url('/')
-const dashboardPath = url('/dashboard/')
-const LOADING_TEXT = 'loading...'
-const LOADING_TYPE_STEP_MS = 520
-const LOADING_TYPE_MIN_DURATION_MS = LOADING_TYPE_STEP_MS * Math.max(LOADING_TEXT.length - 1, 0)
-const LOADING_POST_TYPE_DELAY_MS = 2000
-const LOADING_OVERLAY_EXIT_MS = 760
-const LOADING_PAGE_READY_FALLBACK_MS = 5000
-let loadingTextTypingTimer: number | null = null
-let loadingOverlayPreviewTimer: number | null = null
-let loadingOverlayLeaveTimer: number | null = null
-let loadingOverlayCleanupTimer: number | null = null
-let loadingPageReadyFallbackTimer: number | null = null
-let loadingOverlayActivatedAt = 0
-let loadingTextTypingEndsAt = 0
-let loadingOverlayVisible = false
-let loadingOverlayAwaitingPageReady = false
-let loadingOverlayAwaitedPath = ""
-let loadingOverlayRequiresReadySignal = false
-
-function getPathname(path: string) {
-	try {
-		return new URL(path, window.location.origin).pathname
-	} catch (_error) {
-		return path
-	}
-}
-
-function shouldShowLoadingOverlay(nextPath: string) {
-	const currentPath = getPathname(window.location.pathname)
-	const normalizedNextPath = getPathname(nextPath)
-	const isCurrentHome = pathsEqual(currentPath, homePath)
-	const isCurrentDashboard = pathsEqual(currentPath, dashboardPath)
-	const isNextHome = pathsEqual(normalizedNextPath, homePath)
-	const isNextDashboard = pathsEqual(normalizedNextPath, dashboardPath)
-
-	return (
-		(isCurrentHome && isNextDashboard) ||
-		(isCurrentDashboard && isNextHome)
-	)
-}
-
-function clearLoadingTextTypingTimer() {
-	if (loadingTextTypingTimer) {
-		window.clearTimeout(loadingTextTypingTimer)
-		loadingTextTypingTimer = null
-	}
-}
-
-function clearLoadingOverlayPhaseTimers() {
-	if (loadingOverlayPreviewTimer) {
-		window.clearTimeout(loadingOverlayPreviewTimer)
-		loadingOverlayPreviewTimer = null
-	}
-
-	if (loadingOverlayLeaveTimer) {
-		window.clearTimeout(loadingOverlayLeaveTimer)
-		loadingOverlayLeaveTimer = null
-	}
-
-	if (loadingOverlayCleanupTimer) {
-		window.clearTimeout(loadingOverlayCleanupTimer)
-		loadingOverlayCleanupTimer = null
-	}
-
-	if (loadingPageReadyFallbackTimer) {
-		window.clearTimeout(loadingPageReadyFallbackTimer)
-		loadingPageReadyFallbackTimer = null
-	}
-}
-
-function getLoadingTextNode() {
-	return document.querySelector('[data-page-loading-text]')
-}
-
-function getLoadingStateTargets() {
-	return [document.documentElement, document.body].filter(
-		(target): target is HTMLElement => target instanceof HTMLElement,
-	)
-}
-
-function addLoadingStateClasses(...classNames: string[]) {
-	getLoadingStateTargets().forEach((target) => {
-		target.classList.add(...classNames)
-	})
-}
-
-function removeLoadingStateClasses(...classNames: string[]) {
-	getLoadingStateTargets().forEach((target) => {
-		target.classList.remove(...classNames)
-	})
-}
-
-function setLoadingText(value: string) {
-	const loadingTextNode = getLoadingTextNode()
-	if (!loadingTextNode) {
-		return
-	}
-
-	loadingTextNode.textContent = value
-}
-
-function resetLoadingOverlay() {
-	removeLoadingStateClasses('page-loading-active', 'page-loading-preview', 'page-loading-leaving')
-	loadingOverlayActivatedAt = 0
-	loadingTextTypingEndsAt = 0
-	loadingOverlayVisible = false
-	loadingOverlayAwaitingPageReady = false
-	loadingOverlayAwaitedPath = ""
-	loadingOverlayRequiresReadySignal = false
-	setLoadingText(LOADING_TEXT)
-}
-
-function waitForPageReady(nextPath: string) {
-	loadingOverlayRequiresReadySignal = true
-	loadingOverlayAwaitingPageReady = true
-	loadingOverlayAwaitedPath = getPathname(nextPath)
-	if (loadingPageReadyFallbackTimer) {
-		window.clearTimeout(loadingPageReadyFallbackTimer)
-	}
-	loadingPageReadyFallbackTimer = window.setTimeout(() => {
-		loadingOverlayRequiresReadySignal = false
-		loadingOverlayAwaitingPageReady = false
-		loadingOverlayAwaitedPath = ""
-		setLoadingOverlay(false)
-	}, LOADING_PAGE_READY_FALLBACK_MS)
-}
-
-function restartLoadingTextTyping() {
-	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-	clearLoadingTextTypingTimer()
-
-	if (reducedMotion) {
-		loadingTextTypingEndsAt = Date.now()
-		setLoadingText(LOADING_TEXT)
-		return
-	}
-
-	setLoadingText('')
-
-	const typeNextCharacter = (index = 0) => {
-		setLoadingText(LOADING_TEXT.slice(0, index + 1))
-
-		if (index + 1 >= LOADING_TEXT.length) {
-			loadingTextTypingTimer = null
-			loadingTextTypingEndsAt = Date.now()
-			return
-		}
-
-		loadingTextTypingTimer = window.setTimeout(() => {
-			typeNextCharacter(index + 1)
-		}, LOADING_TYPE_STEP_MS)
-	}
-
-	loadingTextTypingEndsAt = Date.now() + LOADING_TYPE_STEP_MS * Math.max(LOADING_TEXT.length - 1, 0)
-	typeNextCharacter()
-}
-
-function startLoadingOverlay() {
-	clearLoadingTextTypingTimer()
-	clearLoadingOverlayPhaseTimers()
-	removeLoadingStateClasses('page-loading-preview', 'page-loading-leaving')
-	loadingOverlayActivatedAt = Date.now()
-	loadingOverlayVisible = true
-	restartLoadingTextTyping()
-	addLoadingStateClasses('page-loading-active')
-}
-
-function finishLoadingOverlay() {
-	if (!loadingOverlayVisible || !loadingOverlayActivatedAt) {
-		return
-	}
-
-	clearLoadingOverlayPhaseTimers()
-	const typingDelay = Math.max(loadingTextTypingEndsAt - Date.now(), 0)
-	const minimumTypingDelay = Math.max(loadingOverlayActivatedAt + LOADING_TYPE_MIN_DURATION_MS - Date.now(), 0)
-	const previewDelay = Math.max(typingDelay, minimumTypingDelay)
-
-	loadingOverlayPreviewTimer = window.setTimeout(() => {
-		addLoadingStateClasses('page-loading-preview')
-		loadingOverlayPreviewTimer = null
-
-		loadingOverlayLeaveTimer = window.setTimeout(() => {
-			addLoadingStateClasses('page-loading-leaving')
-			loadingOverlayLeaveTimer = null
-
-			loadingOverlayCleanupTimer = window.setTimeout(() => {
-				resetLoadingOverlay()
-				loadingOverlayCleanupTimer = null
-			}, LOADING_OVERLAY_EXIT_MS)
-		}, LOADING_POST_TYPE_DELAY_MS)
-	}, previewDelay)
-}
-
-function setLoadingOverlay(active: boolean) {
-	if (active) {
-		startLoadingOverlay()
-		return
-	}
-
-	finishLoadingOverlay()
-}
 
 function setClickOutsideToClose(panel: string, ignores: string[]) {
 	document.addEventListener("click", event => {
@@ -804,15 +409,6 @@ const setup = () => {
 	})
 	window.swup.hooks.on('content:replace', initCustomScrollbar)
 	window.swup.hooks.on('visit:start', (visit: {to: {url: string}}) => {
-		const shouldShow = shouldShowLoadingOverlay(visit.to.url)
-		loadingOverlayRequiresReadySignal = shouldShow
-		loadingOverlayAwaitingPageReady = false
-		loadingOverlayAwaitedPath = ""
-		if (shouldShow) {
-			waitForPageReady(visit.to.url)
-		}
-		setLoadingOverlay(shouldShow)
-
 		// change banner height immediately when a link is clicked
 		const bodyElement = document.querySelector('body')
 		if (pathsEqual(visit.to.url, url('/'))) {
@@ -841,10 +437,6 @@ const setup = () => {
 		}
 	});
 	window.swup.hooks.on('visit:end', (_visit: {to: {url: string}}) => {
-		if (!loadingOverlayRequiresReadySignal && loadingOverlayVisible) {
-			setLoadingOverlay(false)
-		}
-
 		const heightExtend = document.getElementById('page-height-extend')
 		if (heightExtend) {
 			heightExtend.classList.add('hidden')
@@ -855,21 +447,6 @@ const setup = () => {
 		if (toc) {
 			toc.classList.remove('toc-not-ready')
 		}
-	});
-	document.addEventListener('alf:page-ready', (event) => {
-		if (!loadingOverlayAwaitingPageReady) {
-			return
-		}
-
-		const readyPath = getPathname((event as CustomEvent<{ path?: string }>).detail?.path || window.location.pathname)
-		if (loadingOverlayAwaitedPath && !pathsEqual(readyPath, loadingOverlayAwaitedPath)) {
-			return
-		}
-
-		loadingOverlayRequiresReadySignal = false
-		loadingOverlayAwaitingPageReady = false
-		loadingOverlayAwaitedPath = ""
-		setLoadingOverlay(false)
 	});
 }
 if (window?.swup?.hooks) {
