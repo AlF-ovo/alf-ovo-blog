@@ -23,6 +23,14 @@ type ActivityMetric = ActivityPoint & {
 	deleteY: number;
 };
 
+type DashboardSearchItem = {
+	title: string;
+	type: string;
+	description: string;
+	time?: string;
+	url: string;
+};
+
 const buildDailyPoints = (
 	startDate: Date,
 	publish: number[],
@@ -193,6 +201,42 @@ const dashboardHints = {
 	},
 };
 const dashboardHintsJson = JSON.stringify(dashboardHints);
+const dashboardSearchItems: DashboardSearchItem[] = [
+	{
+		title: dashboardMetrics.lastVisitedPost.title,
+		type: "最近访问",
+		description: dashboardMetrics.lastVisitedPost.excerpt,
+		url: url(dashboardMetrics.lastVisitedPost.url),
+	},
+	{
+		title: dashboardMetrics.latestEssayPost.title,
+		type: "最新杂谈",
+		description: dashboardMetrics.latestEssayPost.excerpt,
+		url: url(dashboardMetrics.latestEssayPost.url),
+	},
+	{
+		title: recentUpdates[0].title,
+		type: "最近修改",
+		description: "Astro 部署、Pages 检查与发布流程整理。",
+		time: recentUpdates[0].time,
+		url: url("/posts/guide/"),
+	},
+	{
+		title: recentUpdates[1].title,
+		type: "最近修改",
+		description: "Fuwari 博客初始化、主题接入与首页结构搭建。",
+		time: recentUpdates[1].time,
+		url: url("/posts/markdown-extended/"),
+	},
+	{
+		title: recentUpdates[2].title,
+		type: "最近修改",
+		description: "导航、侧栏与仪表盘入口的布局调整。",
+		time: recentUpdates[2].time,
+		url: url("/archive/"),
+	},
+];
+const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 ---
 
 <Layout title="Dashboard" description="Dashboard UI example">
@@ -263,9 +307,20 @@ const dashboardHintsJson = JSON.stringify(dashboardHints);
 					<h2 class="topbar-title">AlF-0v0-blog</h2>
 				</div>
 				<div class="topbar-actions">
-					<div class="ghost-input">
+					<div class="ghost-input dashboard-search" data-dashboard-search>
 						<Icon name="fa6-solid:magnifying-glass" />
-						<span>搜索功能占位</span>
+						<input
+							class="ghost-search-input"
+							type="search"
+							placeholder="搜索"
+							aria-label="搜索"
+							autocomplete="off"
+							data-dashboard-search-input
+						/>
+						<div class="search-results" data-dashboard-search-results hidden>
+							<div class="search-results-list" data-dashboard-search-list></div>
+							<p class="search-empty" data-dashboard-search-empty hidden>没有匹配到示例数据</p>
+						</div>
 					</div>
 					<button class="ghost-button" type="button">
 						<Icon name="fa6-solid:bell" />
@@ -596,7 +651,109 @@ const dashboardHintsJson = JSON.stringify(dashboardHints);
 
 <script id="blog-chart-data" type="application/json" is:inline set:html={chartDataJson}></script>
 <script id="dashboard-hint-data" type="application/json" is:inline set:html={dashboardHintsJson}></script>
+<script id="dashboard-search-data" type="application/json" is:inline set:html={dashboardSearchJson}></script>
 <script is:inline>
+	const initDashboardSearch = () => {
+		const searchRoot = document.querySelector("[data-dashboard-search]");
+		const input = document.querySelector("[data-dashboard-search-input]");
+		const results = document.querySelector("[data-dashboard-search-results]");
+		const listNode = document.querySelector("[data-dashboard-search-list]");
+		const emptyNode = document.querySelector("[data-dashboard-search-empty]");
+		const dataNode = document.querySelector("#dashboard-search-data");
+
+		if (!searchRoot || !input || !results || !listNode || !emptyNode || !dataNode) {
+			return;
+		}
+
+		const items = JSON.parse(dataNode.textContent || "[]");
+		const normalize = (value) => String(value || "").trim().toLowerCase();
+		const renderResults = (query = "") => {
+			const keyword = normalize(query);
+			const matchedItems = items
+				.filter((item) => {
+					if (!keyword) {
+						return true;
+					}
+
+					return [item.title, item.type, item.description, item.time]
+						.some((field) => normalize(field).includes(keyword));
+				})
+				.slice(0, 5);
+
+			listNode.replaceChildren();
+
+			if (matchedItems.length === 0) {
+				emptyNode.hidden = false;
+				results.hidden = false;
+				return;
+			}
+
+			emptyNode.hidden = true;
+			matchedItems.forEach((item) => {
+				const link = document.createElement("a");
+				link.className = "search-result-item";
+				link.href = item.url;
+
+				const meta = document.createElement("div");
+				meta.className = "search-result-meta";
+
+				const badge = document.createElement("span");
+				badge.className = "search-result-badge";
+				badge.textContent = item.type;
+
+				if (item.time) {
+					const time = document.createElement("time");
+					time.className = "search-result-time";
+					time.dateTime = item.time;
+					time.textContent = item.time;
+					meta.append(badge, time);
+				} else {
+					meta.append(badge);
+				}
+
+				const title = document.createElement("p");
+				title.className = "search-result-title";
+				title.textContent = item.title;
+
+				const description = document.createElement("p");
+				description.className = "search-result-description";
+				description.textContent = item.description;
+
+				link.append(meta, title, description);
+				listNode.append(link);
+			});
+
+			results.hidden = false;
+		};
+
+		if (searchRoot.dataset.bound === "true") {
+			return;
+		}
+
+		input.addEventListener("focus", () => {
+			renderResults(input.value);
+		});
+
+		input.addEventListener("input", () => {
+			renderResults(input.value);
+		});
+
+		document.addEventListener("click", (event) => {
+			if (!searchRoot.contains(event.target)) {
+				results.hidden = true;
+			}
+		});
+
+		input.addEventListener("keydown", (event) => {
+			if (event.key === "Escape") {
+				results.hidden = true;
+				input.blur();
+			}
+		});
+
+		searchRoot.dataset.bound = "true";
+	};
+
 	const setDashboardGreeting = () => {
 		const greetingNode = document.querySelector("[data-dashboard-greeting]");
 		const greetingTextNode = greetingNode?.querySelector("[data-dashboard-greeting-text]");
@@ -775,6 +932,7 @@ const dashboardHintsJson = JSON.stringify(dashboardHints);
 	const initDashboardChart = () => {
 		initSidebarToggle();
 		initDashboardHints();
+		initDashboardSearch();
 		setDashboardGreeting();
 		setDashboardIntro();
 
@@ -1183,14 +1341,146 @@ const dashboardHintsJson = JSON.stringify(dashboardHints);
 	}
 
 	.ghost-input {
+		position: relative;
+		display: flex;
+		align-items: center;
 		gap: 0.7rem;
 		padding: 0.85rem 1rem;
-		min-width: 14rem;
+		min-width: 18rem;
 		color: rgba(71, 85, 105, 0.88);
 	}
 
 	:global(.dark) .ghost-input {
 		color: rgba(203, 213, 225, 0.82);
+	}
+
+	.ghost-search-input {
+		width: 100%;
+		min-width: 0;
+		border: 0;
+		outline: 0;
+		background: transparent;
+		color: inherit;
+		font: inherit;
+	}
+
+	.ghost-search-input::placeholder {
+		color: rgba(100, 116, 139, 0.78);
+	}
+
+	:global(.dark) .ghost-search-input::placeholder {
+		color: rgba(148, 163, 184, 0.76);
+	}
+
+	.search-results {
+		position: absolute;
+		top: calc(100% + 0.55rem);
+		left: 0;
+		right: 0;
+		z-index: 30;
+		padding: 0.55rem;
+		border-radius: 1rem;
+		backdrop-filter: blur(18px);
+		background: rgba(255, 255, 255, 0.96);
+		border: 1px solid rgba(148, 163, 184, 0.16);
+		box-shadow: 0 20px 38px rgba(15, 23, 42, 0.14);
+	}
+
+	:global(.dark) .search-results {
+		background: rgba(15, 23, 42, 0.96);
+		border-color: rgba(148, 163, 184, 0.14);
+		box-shadow: 0 24px 44px rgba(2, 6, 23, 0.42);
+	}
+
+	.search-results-list {
+		display: grid;
+		gap: 0.45rem;
+	}
+
+	.search-result-item {
+		display: grid;
+		gap: 0.25rem;
+		padding: 0.7rem 0.8rem;
+		border-radius: 0.85rem;
+		text-decoration: none;
+		background: rgba(248, 250, 252, 0.88);
+		border: 1px solid transparent;
+		transition: 160ms ease;
+	}
+
+	.search-result-item:hover {
+		transform: translateY(-1px);
+		border-color: rgba(37, 99, 235, 0.2);
+		background: rgba(239, 246, 255, 0.96);
+	}
+
+	:global(.dark) .search-result-item {
+		background: rgba(30, 41, 59, 0.84);
+	}
+
+	:global(.dark) .search-result-item:hover {
+		border-color: rgba(94, 234, 212, 0.18);
+		background: rgba(15, 23, 42, 0.92);
+	}
+
+	.search-result-meta {
+		display: flex;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		font-size: 0.72rem;
+	}
+
+	.search-result-badge {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.18rem 0.48rem;
+		border-radius: 999px;
+		background: rgba(37, 99, 235, 0.12);
+		color: rgba(30, 64, 175, 0.92);
+		font-weight: 700;
+		letter-spacing: 0.04em;
+	}
+
+	:global(.dark) .search-result-badge {
+		background: rgba(45, 212, 191, 0.16);
+		color: rgba(153, 246, 228, 0.92);
+	}
+
+	.search-result-time {
+		color: rgba(100, 116, 139, 0.82);
+	}
+
+	:global(.dark) .search-result-time {
+		color: rgba(148, 163, 184, 0.78);
+	}
+
+	.search-result-title {
+		margin: 0;
+		color: rgba(15, 23, 42, 0.96);
+		font-size: 0.92rem;
+		font-weight: 700;
+	}
+
+	:global(.dark) .search-result-title {
+		color: rgba(241, 245, 249, 0.95);
+	}
+
+	.search-result-description,
+	.search-empty {
+		margin: 0;
+		color: rgba(71, 85, 105, 0.9);
+		font-size: 0.78rem;
+		line-height: 1.5;
+	}
+
+	:global(.dark) .search-result-description,
+	:global(.dark) .search-empty {
+		color: rgba(203, 213, 225, 0.78);
+	}
+
+	.search-empty {
+		padding: 0.7rem 0.8rem;
 	}
 
 	.ghost-button,
