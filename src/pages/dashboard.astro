@@ -1,6 +1,7 @@
 ---
 import { Icon } from "astro-icon/components";
 import Layout from "../layouts/Layout.astro";
+import { getDashboardData } from "../utils/dashboard-data";
 import { url } from "../utils/url-utils";
 
 type ActivityPoint = {
@@ -49,80 +50,8 @@ const chartPalette = {
 	},
 };
 
-const buildDailyPoints = (
-	startDate: Date,
-	publish: number[],
-	update: number[],
-	remove: number[],
-): ActivityPoint[] =>
-	publish.map((value: number, index: number) => {
-		const date = new Date(startDate);
-		date.setDate(startDate.getDate() + index);
-
-		return {
-			label: `${String(date.getMonth() + 1).padStart(2, "0")}/${String(date.getDate()).padStart(2, "0")}`,
-			publish: value,
-			update: update[index],
-			delete: remove[index],
-		};
-	});
-
-const buildMonthlyPoints = (
-	startDate: Date,
-	publish: number[],
-	update: number[],
-	remove: number[],
-): ActivityPoint[] =>
-	publish.map((value: number, index: number) => {
-		const date = new Date(startDate);
-		date.setMonth(startDate.getMonth() + index);
-
-		return {
-			label: `${date.getMonth() + 1}月`,
-			publish: value,
-			update: update[index],
-			delete: remove[index],
-		};
-	});
-
-const chartDatasets: Record<"week" | "month" | "year", ActivityDataset> = {
-	week: {
-		label: "近7日",
-		points: buildDailyPoints(
-			new Date(2026, 3, 11),
-			[2, 1, 3, 1, 4, 2, 5],
-			[1, 2, 2, 1, 3, 4, 2],
-			[0, 1, 0, 1, 1, 0, 1],
-		),
-	},
-	month: {
-		label: "近1个月",
-		points: buildDailyPoints(
-			new Date(2026, 2, 19),
-			[
-				1, 0, 2, 1, 3, 2, 1, 4, 2, 1, 3, 2, 4, 1, 2, 3, 2, 1, 4, 2, 1, 3, 2, 5,
-				2, 1, 4, 3, 2, 4,
-			],
-			[
-				0, 1, 1, 2, 1, 3, 2, 1, 2, 3, 1, 2, 1, 4, 2, 2, 3, 1, 2, 4, 2, 1, 3, 2,
-				1, 2, 3, 2, 4, 3,
-			],
-			[
-				0, 0, 1, 0, 1, 0, 1, 1, 0, 1, 0, 1, 0, 2, 1, 0, 1, 0, 1, 1, 0, 1, 0, 2,
-				1, 0, 1, 1, 0, 1,
-			],
-		),
-	},
-	year: {
-		label: "近1年",
-		points: buildMonthlyPoints(
-			new Date(2025, 4, 1),
-			[8, 6, 9, 5, 10, 7, 11, 8, 9, 12, 10, 13],
-			[14, 12, 16, 11, 17, 13, 18, 15, 16, 19, 17, 21],
-			[2, 1, 2, 1, 3, 2, 2, 1, 2, 3, 2, 4],
-		),
-	},
-};
+const { chartDatasets, recentUpdates, dashboardMetrics } =
+	await getDashboardData();
 
 const getChartMetrics = (points: ActivityPoint[]): ActivityMetric[] => {
 	const maxTotal = Math.max(
@@ -156,38 +85,6 @@ const defaultDataset = chartDatasets[defaultRange];
 const defaultMetrics = getChartMetrics(defaultDataset.points);
 const defaultSummary = summarizeDataset(defaultDataset);
 const chartDataJson = JSON.stringify(chartDatasets);
-const recentUpdates = [
-	{
-		title: "《常用 glibc / libc 下载索引与利用差异说明》",
-		time: "2026-04-17 08:12",
-	},
-	{
-		title: "《Seccomp 沙箱机制详解》",
-		time: "2026-04-16 22:48",
-	},
-	{
-		title: "《CTFshow pwn180 Arena Overflow WP》",
-		time: "2026-04-16 19:35",
-	},
-];
-const dashboardMetrics = {
-	updatedPosts: 3,
-	updatedWords: 4286,
-	totalUsage: "86 小时 24 分",
-	totalUsageNote: "近 30 天累计写作、整理与调试时间",
-	lastVisitedPost: {
-		title: "《常用 glibc / libc 下载索引与利用差异说明》",
-		url: "/posts/ctfshow/glibc-download-index/",
-		excerpt:
-			"整理 Ubuntu 16 到 20 常用 libc 下载链接，并补充不同版本在 PWN 利用场景下的差异说明。",
-	},
-	latestPost: {
-		title: "《Seccomp 沙箱机制详解》",
-		url: "/posts/ctfshow/seccomp-sandbox-analysis/",
-		excerpt:
-			"从系统调用白名单、ORW 思路到常见绕过方式，集中梳理 Seccomp 沙箱题的分析路径。",
-	},
-};
 const dashboardHints = {
 	write: {
 		title: "写文章提示",
@@ -222,7 +119,7 @@ const dashboardHintsJson = JSON.stringify(dashboardHints);
 const dashboardSearchItems: DashboardSearchItem[] = [
 	{
 		title: dashboardMetrics.lastVisitedPost.title,
-		type: "最近访问",
+		type: "最近修改",
 		description: dashboardMetrics.lastVisitedPost.excerpt,
 		url: url(dashboardMetrics.lastVisitedPost.url),
 	},
@@ -232,27 +129,13 @@ const dashboardSearchItems: DashboardSearchItem[] = [
 		description: dashboardMetrics.latestPost.excerpt,
 		url: url(dashboardMetrics.latestPost.url),
 	},
-	{
-		title: recentUpdates[0].title,
+	...recentUpdates.slice(0, 3).map((item) => ({
+		title: item.title,
 		type: "最近修改",
-		description: "整理常用 glibc 与 libc 下载索引，并补充版本差异说明。",
-		time: recentUpdates[0].time,
-		url: url("/posts/ctfshow/glibc-download-index/"),
-	},
-	{
-		title: recentUpdates[1].title,
-		type: "最近修改",
-		description: "梳理 Seccomp 白名单限制、系统调用范围与 ORW 利用思路。",
-		time: recentUpdates[1].time,
-		url: url("/posts/ctfshow/seccomp-sandbox-analysis/"),
-	},
-	{
-		title: recentUpdates[2].title,
-		type: "最近修改",
-		description: "记录 arena 相关结构覆写与 callback hijack 的利用过程。",
-		time: recentUpdates[2].time,
-		url: url("/posts/ctfshow/ctfshow-pwn180-arena-overflow/"),
-	},
+		description: item.description,
+		time: item.time,
+		url: url(item.url),
+	})),
 ];
 const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 ---
@@ -414,7 +297,7 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 				</article>
 				<article class="metric-card dashboard-card">
 					<div class="metric-head">
-						<span>Blog 总使用时间</span>
+						<span>分类概览</span>
 						<Icon name="fa6-solid:chart-column" />
 					</div>
 					<div class="metric-value metric-value-rich">
@@ -422,12 +305,12 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 						<p class="metric-secondary">{dashboardMetrics.totalUsageNote}</p>
 					</div>
 					<div class="metric-foot">
-						<p class="metric-footnote">包含写作、改稿、部署与页面调整</p>
+						<p class="metric-footnote">数据来自首页“分类”组件对应的文章集合</p>
 					</div>
 				</article>
 				<article class="metric-card dashboard-card">
 					<div class="metric-head">
-						<span>最近访问文章</span>
+						<span>最近修改文章</span>
 						<Icon name="fa6-solid:rocket" />
 					</div>
 					<div class="metric-value metric-article">
@@ -924,6 +807,14 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 	};
 
 	const initDashboardChart = () => {
+		const notifyDashboardReady = () => {
+			document.dispatchEvent(
+				new CustomEvent("alf:dashboard-ready", {
+					detail: { path: window.location.pathname },
+				}),
+			);
+		};
+
 		initSidebarToggle();
 		initDashboardHints();
 		initDashboardSearch();
@@ -947,6 +838,7 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 			!summary ||
 			!dataNode
 		) {
+			notifyDashboardReady();
 			return;
 		}
 
@@ -1016,6 +908,7 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 
 		if (chartRoot.dataset.initialized === "true") {
 			renderChart(chartRoot.dataset.range || chartRoot.dataset.defaultRange || "week");
+			notifyDashboardReady();
 			return;
 		}
 
@@ -1027,6 +920,7 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 
 		chartRoot.dataset.initialized = "true";
 		renderChart(chartRoot.dataset.defaultRange || "week");
+		notifyDashboardReady();
 	};
 
 	document.addEventListener("astro:page-load", initDashboardChart);

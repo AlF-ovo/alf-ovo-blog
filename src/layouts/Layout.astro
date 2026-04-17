@@ -456,13 +456,16 @@ const LOADING_TEXT = 'loading...'
 const LOADING_TYPE_STEP_MS = 520
 const LOADING_POST_TYPE_DELAY_MS = 2000
 const LOADING_OVERLAY_EXIT_MS = 760
+const LOADING_DASHBOARD_FALLBACK_MS = 5000
 let loadingTextTypingTimer: number | null = null
 let loadingOverlayPreviewTimer: number | null = null
 let loadingOverlayLeaveTimer: number | null = null
 let loadingOverlayCleanupTimer: number | null = null
+let loadingDashboardFallbackTimer: number | null = null
 let loadingOverlayActivatedAt = 0
 let loadingTextTypingEndsAt = 0
 let loadingOverlayVisible = false
+let loadingOverlayAwaitingDashboardReady = false
 
 function getPathname(path: string) {
 	try {
@@ -498,6 +501,11 @@ function clearLoadingOverlayPhaseTimers() {
 		window.clearTimeout(loadingOverlayCleanupTimer)
 		loadingOverlayCleanupTimer = null
 	}
+
+	if (loadingDashboardFallbackTimer) {
+		window.clearTimeout(loadingDashboardFallbackTimer)
+		loadingDashboardFallbackTimer = null
+	}
 }
 
 function getLoadingTextNode() {
@@ -518,7 +526,19 @@ function resetLoadingOverlay() {
 	loadingOverlayActivatedAt = 0
 	loadingTextTypingEndsAt = 0
 	loadingOverlayVisible = false
+	loadingOverlayAwaitingDashboardReady = false
 	setLoadingText(LOADING_TEXT)
+}
+
+function waitForDashboardReady() {
+	loadingOverlayAwaitingDashboardReady = true
+	if (loadingDashboardFallbackTimer) {
+		window.clearTimeout(loadingDashboardFallbackTimer)
+	}
+	loadingDashboardFallbackTimer = window.setTimeout(() => {
+		loadingOverlayAwaitingDashboardReady = false
+		setLoadingOverlay(false)
+	}, LOADING_DASHBOARD_FALLBACK_MS)
 }
 
 function restartLoadingTextTyping() {
@@ -742,7 +762,12 @@ const setup = () => {
 	})
 	window.swup.hooks.on('content:replace', initCustomScrollbar)
 	window.swup.hooks.on('visit:start', (visit: {to: {url: string}}) => {
-		setLoadingOverlay(shouldShowLoadingOverlay(visit.to.url))
+		const shouldShow = shouldShowLoadingOverlay(visit.to.url)
+		loadingOverlayAwaitingDashboardReady = false
+		setLoadingOverlay(shouldShow)
+		if (shouldShow) {
+			waitForDashboardReady()
+		}
 
 		// change banner height immediately when a link is clicked
 		const bodyElement = document.querySelector('body')
@@ -772,7 +797,9 @@ const setup = () => {
 		}
 	});
 	window.swup.hooks.on('visit:end', (_visit: {to: {url: string}}) => {
-		setLoadingOverlay(false)
+		if (!loadingOverlayAwaitingDashboardReady) {
+			setLoadingOverlay(false)
+		}
 
 		const heightExtend = document.getElementById('page-height-extend')
 		if (heightExtend) {
@@ -784,6 +811,14 @@ const setup = () => {
 		if (toc) {
 			toc.classList.remove('toc-not-ready')
 		}
+	});
+	document.addEventListener('alf:dashboard-ready', () => {
+		if (!loadingOverlayAwaitingDashboardReady) {
+			return
+		}
+
+		loadingOverlayAwaitingDashboardReady = false
+		setLoadingOverlay(false)
 	});
 }
 if (window?.swup?.hooks) {
