@@ -71,9 +71,6 @@ const bannerOffsetByPosition = {
 const bannerOffset =
 	bannerOffsetByPosition[siteConfig.banner.position || "center"];
 const PAGE_LOADING_TEXT = "loading...";
-const PAGE_LOADING_TYPE_STEP_MS = 520;
-const PAGE_LOADING_TYPE_DURATION_MS =
-	PAGE_LOADING_TEXT.length * PAGE_LOADING_TYPE_STEP_MS;
 ---
 
 <!DOCTYPE html>
@@ -175,7 +172,6 @@ const PAGE_LOADING_TYPE_DURATION_MS =
 	bannerOffset,
 	'banner-height-home': `${BANNER_HEIGHT_HOME}vh`,
 	'banner-height': `${BANNER_HEIGHT}vh`,
-	'page-loading-type-duration': `${PAGE_LOADING_TYPE_DURATION_MS}ms`,
 }}>
 @tailwind components;
 @layer components {
@@ -325,13 +321,7 @@ body.page-loading-leaving .page-loading-shell {
 
 .page-loading-text {
 	display: inline-block;
-	width: 0;
-	overflow: hidden;
 	white-space: nowrap;
-}
-
-body.page-loading-active .page-loading-text {
-	animation: page-loading-type var(--page-loading-type-duration) steps(10, end) forwards;
 }
 
 .page-loading-cursor {
@@ -347,16 +337,6 @@ body.page-loading-active .page-loading-text {
 body.page-loading-active .page-loading-cursor {
 	opacity: 1;
 	animation: page-loading-cursor-blink 0.9s steps(1, end) infinite;
-}
-
-@keyframes page-loading-type {
-	from {
-		width: 0;
-	}
-
-	to {
-		width: 10ch;
-	}
 }
 
 @keyframes page-loading-cursor-blink {
@@ -393,7 +373,7 @@ body.page-loading-active .page-loading-cursor {
 	}
 
 	.page-loading-text {
-		width: 10ch;
+		white-space: nowrap;
 	}
 
 	.page-loading-cursor {
@@ -468,13 +448,14 @@ const bannerEnabled = !!document.getElementById('banner-wrapper')
 const loadingRoutePaths = [url('/'), url('/dashboard/')]
 const LOADING_TEXT = 'loading...'
 const LOADING_TYPE_STEP_MS = 520
-const LOADING_TYPE_DURATION_MS = LOADING_TEXT.length * LOADING_TYPE_STEP_MS
 const LOADING_POST_TYPE_DELAY_MS = 2000
 const LOADING_OVERLAY_EXIT_MS = 760
+let loadingTextTypingTimer: number | null = null
 let loadingOverlayPreviewTimer: number | null = null
 let loadingOverlayLeaveTimer: number | null = null
 let loadingOverlayCleanupTimer: number | null = null
 let loadingOverlayActivatedAt = 0
+let loadingTextTypingEndsAt = 0
 let loadingOverlayVisible = false
 
 function getPathname(path: string) {
@@ -493,7 +474,14 @@ function shouldShowLoadingOverlay(nextPath: string) {
 	return isLoadingRoute(window.location.pathname) && isLoadingRoute(nextPath)
 }
 
-function clearLoadingOverlayTimers() {
+function clearLoadingTextTypingTimer() {
+	if (loadingTextTypingTimer) {
+		window.clearTimeout(loadingTextTypingTimer)
+		loadingTextTypingTimer = null
+	}
+}
+
+function clearLoadingOverlayPhaseTimers() {
 	if (loadingOverlayPreviewTimer) {
 		window.clearTimeout(loadingOverlayPreviewTimer)
 		loadingOverlayPreviewTimer = null
@@ -510,21 +498,64 @@ function clearLoadingOverlayTimers() {
 	}
 }
 
+function getLoadingTextNode() {
+	return document.querySelector('[data-page-loading-text]')
+}
+
+function setLoadingText(value: string) {
+	const loadingTextNode = getLoadingTextNode()
+	if (!loadingTextNode) {
+		return
+	}
+
+	loadingTextNode.textContent = value
+}
+
 function resetLoadingOverlay() {
 	document.body.classList.remove('page-loading-active', 'page-loading-preview', 'page-loading-leaving')
 	loadingOverlayActivatedAt = 0
+	loadingTextTypingEndsAt = 0
 	loadingOverlayVisible = false
+	setLoadingText(LOADING_TEXT)
 }
 
-function getLoadingTypeDurationMs() {
-	return window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : LOADING_TYPE_DURATION_MS
+function restartLoadingTextTyping() {
+	const reducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+	clearLoadingTextTypingTimer()
+
+	if (reducedMotion) {
+		loadingTextTypingEndsAt = Date.now()
+		setLoadingText(LOADING_TEXT)
+		return
+	}
+
+	setLoadingText('')
+
+	const typeNextCharacter = (index = 0) => {
+		setLoadingText(LOADING_TEXT.slice(0, index + 1))
+
+		if (index + 1 >= LOADING_TEXT.length) {
+			loadingTextTypingTimer = null
+			loadingTextTypingEndsAt = Date.now()
+			return
+		}
+
+		loadingTextTypingTimer = window.setTimeout(() => {
+			typeNextCharacter(index + 1)
+		}, LOADING_TYPE_STEP_MS)
+	}
+
+	loadingTextTypingEndsAt = Date.now() + LOADING_TYPE_STEP_MS * Math.max(LOADING_TEXT.length - 1, 0)
+	typeNextCharacter()
 }
 
 function startLoadingOverlay() {
-	clearLoadingOverlayTimers()
+	clearLoadingTextTypingTimer()
+	clearLoadingOverlayPhaseTimers()
 	document.body.classList.remove('page-loading-preview', 'page-loading-leaving')
 	loadingOverlayActivatedAt = Date.now()
 	loadingOverlayVisible = true
+	restartLoadingTextTyping()
 	document.body.classList.add('page-loading-active')
 }
 
@@ -533,10 +564,8 @@ function finishLoadingOverlay() {
 		return
 	}
 
-	const elapsed = Date.now() - loadingOverlayActivatedAt
-	const previewDelay = Math.max(getLoadingTypeDurationMs() - elapsed, 0)
-
-	clearLoadingOverlayTimers()
+	clearLoadingOverlayPhaseTimers()
+	const previewDelay = Math.max(loadingTextTypingEndsAt - Date.now(), 0)
 
 	loadingOverlayPreviewTimer = window.setTimeout(() => {
 		document.body.classList.add('page-loading-preview')
