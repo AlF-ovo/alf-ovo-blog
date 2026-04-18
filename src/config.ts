@@ -9,7 +9,7 @@ import { LinkPreset } from "./types/config";
 
 export const siteConfig: SiteConfig = {
 	title: "AlF-ovo's Blog",
-	subtitle: "欢迎你来我的博客玩:)",
+	subtitle: "\u6b22\u8fce\u4f60\u6765\u6211\u7684\u535a\u5ba2\u73a9:)",
 	lang: "zh_CN", // Language code, e.g. 'en', 'zh_CN', 'ja', etc.
 	themeColor: {
 		hue: 250, // Default hue for the theme color, from 0 to 360. e.g. red: 0, teal: 200, cyan: 250, pink: 345
@@ -29,6 +29,64 @@ export const siteConfig: SiteConfig = {
 		enable: true, // Display the table of contents on the right side of the post
 		depth: 2, // Maximum heading depth to show in the table, from 1 to 3
 	},
+	backgroundMusic: {
+		enable: true,
+		title: "Music",
+		autoplay: false,
+		loop: true,
+		defaultTrackId: "ev-music-1-part-01",
+		tracks: [
+			{
+				id: "ev-music-1-part-01",
+				title: "音乐 1 · 片段 01",
+				artist: "EV录屏 音乐1",
+				group: "music-1",
+				src: "/audio/background/ev-music-1-part-01.m4a",
+			},
+			{
+				id: "ev-music-2-part-01",
+				title: "音乐 2 · 片段 01",
+				artist: "EV录屏 音乐2",
+				group: "music-2",
+				src: "/audio/background/ev-music-2-part-01.m4a",
+			},
+			{
+				id: "ev-music-1-part-02",
+				title: "音乐 1 · 片段 02",
+				artist: "EV录屏 音乐1",
+				group: "music-1",
+				src: "/audio/background/ev-music-1-part-02.m4a",
+			},
+			{
+				id: "ev-music-2-part-02",
+				title: "音乐 2 · 片段 02",
+				artist: "EV录屏 音乐2",
+				group: "music-2",
+				src: "/audio/background/ev-music-2-part-02.m4a",
+			},
+			{
+				id: "ev-music-1-part-03",
+				title: "音乐 1 · 片段 03",
+				artist: "EV录屏 音乐1",
+				group: "music-1",
+				src: "/audio/background/ev-music-1-part-03.m4a",
+			},
+			{
+				id: "ev-music-2-part-03",
+				title: "音乐 2 · 片段 03",
+				artist: "EV录屏 音乐2",
+				group: "music-2",
+				src: "/audio/background/ev-music-2-part-03.m4a",
+			},
+			{
+				id: "ev-music-2-part-04",
+				title: "音乐 2 · 片段 04",
+				artist: "EV录屏 音乐2",
+				group: "music-2",
+				src: "/audio/background/ev-music-2-part-04.m4a",
+			},
+		],
+	},
 	favicon: [
 		// Leave this array empty to use the default favicon
 		// {
@@ -43,12 +101,12 @@ export const navBarConfig: NavBarConfig = {
 	links: [
 		LinkPreset.Home,
 		{
-			name: "札记",
+			name: "\u624e\u8bb0",
 			url: "/notes/",
 		},
 		LinkPreset.Archive,
 		{
-			name: "友链",
+			name: "\u53cb\u94fe",
 			url: "/links/",
 		},
 		LinkPreset.About,
