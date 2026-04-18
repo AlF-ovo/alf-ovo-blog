@@ -63,8 +63,6 @@ const expressionNames = [
 		top: 0;
 		z-index: 70;
 		pointer-events: none;
-		transform: translate3d(var(--mascot-dock-x, 0px), var(--mascot-dock-y, 0px), 0);
-		transition: transform 180ms ease;
 		touch-action: none;
 	}
 
@@ -182,10 +180,6 @@ const expressionNames = [
 		filter: drop-shadow(0 1rem 2rem rgb(15 23 42 / 0.16));
 	}
 
-	.live2d-mascot.is-dragging {
-		transition: none;
-	}
-
 	.live2d-mascot.is-collapsed .live2d-mascot__panel {
 		display: none;
 	}
@@ -195,10 +189,6 @@ const expressionNames = [
 	}
 
 	@media (max-width: 1023px) {
-		.live2d-mascot {
-			transition: transform 180ms ease;
-		}
-
 		.live2d-mascot__panel {
 			width: clamp(8.5rem, 30vw, 11rem);
 		}
@@ -266,7 +256,6 @@ const expressionNames = [
 			expressionIndex: 0,
 			expressionTimer: null,
 			position: null,
-			dockedEdge: "",
 			dragPointerId: null,
 			dragStartX: 0,
 			dragStartY: 0,
@@ -276,10 +265,7 @@ const expressionNames = [
 		};
 
 		const positionStorageKey = "alf.live2d.position";
-		const dockStorageKey = "alf.live2d.docked-edge";
 		const viewportPadding = 8;
-		const dockThreshold = 72;
-		const dockPeek = 56;
 		const expressionIntervalMs = 15000;
 
 		const setStatus = (message, mode = "info") => {
@@ -299,31 +285,9 @@ const expressionNames = [
 
 			try {
 				localStorage.setItem(positionStorageKey, JSON.stringify(state.position));
-				localStorage.setItem(dockStorageKey, state.dockedEdge);
 			} catch (_error) {
 				// Ignore storage failures.
 			}
-		};
-
-		const setDockOffset = (edge) => {
-			let offsetX = "0px";
-			let offsetY = "0px";
-			if (edge === "left") {
-				offsetX = `-${dockPeek}px`;
-			} else if (edge === "right") {
-				offsetX = `${dockPeek}px`;
-			} else if (edge === "top") {
-				offsetY = `-${Math.round(dockPeek * 0.75)}px`;
-			} else if (edge === "bottom") {
-				offsetY = `${Math.round(dockPeek * 0.75)}px`;
-			}
-
-			root.style.setProperty("--mascot-dock-x", offsetX);
-			root.style.setProperty("--mascot-dock-y", offsetY);
-		};
-
-		const clearDockOffset = () => {
-			setDockOffset("");
 		};
 
 		const getPanelSize = () => ({
@@ -359,7 +323,6 @@ const expressionNames = [
 			);
 
 			let restoredPosition = fallback;
-			let restoredEdge = "";
 
 			try {
 				const storedPosition = localStorage.getItem(positionStorageKey);
@@ -373,15 +336,11 @@ const expressionNames = [
 						restoredPosition = clampPosition(parsed.x, parsed.y);
 					}
 				}
-				restoredEdge = localStorage.getItem(dockStorageKey) || "";
 			} catch (_error) {
 				restoredPosition = fallback;
-				restoredEdge = "";
 			}
 
 			applyPosition(restoredPosition.x, restoredPosition.y);
-			state.dockedEdge = restoredEdge;
-			setDockOffset(restoredEdge);
 		};
 
 		const scriptCache =
@@ -453,7 +412,6 @@ const expressionNames = [
 
 			const nextPosition = clampPosition(state.position.x, state.position.y);
 			applyPosition(nextPosition.x, nextPosition.y);
-			setDockOffset(state.dockedEdge);
 			persistPlacement();
 		};
 
@@ -495,55 +453,34 @@ const expressionNames = [
 			}, expressionIntervalMs);
 		};
 
-		const dockToNearestEdge = () => {
-			if (!state.position) {
-				return;
+		const isPointInsideRect = (x, y, rect) =>
+			x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+
+		const handOffToMusicControl = (event) => {
+			const musicLaunchButton = document.getElementById(
+				"background-music-drawer-toggle",
+			);
+			if (!(musicLaunchButton instanceof HTMLButtonElement)) {
+				return false;
 			}
 
-			const size = getPanelSize();
-			const distances = {
-				left: state.position.x,
-				right: window.innerWidth - (state.position.x + size.width),
-				top: state.position.y,
-				bottom: window.innerHeight - (state.position.y + size.height),
-			};
-
-			let nearestEdge = "";
-			let nearestDistance = Number.POSITIVE_INFINITY;
-			for (const [edge, distance] of Object.entries(distances)) {
-				if (distance < nearestDistance) {
-					nearestEdge = edge;
-					nearestDistance = distance;
-				}
+			const rect = musicLaunchButton.getBoundingClientRect();
+			if (!isPointInsideRect(event.clientX, event.clientY, rect)) {
+				return false;
 			}
 
-			if (nearestDistance > dockThreshold) {
-				state.dockedEdge = "";
-				clearDockOffset();
-				persistPlacement();
-				return;
-			}
-
-			let nextX = state.position.x;
-			let nextY = state.position.y;
-			if (nearestEdge === "left") {
-				nextX = viewportPadding;
-			} else if (nearestEdge === "right") {
-				nextX = window.innerWidth - size.width - viewportPadding;
-			} else if (nearestEdge === "top") {
-				nextY = viewportPadding;
-			} else if (nearestEdge === "bottom") {
-				nextY = window.innerHeight - size.height - viewportPadding;
-			}
-
-			applyPosition(nextX, nextY);
-			state.dockedEdge = nearestEdge;
-			setDockOffset(nearestEdge);
-			persistPlacement();
+			event.preventDefault();
+			event.stopPropagation();
+			musicLaunchButton.click();
+			return true;
 		};
 
 		const beginDrag = (event) => {
 			if (!(event instanceof PointerEvent)) {
+				return;
+			}
+
+			if (handOffToMusicControl(event)) {
 				return;
 			}
 
@@ -553,9 +490,6 @@ const expressionNames = [
 			state.dragOriginX = state.position?.x || 0;
 			state.dragOriginY = state.position?.y || 0;
 			state.dragMoved = false;
-			root.classList.add("is-dragging");
-			state.dockedEdge = "";
-			clearDockOffset();
 			canvas.setPointerCapture?.(event.pointerId);
 		};
 
@@ -579,12 +513,11 @@ const expressionNames = [
 			}
 
 			canvas.releasePointerCapture?.(event.pointerId);
-			root.classList.remove("is-dragging");
 			const wasDrag = state.dragMoved;
 			state.dragPointerId = null;
 
 			if (wasDrag) {
-				dockToNearestEdge();
+				persistPlacement();
 				return;
 			}
 
@@ -656,7 +589,6 @@ const expressionNames = [
 		canvas.addEventListener("pointerup", endDrag);
 		canvas.addEventListener("pointercancel", endDrag);
 		canvas.addEventListener("lostpointercapture", () => {
-			root.classList.remove("is-dragging");
 			state.dragPointerId = null;
 		});
 
