@@ -29,6 +29,64 @@ export const siteConfig: SiteConfig = {
 		enable: true, // Display the table of contents on the right side of the post
 		depth: 2, // Maximum heading depth to show in the table, from 1 to 3
 	},
+	backgroundMusic: {
+		enable: true,
+		title: "Music",
+		autoplay: true,
+		loop: true,
+		defaultTrackId: "ev-music-1-part-01",
+		tracks: [
+			{
+				id: "ev-music-1-part-01",
+				title: "Music 1 / Part 01",
+				artist: "EV Music 1",
+				group: "music-1",
+				src: "/audio/background/ev-music-1-part-01.m4a",
+			},
+			{
+				id: "ev-music-2-part-01",
+				title: "Music 2 / Part 01",
+				artist: "EV Music 2",
+				group: "music-2",
+				src: "/audio/background/ev-music-2-part-01.m4a",
+			},
+			{
+				id: "ev-music-1-part-02",
+				title: "Music 1 / Part 02",
+				artist: "EV Music 1",
+				group: "music-1",
+				src: "/audio/background/ev-music-1-part-02.m4a",
+			},
+			{
+				id: "ev-music-2-part-02",
+				title: "Music 2 / Part 02",
+				artist: "EV Music 2",
+				group: "music-2",
+				src: "/audio/background/ev-music-2-part-02.m4a",
+			},
+			{
+				id: "ev-music-1-part-03",
+				title: "Music 1 / Part 03",
+				artist: "EV Music 1",
+				group: "music-1",
+				src: "/audio/background/ev-music-1-part-03.m4a",
+			},
+			{
+				id: "ev-music-2-part-03",
+				title: "Music 2 / Part 03",
+				artist: "EV Music 2",
+				group: "music-2",
+				src: "/audio/background/ev-music-2-part-03.m4a",
+			},
+			{
+				id: "ev-music-2-part-04",
+				title: "Music 2 / Part 04",
+				artist: "EV Music 2",
+				group: "music-2",
+				src: "/audio/background/ev-music-2-part-04.m4a",
+			},
+		],
+	},
 	favicon: [
 		// Leave this array empty to use the default favicon
 		// {

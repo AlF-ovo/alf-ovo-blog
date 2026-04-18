@@ -34,8 +34,24 @@ export type SiteConfig = {
 		enable: boolean;
 		depth: 1 | 2 | 3;
 	};
+	backgroundMusic: {
+		enable: boolean;
+		title: string;
+		autoplay: boolean;
+		loop: boolean;
+		defaultTrackId?: string;
+		tracks: BackgroundMusicTrack[];
+	};
 
 	favicon: Favicon[];
+};
+
+export type BackgroundMusicTrack = {
+	id: string;
+	title: string;
+	artist?: string;
+	group?: string;
+	src: string;
 };
 
 export type Favicon = {

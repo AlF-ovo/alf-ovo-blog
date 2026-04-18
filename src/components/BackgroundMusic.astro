@@ -1,0 +1,655 @@
+---
+import { Icon } from "astro-icon/components";
+import { siteConfig } from "../config";
+import { url } from "../utils/url-utils";
+
+const playerId = "background-music-player";
+const audioId = "background-music-audio";
+const toggleId = "background-music-toggle";
+const statusId = "background-music-status";
+const listId = "background-music-list";
+const drawerId = "background-music-drawer";
+const drawerToggleId = "background-music-drawer-toggle";
+
+const backgroundMusic = siteConfig.backgroundMusic;
+const normalizedTracks = backgroundMusic.tracks.map((track) => {
+	const rawSrc = track.src.trim();
+	const isRemoteSrc = /^(?:[a-z]+:)?\/\//i.test(rawSrc);
+	const src = !rawSrc
+		? ""
+		: isRemoteSrc
+			? rawSrc
+			: url(`/${rawSrc.replace(/^\/+/, "")}`);
+
+	return {
+		...track,
+		src,
+		group: track.group?.trim() || track.id,
+		hasSource: src.length > 0,
+	};
+});
+
+const defaultTrack =
+	normalizedTracks.find((track) => track.id === backgroundMusic.defaultTrackId) ??
+	normalizedTracks[0] ??
+	null;
+---
+
+{
+	backgroundMusic.enable && (
+		<div
+			id={playerId}
+			class="background-music-player"
+			data-autoplay={backgroundMusic.autoplay ? "true" : "false"}
+			data-default-track-id={defaultTrack?.id ?? ""}
+			data-playlist-loop={backgroundMusic.loop ? "true" : "false"}
+			data-storage-key="background-music:selected-track"
+			data-playing-key="background-music:playing"
+		>
+			<audio id={audioId} preload={defaultTrack?.hasSource ? "metadata" : "none"} playsinline></audio>
+
+			<button
+				id={drawerToggleId}
+				type="button"
+				class="background-music-launch"
+				aria-label="Open music panel"
+				aria-controls={drawerId}
+				aria-expanded="false"
+			>
+				<Icon name="fa6-solid:music" />
+			</button>
+
+			<div id={drawerId} class="background-music-drawer" hidden>
+				<div class="background-music-drawer-head">
+					<p class="background-music-heading">{backgroundMusic.title}</p>
+					<p class="background-music-subheading">Random playback alternates between Music 1 and Music 2</p>
+				</div>
+
+				<button
+					id={toggleId}
+					type="button"
+					class="background-music-toggle"
+					aria-label="Toggle background music"
+					aria-pressed="false"
+					disabled={normalizedTracks.length === 0}
+				>
+					<span class="background-music-icon background-music-icon-play" aria-hidden="true">
+						<Icon name="fa6-solid:play" />
+					</span>
+					<span class="background-music-icon background-music-icon-pause" aria-hidden="true">
+						<Icon name="fa6-solid:pause" />
+					</span>
+					<span class="background-music-copy">
+						<span class="background-music-title">{backgroundMusic.title}</span>
+						<span id={statusId} class="background-music-status">
+							{normalizedTracks.length > 0 ? "Autoplay enabled" : "No tracks configured"}
+						</span>
+					</span>
+				</button>
+
+				<div id={listId} class="background-music-track-list" role="listbox" aria-label="Background music tracks">
+					{normalizedTracks.length > 0 ? (
+						normalizedTracks.map((track) => (
+							<button
+								type="button"
+								class:list={["background-music-track", { "is-unavailable": !track.hasSource }]}
+								role="option"
+								data-track-id={track.id}
+								data-track-src={track.src}
+								data-track-title={track.title}
+								data-track-artist={track.artist ?? ""}
+								data-track-group={track.group}
+								aria-selected="false"
+								disabled={!track.hasSource}
+							>
+								<span class="background-music-track-copy">
+									<span class="background-music-track-title">{track.title}</span>
+									<span class="background-music-track-meta">
+										{track.artist ? track.artist : track.hasSource ? "Ready to play" : "Source not configured"}
+									</span>
+								</span>
+								<span class="background-music-track-icon" aria-hidden="true">
+									<Icon name="fa6-solid:wave-square" />
+								</span>
+							</button>
+						))
+					) : (
+						<div class="background-music-empty">Add confirmed songs in src/config.ts.</div>
+					)}
+				</div>
+			</div>
+		</div>
+	)
+}
+
+<style lang="stylus">
+.background-music-player
+	position: fixed
+	right: 0.85rem
+	bottom: 1rem
+	z-index: 95
+	display: flex
+	align-items: flex-end
+
+	@media (min-width: 1024px)
+		bottom: 1.25rem
+
+.background-music-toggle,
+.background-music-launch
+	display: inline-flex
+	align-items: center
+	border: 1px solid rgba(15, 23, 42, 0.08)
+	background: unquote("color-mix(in oklab, var(--card-bg) 92%, white 8%)")
+	box-shadow: 0 18px 45px rgba(15, 23, 42, 0.14)
+	backdrop-filter: blur(14px)
+	color: var(--primary)
+	transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease, opacity 180ms ease
+
+	:global(.dark) &
+		border-color: rgba(255, 255, 255, 0.12)
+		background: unquote("color-mix(in oklab, var(--card-bg) 86%, black 14%)")
+		box-shadow: 0 18px 45px rgba(0, 0, 0, 0.28)
+
+	&:hover:not(:disabled)
+		transform: translateY(-2px)
+		box-shadow: 0 22px 50px rgba(15, 23, 42, 0.18)
+
+	&:disabled
+		cursor: not-allowed
+		opacity: 0.72
+
+.background-music-toggle
+	gap: 0.85rem
+	width: 100%
+	padding: 0.8rem 1rem
+	border-radius: 1.1rem
+
+.background-music-launch
+	width: 3.25rem
+	height: 3.25rem
+	justify-content: center
+	border-radius: 1rem
+
+	:global(svg)
+		width: 1rem
+		height: 1rem
+
+.background-music-icon
+	width: 2.5rem
+	height: 2.5rem
+	border-radius: 999px
+	display: inline-flex
+	align-items: center
+	justify-content: center
+	background: unquote("color-mix(in oklab, var(--primary) 14%, transparent)")
+	flex-shrink: 0
+
+	:global(svg)
+		width: 0.95rem
+		height: 0.95rem
+
+.background-music-copy
+	display: flex
+	flex-direction: column
+	min-width: 0
+	text-align: left
+
+.background-music-title
+	font-size: 0.92rem
+	font-weight: 700
+	line-height: 1.2
+	color: var(--primary)
+	white-space: nowrap
+	overflow: hidden
+	text-overflow: ellipsis
+
+.background-music-status
+	font-size: 0.78rem
+	line-height: 1.2
+	color: var(--btn-content)
+	opacity: 0.8
+	margin-top: 0.18rem
+
+.background-music-toggle.is-playing
+	.background-music-icon-play
+		display: none
+
+.background-music-toggle:not(.is-playing)
+	.background-music-icon-pause
+		display: none
+
+.background-music-drawer
+	width: unquote("min(22rem, calc(100vw - 1.7rem))")
+	padding: 1rem
+	border-radius: 1.25rem
+	border: 1px solid rgba(15, 23, 42, 0.08)
+	background: unquote("color-mix(in oklab, var(--card-bg) 94%, white 6%)")
+	box-shadow: 0 24px 60px rgba(15, 23, 42, 0.18)
+	backdrop-filter: blur(18px)
+
+	:global(.dark) &
+		border-color: rgba(255, 255, 255, 0.12)
+		background: unquote("color-mix(in oklab, var(--card-bg) 88%, black 12%)")
+		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.34)
+
+	position: absolute
+	right: 0
+	bottom: calc(100% + 0.75rem)
+
+.background-music-drawer-head
+	margin-bottom: 0.85rem
+
+.background-music-heading
+	margin: 0
+	font-size: 0.95rem
+	font-weight: 700
+	color: var(--primary)
+
+.background-music-subheading
+	margin: 0.22rem 0 0
+	font-size: 0.78rem
+	color: var(--btn-content)
+	opacity: 0.8
+
+.background-music-track-list
+	display: flex
+	flex-direction: column
+	gap: 0.55rem
+	max-height: unquote("min(22rem, 48vh)")
+	margin-top: 0.75rem
+	overflow: auto
+
+.background-music-track
+	display: flex
+	align-items: center
+	justify-content: space-between
+	gap: 0.75rem
+	width: 100%
+	padding: 0.82rem 0.9rem
+	border: 1px solid rgba(15, 23, 42, 0.06)
+	border-radius: 1rem
+	background: unquote("color-mix(in oklab, var(--card-bg) 82%, white 18%)")
+	text-align: left
+	transition: transform 160ms ease, border-color 160ms ease, background 160ms ease
+
+	:global(.dark) &
+		border-color: rgba(255, 255, 255, 0.08)
+		background: unquote("color-mix(in oklab, var(--card-bg) 90%, black 10%)")
+
+	&:hover:not(:disabled)
+		transform: translateX(-2px)
+		border-color: unquote("color-mix(in oklab, var(--primary) 30%, transparent)")
+
+	&[aria-selected="true"]
+		border-color: unquote("color-mix(in oklab, var(--primary) 58%, transparent)")
+		background: unquote("color-mix(in oklab, var(--primary) 12%, var(--card-bg))")
+
+	&:disabled
+		cursor: not-allowed
+		opacity: 0.56
+
+.background-music-track-copy
+	display: flex
+	flex-direction: column
+	min-width: 0
+
+.background-music-track-title
+	font-size: 0.9rem
+	font-weight: 600
+	color: var(--primary)
+	white-space: nowrap
+	overflow: hidden
+	text-overflow: ellipsis
+
+.background-music-track-meta
+	margin-top: 0.18rem
+	font-size: 0.77rem
+	color: var(--btn-content)
+	opacity: 0.8
+
+.background-music-track-icon
+	display: inline-flex
+	align-items: center
+	justify-content: center
+	flex-shrink: 0
+	color: var(--primary)
+
+	:global(svg)
+		width: 0.9rem
+		height: 0.9rem
+
+.background-music-empty
+	padding: 0.9rem 0.95rem
+	border-radius: 1rem
+	background: unquote("color-mix(in oklab, var(--card-bg) 82%, white 18%)")
+	font-size: 0.82rem
+	line-height: 1.5
+	color: var(--btn-content)
+	white-space: pre-line
+</style>
+
+<script is:inline>
+	const playerId = "background-music-player";
+	const audioId = "background-music-audio";
+	const toggleId = "background-music-toggle";
+	const statusId = "background-music-status";
+	const listId = "background-music-list";
+	const drawerId = "background-music-drawer";
+	const drawerToggleId = "background-music-drawer-toggle";
+
+	const initBackgroundMusic = () => {
+		const root = document.getElementById(playerId);
+		const audio = document.getElementById(audioId);
+		const toggle = document.getElementById(toggleId);
+		const status = document.getElementById(statusId);
+		const trackList = document.getElementById(listId);
+		const drawer = document.getElementById(drawerId);
+		const drawerToggle = document.getElementById(drawerToggleId);
+
+		if (
+			!(root instanceof HTMLElement) ||
+			!(audio instanceof HTMLAudioElement) ||
+			!(toggle instanceof HTMLButtonElement) ||
+			!(status instanceof HTMLElement) ||
+			!(trackList instanceof HTMLElement) ||
+			!(drawer instanceof HTMLElement) ||
+			!(drawerToggle instanceof HTMLButtonElement)
+		) {
+			return;
+		}
+
+		if (root.dataset.initialized === "true") {
+			return;
+		}
+		root.dataset.initialized = "true";
+
+		const selectionKey = root.dataset.storageKey || "background-music:selected-track";
+		const playingKey = root.dataset.playingKey || "background-music:playing";
+		const defaultTrackId = root.dataset.defaultTrackId || "";
+		const playlistLoop = root.dataset.playlistLoop !== "false";
+		const shouldAutoplay = root.dataset.autoplay === "true";
+		const trackButtons = Array.from(trackList.querySelectorAll("[data-track-id]")).filter(
+			(button) => button instanceof HTMLButtonElement,
+		);
+		const availableTrackButtons = trackButtons.filter(
+			(button) => Boolean(button.dataset.trackSrc),
+		);
+		let currentButton = null;
+		let isTrackSwitching = false;
+		let autoplayBlocked = false;
+		let unlockEventsBound = false;
+
+		const getRememberedValue = (key) => {
+			try {
+				return localStorage.getItem(key);
+			} catch {
+				return null;
+			}
+		};
+
+		const setRememberedValue = (key, value) => {
+			try {
+				localStorage.setItem(key, value);
+			} catch {
+				// Ignore storage errors and keep the player usable.
+			}
+		};
+
+		const getTrackData = (button) => {
+			if (!button) {
+				return null;
+			}
+
+			return {
+				id: button.dataset.trackId || "",
+				src: button.dataset.trackSrc || "",
+				title: button.dataset.trackTitle || "Untitled",
+				artist: button.dataset.trackArtist?.trim() || "",
+				group: button.dataset.trackGroup?.trim() || "",
+			};
+		};
+
+		const setStatusFromTrack = (track) => {
+			if (!track) {
+				return;
+			}
+			status.textContent = track.artist ? `${track.title} · ${track.artist}` : track.title;
+		};
+
+		const pickRandomButton = (buttons) => {
+			if (buttons.length === 0) {
+				return null;
+			}
+
+			return buttons[Math.floor(Math.random() * buttons.length)] || null;
+		};
+
+		const pickNextRandomButton = (fromButton) => {
+			if (availableTrackButtons.length === 0) {
+				return null;
+			}
+
+			const currentGroup = fromButton?.dataset.trackGroup?.trim() || "";
+			let candidates = availableTrackButtons.filter((button) => {
+				if (button === fromButton && availableTrackButtons.length > 1) {
+					return false;
+				}
+
+				if (!currentGroup) {
+					return true;
+				}
+
+				return (button.dataset.trackGroup?.trim() || "") !== currentGroup;
+			});
+
+			if (candidates.length === 0) {
+				candidates = availableTrackButtons.filter(
+					(button) => button !== fromButton || availableTrackButtons.length === 1,
+				);
+			}
+
+			return pickRandomButton(candidates);
+		};
+
+		const updateTrackSelection = (selectedButton) => {
+			for (const button of trackButtons) {
+				button.setAttribute(
+					"aria-selected",
+					button === selectedButton ? "true" : "false",
+				);
+			}
+
+			if (!selectedButton) {
+				currentButton = null;
+				toggle.disabled = true;
+				status.textContent = "No verified tracks yet";
+				audio.removeAttribute("src");
+				audio.load();
+				return null;
+			}
+
+			const track = getTrackData(selectedButton);
+			if (!track) {
+				return null;
+			}
+
+			currentButton = selectedButton;
+			isTrackSwitching = true;
+			audio.src = track.src;
+			audio.muted = false;
+			audio.volume = 1;
+			audio.load();
+			queueMicrotask(() => {
+				isTrackSwitching = false;
+			});
+			toggle.disabled = !track.src;
+			setStatusFromTrack(track);
+			setRememberedValue(selectionKey, track.id);
+			return track;
+		};
+
+		const updatePlaybackUi = (isPlaying) => {
+			toggle.classList.toggle("is-playing", isPlaying);
+			toggle.setAttribute("aria-pressed", isPlaying ? "true" : "false");
+			setRememberedValue(playingKey, isPlaying ? "playing" : "paused");
+		};
+
+		const closeDrawer = () => {
+			drawer.hidden = true;
+			drawerToggle.setAttribute("aria-expanded", "false");
+		};
+
+		const openDrawer = () => {
+			drawer.hidden = false;
+			drawerToggle.setAttribute("aria-expanded", "true");
+		};
+
+		const removeUnlockEvents = () => {
+			document.removeEventListener("pointerdown", handleAutoplayUnlock, true);
+			document.removeEventListener("keydown", handleAutoplayUnlock, true);
+			unlockEventsBound = false;
+		};
+
+		const playCurrentTrack = async (fromAutoplay = false) => {
+			if (!audio.src) {
+				return false;
+			}
+
+			try {
+				audio.muted = false;
+				audio.volume = 1;
+				await audio.play();
+				autoplayBlocked = false;
+				setStatusFromTrack(getTrackData(currentButton));
+				removeUnlockEvents();
+				return true;
+			} catch {
+				if (fromAutoplay) {
+					autoplayBlocked = true;
+					status.textContent = "Autoplay blocked, tap anywhere";
+					if (!unlockEventsBound) {
+						document.addEventListener("pointerdown", handleAutoplayUnlock, true);
+						document.addEventListener("keydown", handleAutoplayUnlock, true);
+						unlockEventsBound = true;
+					}
+				} else {
+					updatePlaybackUi(false);
+				}
+				return false;
+			}
+		};
+
+		async function handleAutoplayUnlock() {
+			if (!autoplayBlocked) {
+				removeUnlockEvents();
+				return;
+			}
+
+			await playCurrentTrack(false);
+		}
+
+		const rememberedTrackId = getRememberedValue(selectionKey);
+		const initialButton =
+			availableTrackButtons.find((button) => button.dataset.trackId === rememberedTrackId) ||
+			availableTrackButtons.find((button) => button.dataset.trackId === defaultTrackId) ||
+			pickRandomButton(availableTrackButtons) ||
+			trackButtons[0] ||
+			null;
+
+		updateTrackSelection(initialButton);
+		updatePlaybackUi(false);
+
+		drawerToggle.addEventListener("click", () => {
+			if (drawer.hidden) {
+				openDrawer();
+			} else {
+				closeDrawer();
+			}
+		});
+
+		document.addEventListener("click", (event) => {
+			const target = event.target;
+			if (!(target instanceof Node)) {
+				return;
+			}
+			if (root.contains(target)) {
+				return;
+			}
+			closeDrawer();
+		});
+
+		for (const button of trackButtons) {
+			button.addEventListener("click", async () => {
+				const wasPlaying = !audio.paused;
+				const selection = updateTrackSelection(button);
+				closeDrawer();
+
+				if (!selection?.src) {
+					return;
+				}
+
+				if (wasPlaying || shouldAutoplay) {
+					await playCurrentTrack(false);
+				}
+			});
+		}
+
+		toggle.addEventListener("click", async () => {
+			if (!audio.src) {
+				return;
+			}
+
+			if (audio.paused) {
+				await playCurrentTrack(false);
+			} else {
+				autoplayBlocked = false;
+				removeUnlockEvents();
+				audio.pause();
+			}
+		});
+
+		audio.addEventListener("play", () => {
+			updatePlaybackUi(true);
+		});
+
+		audio.addEventListener("pause", () => {
+			if (audio.ended || isTrackSwitching) {
+				return;
+			}
+			updatePlaybackUi(false);
+		});
+
+		audio.addEventListener("ended", async () => {
+			if (!playlistLoop) {
+				updatePlaybackUi(false);
+				return;
+			}
+
+			const nextButton = pickNextRandomButton(currentButton);
+			const nextTrack = updateTrackSelection(nextButton);
+
+			if (!nextTrack?.src) {
+				updatePlaybackUi(false);
+				return;
+			}
+
+			await playCurrentTrack(false);
+		});
+
+		audio.addEventListener("error", () => {
+			updatePlaybackUi(false);
+			status.textContent = "Audio failed to load";
+		});
+
+		const rememberedPlayState = getRememberedValue(playingKey);
+		if (shouldAutoplay || rememberedPlayState === "playing") {
+			void playCurrentTrack(shouldAutoplay);
+		}
+	};
+
+	if (document.readyState === "loading") {
+		document.addEventListener("DOMContentLoaded", initBackgroundMusic, { once: true });
+	} else {
+		initBackgroundMusic();
+	}
+</script>
