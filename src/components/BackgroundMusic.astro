@@ -336,6 +336,7 @@ const defaultTrack =
 	const listId = "background-music-list";
 	const drawerId = "background-music-drawer";
 	const drawerToggleId = "background-music-drawer-toggle";
+	const defaultVolume = 0.25;
 
 	const initBackgroundMusic = () => {
 		const root = document.getElementById(playerId);
@@ -477,7 +478,7 @@ const defaultTrack =
 			isTrackSwitching = true;
 			audio.src = track.src;
 			audio.muted = false;
-			audio.volume = 1;
+			audio.volume = defaultVolume;
 			audio.load();
 			queueMicrotask(() => {
 				isTrackSwitching = false;
@@ -517,7 +518,7 @@ const defaultTrack =
 
 			try {
 				audio.muted = false;
-				audio.volume = 1;
+				audio.volume = defaultVolume;
 				await audio.play();
 				autoplayBlocked = false;
 				setStatusFromTrack(getTrackData(currentButton));
