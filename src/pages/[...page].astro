@@ -5,8 +5,33 @@ import PostPage from "../components/PostPage.astro";
 import { PAGE_SIZE } from "../constants/constants";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import { getSortedPosts } from "../utils/content-utils";
+import { hasMarkdownPostsOnDisk } from "../utils/post-files";
 
 export const getStaticPaths = (async ({ paginate }) => {
+	if (!hasMarkdownPostsOnDisk()) {
+		return [
+			{
+				params: { page: undefined },
+				props: {
+					page: {
+						data: [],
+						start: 0,
+						end: 0,
+						size: PAGE_SIZE,
+						total: 0,
+						currentPage: 1,
+						lastPage: 1,
+						url: {
+							current: "/",
+							prev: undefined,
+							next: undefined,
+						},
+					},
+				},
+			},
+		];
+	}
+
 	const allBlogPosts = await getSortedPosts();
 	return paginate(allBlogPosts, { pageSize: PAGE_SIZE });
 }) satisfies GetStaticPaths;
@@ -18,8 +43,17 @@ const len = page.data.length;
 ---
 
 <MainGridLayout>
-    <PostPage page={page}></PostPage>
-    <Pagination class="mx-auto onload-animation" page={page} style={`animation-delay: calc(var(--content-delay) + ${(len)*50}ms)`}></Pagination>
+    {len > 0 ? (
+        <>
+            <PostPage page={page}></PostPage>
+            <Pagination class="mx-auto onload-animation" page={page} style={`animation-delay: calc(var(--content-delay) + ${len * 50}ms)`}></Pagination>
+        </>
+    ) : (
+        <section class="card-base mx-auto mb-4 w-full rounded-[var(--radius-large)] px-8 py-10 text-center onload-animation">
+            <h1 class="mb-3 text-2xl font-bold text-black/85 dark:text-white/85">暂无文章</h1>
+            <p class="text-black/55 dark:text-white/55">这个博客的文章列表已经清空。</p>
+        </section>
+    )}
 </MainGridLayout>
 
 <script is:inline>
