@@ -95,13 +95,14 @@ const expressionNames = [
 
 	.live2d-mascot__panel {
 		position: relative;
-		width: clamp(11rem, 16vw, 16rem);
+		width: calc(clamp(11rem, 16vw, 16rem) * var(--live2d-scale, 1));
 		aspect-ratio: 32 / 42;
 		background: transparent;
 		border: 0;
 		box-shadow: none;
 		overflow: visible;
 		pointer-events: none;
+		transition: width 180ms ease;
 	}
 
 	.live2d-mascot__status {
@@ -140,8 +141,8 @@ const expressionNames = [
 
 	.live2d-mascot__close {
 		position: absolute;
-		top: 0.15rem;
-		right: 0.15rem;
+		top: 1.35rem;
+		right: 1rem;
 		z-index: 3;
 		display: inline-flex;
 		align-items: center;
@@ -190,7 +191,7 @@ const expressionNames = [
 
 	@media (max-width: 1023px) {
 		.live2d-mascot__panel {
-			width: clamp(8.5rem, 30vw, 11rem);
+			width: calc(clamp(8.5rem, 30vw, 11rem) * var(--live2d-scale, 1));
 		}
 
 		.live2d-mascot__status {
@@ -198,8 +199,8 @@ const expressionNames = [
 		}
 
 		.live2d-mascot__close {
-			top: 0.1rem;
-			right: 0.1rem;
+			top: 0.95rem;
+			right: 0.7rem;
 		}
 	}
 
@@ -580,10 +581,13 @@ const expressionNames = [
 			return state.initPromise;
 		};
 
-		window.addEventListener("resize", () => {
+		const handleViewportResize = () => {
 			fitModel();
 			updatePlacementForViewport();
-		});
+		};
+
+		window.addEventListener("resize", handleViewportResize);
+		window.addEventListener("alf:live2d-resize", handleViewportResize);
 		canvas.addEventListener("pointerdown", beginDrag);
 		canvas.addEventListener("pointermove", handleDragMove);
 		canvas.addEventListener("pointerup", endDrag);
