@@ -145,9 +145,9 @@ const bannerOffset =
 			};
 
 			const wallpaperOpacity = parseClampedNumber(
-				localStorage.getItem('system:wallpaper-opacity'),
-				0.9,
-				0.2,
+				localStorage.getItem('system:foreground-opacity'),
+				0.56,
+				0.3,
 				1,
 			);
 			const mascotScale = parseClampedNumber(
@@ -156,8 +156,8 @@ const bannerOffset =
 				0.6,
 				1.5,
 			);
-			document.documentElement.style.setProperty('--system-wallpaper-opacity', `${wallpaperOpacity}`);
-			document.documentElement.style.setProperty('--system-foreground-opacity', '0.56');
+			document.documentElement.style.setProperty('--system-wallpaper-opacity', '1');
+			document.documentElement.style.setProperty('--system-foreground-opacity', `${wallpaperOpacity}`);
 			document.documentElement.style.setProperty('--live2d-scale', `${mascotScale}`);
 
 			// calculate the --banner-height-extend, which needs to be a multiple of 4 to avoid blurry text

@@ -12,8 +12,8 @@ const drawerId = "background-music-drawer";
 const drawerToggleId = "background-music-drawer-toggle";
 const volumeId = "background-music-volume";
 const volumeValueId = "background-music-volume-value";
-const wallpaperOpacityId = "system-wallpaper-opacity";
-const wallpaperOpacityValueId = "system-wallpaper-opacity-value";
+const foregroundOpacityId = "system-foreground-opacity";
+const foregroundOpacityValueId = "system-foreground-opacity-value";
 const mascotScaleId = "live2d-mascot-scale";
 const mascotScaleValueId = "live2d-mascot-scale-value";
 
@@ -52,10 +52,10 @@ const defaultTrack =
 			data-storage-key="background-music:selected-track"
 			data-playing-key="background-music:playing"
 			data-volume-key="background-music:volume"
-			data-wallpaper-opacity-key="system:wallpaper-opacity"
+			data-foreground-opacity-key="system:foreground-opacity"
 			data-mascot-scale-key="system:mascot-scale"
 			data-default-volume="0.24"
-			data-default-wallpaper-opacity="0.9"
+			data-default-foreground-opacity="0.56"
 			data-default-mascot-scale="1"
 		>
 			<audio id={audioId} preload={defaultTrack?.hasSource ? "metadata" : "none"} playsinline></audio>
@@ -70,10 +70,6 @@ const defaultTrack =
 			>
 				<span class="system-control-launch__icon" aria-hidden="true">
 					<Icon name="fa6-solid:sliders" />
-				</span>
-				<span class="system-control-launch__copy">
-					<span class="system-control-launch__title">System</span>
-					<span class="system-control-launch__meta">Wallpaper + Music</span>
 				</span>
 			</button>
 
@@ -109,19 +105,19 @@ const defaultTrack =
 					<div class="system-control-section__row">
 						<div>
 							<p class="system-control-section__title">Wallpaper opacity</p>
-							<p class="system-control-section__copy">Make the desktop wallpaper stronger or softer behind the site.</p>
+							<p class="system-control-section__copy">Adjust the transparency of the foreground UI while the wallpaper stays fully visible.</p>
 						</div>
-						<span id={wallpaperOpacityValueId} class="system-control-value">90%</span>
+						<span id={foregroundOpacityValueId} class="system-control-value">56%</span>
 					</div>
 					<input
-						id={wallpaperOpacityId}
+						id={foregroundOpacityId}
 						class="system-control-slider"
 						type="range"
-						min="20"
+						min="30"
 						max="100"
 						step="1"
-						value="90"
-						aria-label="Wallpaper opacity"
+						value="56"
+						aria-label="Foreground opacity"
 					/>
 				</div>
 
@@ -217,6 +213,8 @@ const defaultTrack =
 		z-index: 95;
 		display: flex;
 		align-items: flex-end;
+		opacity: var(--system-foreground-opacity, 0.56);
+		transition: opacity 180ms ease;
 	}
 
 	.system-control-launch,
@@ -246,10 +244,11 @@ const defaultTrack =
 	.system-control-launch {
 		display: inline-flex;
 		align-items: center;
-		gap: 0.8rem;
-		padding: 0.8rem 0.95rem;
+		justify-content: center;
+		width: 3.25rem;
+		height: 3.25rem;
+		padding: 0;
 		border-radius: 1.15rem;
-		text-align: left;
 	}
 
 	.system-control-launch__icon {
@@ -267,26 +266,6 @@ const defaultTrack =
 	.system-control-launch__icon :global(svg) {
 		width: 1rem;
 		height: 1rem;
-	}
-
-	.system-control-launch__copy {
-		display: flex;
-		flex-direction: column;
-		min-width: 0;
-	}
-
-	.system-control-launch__title {
-		font-size: 0.86rem;
-		font-weight: 700;
-		line-height: 1.1;
-		color: rgba(248, 250, 252, 0.96);
-	}
-
-	.system-control-launch__meta {
-		margin-top: 0.2rem;
-		font-size: 0.74rem;
-		line-height: 1.2;
-		color: rgba(226, 232, 240, 0.66);
 	}
 
 	.system-control-drawer {
@@ -498,11 +477,8 @@ const defaultTrack =
 		}
 
 		.system-control-launch {
-			padding: 0.78rem 0.82rem;
-		}
-
-		.system-control-launch__meta {
-			display: none;
+			width: 3rem;
+			height: 3rem;
 		}
 
 		.system-control-drawer {
@@ -522,8 +498,8 @@ const defaultTrack =
 	const drawerToggleId = "background-music-drawer-toggle";
 	const volumeId = "background-music-volume";
 	const volumeValueId = "background-music-volume-value";
-	const wallpaperOpacityId = "system-wallpaper-opacity";
-	const wallpaperOpacityValueId = "system-wallpaper-opacity-value";
+	const foregroundOpacityId = "system-foreground-opacity";
+	const foregroundOpacityValueId = "system-foreground-opacity-value";
 	const mascotScaleId = "live2d-mascot-scale";
 	const mascotScaleValueId = "live2d-mascot-scale-value";
 
@@ -537,8 +513,8 @@ const defaultTrack =
 		const drawerToggle = document.getElementById(drawerToggleId);
 		const volumeInput = document.getElementById(volumeId);
 		const volumeValue = document.getElementById(volumeValueId);
-		const wallpaperOpacityInput = document.getElementById(wallpaperOpacityId);
-		const wallpaperOpacityValue = document.getElementById(wallpaperOpacityValueId);
+		const foregroundOpacityInput = document.getElementById(foregroundOpacityId);
+		const foregroundOpacityValue = document.getElementById(foregroundOpacityValueId);
 		const mascotScaleInput = document.getElementById(mascotScaleId);
 		const mascotScaleValue = document.getElementById(mascotScaleValueId);
 
@@ -552,8 +528,8 @@ const defaultTrack =
 			!(drawerToggle instanceof HTMLButtonElement) ||
 			!(volumeInput instanceof HTMLInputElement) ||
 			!(volumeValue instanceof HTMLElement) ||
-			!(wallpaperOpacityInput instanceof HTMLInputElement) ||
-			!(wallpaperOpacityValue instanceof HTMLElement) ||
+			!(foregroundOpacityInput instanceof HTMLInputElement) ||
+			!(foregroundOpacityValue instanceof HTMLElement) ||
 			!(mascotScaleInput instanceof HTMLInputElement) ||
 			!(mascotScaleValue instanceof HTMLElement)
 		) {
@@ -570,8 +546,8 @@ const defaultTrack =
 		const selectionKey = root.dataset.storageKey || "background-music:selected-track";
 		const playingKey = root.dataset.playingKey || "background-music:playing";
 		const volumeKey = root.dataset.volumeKey || "background-music:volume";
-		const wallpaperOpacityKey =
-			root.dataset.wallpaperOpacityKey || "system:wallpaper-opacity";
+		const foregroundOpacityKey =
+			root.dataset.foregroundOpacityKey || "system:foreground-opacity";
 		const mascotScaleKey =
 			root.dataset.mascotScaleKey || "system:mascot-scale";
 		const defaultTrackId = root.dataset.defaultTrackId || "";
@@ -582,9 +558,9 @@ const defaultTrack =
 			0,
 			1,
 		);
-		const defaultWallpaperOpacity = clamp(
-			Number.parseFloat(root.dataset.defaultWallpaperOpacity || "0.9") || 0.9,
-			0.2,
+		const defaultForegroundOpacity = clamp(
+			Number.parseFloat(root.dataset.defaultForegroundOpacity || "0.56") || 0.56,
+			0.3,
 			1,
 		);
 		const defaultMascotScale = clamp(
@@ -646,17 +622,21 @@ const defaultTrack =
 			status.textContent = track ? `${prefix} · ${getTrackLabel(track)}` : prefix;
 		};
 
-		const applyWallpaperOpacity = (nextOpacity, shouldPersist = true) => {
-			const normalizedOpacity = clamp(nextOpacity, 0.2, 1);
+		const applyForegroundOpacity = (nextOpacity, shouldPersist = true) => {
+			const normalizedOpacity = clamp(nextOpacity, 0.3, 1);
 			document.documentElement.style.setProperty(
 				"--system-wallpaper-opacity",
+				"1",
+			);
+			document.documentElement.style.setProperty(
+				"--system-foreground-opacity",
 				`${normalizedOpacity}`,
 			);
-			wallpaperOpacityInput.value = String(Math.round(normalizedOpacity * 100));
-			wallpaperOpacityValue.textContent = formatPercent(normalizedOpacity);
+			foregroundOpacityInput.value = String(Math.round(normalizedOpacity * 100));
+			foregroundOpacityValue.textContent = formatPercent(normalizedOpacity);
 
 			if (shouldPersist) {
-				setRememberedValue(wallpaperOpacityKey, String(normalizedOpacity));
+				setRememberedValue(foregroundOpacityKey, String(normalizedOpacity));
 			}
 		};
 
@@ -818,17 +798,17 @@ const defaultTrack =
 			await playCurrentTrack(false);
 		}
 
-		const rememberedWallpaperOpacity = Number.parseFloat(
-			getRememberedValue(wallpaperOpacityKey) || "",
+		const rememberedForegroundOpacity = Number.parseFloat(
+			getRememberedValue(foregroundOpacityKey) || "",
 		);
 		const rememberedVolume = Number.parseFloat(getRememberedValue(volumeKey) || "");
 		const rememberedMascotScale = Number.parseFloat(
 			getRememberedValue(mascotScaleKey) || "",
 		);
-		applyWallpaperOpacity(
-			Number.isFinite(rememberedWallpaperOpacity)
-				? rememberedWallpaperOpacity
-				: defaultWallpaperOpacity,
+		applyForegroundOpacity(
+			Number.isFinite(rememberedForegroundOpacity)
+				? rememberedForegroundOpacity
+				: defaultForegroundOpacity,
 			false,
 		);
 		applyVolume(Number.isFinite(rememberedVolume) ? rememberedVolume : defaultVolume, false);
@@ -871,8 +851,8 @@ const defaultTrack =
 			closeDrawer();
 		});
 
-		wallpaperOpacityInput.addEventListener("input", () => {
-			applyWallpaperOpacity(Number.parseFloat(wallpaperOpacityInput.value) / 100);
+		foregroundOpacityInput.addEventListener("input", () => {
+			applyForegroundOpacity(Number.parseFloat(foregroundOpacityInput.value) / 100);
 		});
 
 		volumeInput.addEventListener("input", () => {
