@@ -77,7 +77,9 @@ const formatDateTime = (date: Date) =>
 		hour12: false,
 	}).format(date);
 
-const getKindLabel = (collection: WrappedEntry["collection"]) =>
+const getKindLabel = (
+	collection: WrappedEntry["collection"],
+): DashboardRecentUpdate["kindLabel"] =>
 	collection === "notes" ? "笔记" : "文章";
 
 const toEntrySummary = (entry?: WrappedEntry): DashboardEntrySummary => {

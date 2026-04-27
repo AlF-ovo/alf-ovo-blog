@@ -66,6 +66,14 @@ const defaultRange = "week";
 const defaultDataset = chartDatasets[defaultRange];
 const defaultMetrics = getChartMetrics(defaultDataset.points);
 const defaultSummary = summarizeDataset(defaultDataset);
+const dashboardHeroQuotes = [
+	"风穿过旧终端，仍有人在废墟里点亮黎明。",
+	"长夜没有尽头，火种就是回答。",
+	"把沉默磨成刃，连阴影也会后退。",
+	"旧日志落满灰，新的星火还在继续编译。",
+	"如果世界太暗，就把自己活成那行未注释的光。",
+	"尘埃之下也有电流，寂静之中也能生长锋芒。",
+];
 
 const dashboardHints = {
 	write: {
@@ -127,8 +135,7 @@ const dashboardSearchItems = [
 		<div class="dashboard-main">
 			<DashboardTopbar profileName={profileConfig.name} />
 			<DashboardHero
-				greeting="这里是博客的内容总览，不再是模板示例。"
-				intro="它主要服务于当前这套写作方式：长文进文章流，短记录进札记流；分类负责一级归档，categoryPath 负责层级路径，series 负责系列聚合。"
+				greeting={`欢迎，${profileConfig.name}！`}
 			/>
 			<DashboardMetricsGrid metrics={dashboardMetrics} />
 
@@ -163,14 +170,9 @@ const dashboardSearchItems = [
 	<script id="dashboard-chart-data" type="application/json" is:inline set:html={JSON.stringify(chartDatasets)}></script>
 	<script id="dashboard-hint-data" type="application/json" is:inline set:html={JSON.stringify(dashboardHints)}></script>
 	<script id="dashboard-search-data" type="application/json" is:inline set:html={JSON.stringify(dashboardSearchItems)}></script>
+	<script id="dashboard-hero-quotes" type="application/json" is:inline set:html={JSON.stringify(dashboardHeroQuotes)}></script>
 
 	<script is:inline>
-		const chartPalette = {
-			publish: { line: "rgb(59, 130, 246)", area: "rgba(59, 130, 246, 0.12)" },
-			update: { line: "rgb(14, 165, 233)", area: "rgba(14, 165, 233, 0.12)" },
-			delete: { line: "rgb(245, 158, 11)", area: "rgba(245, 158, 11, 0.12)" },
-		};
-
 		const buildMetrics = (points) => {
 			const maxTotal = Math.max(...points.map((point) => point.publish + point.update + point.delete), 1);
 			const denominator = Math.max(points.length - 1, 1);
@@ -187,6 +189,68 @@ const dashboardSearchItems = [
 		const buildLinePath = (metrics, key) => `M ${metrics.map((point) => `${point.x} ${point[key]}`).join(" L ")}`;
 		const summarizeDataset = (dataset) =>
 			`${dataset.label}共发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 条，修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次。`;
+
+		const initDashboardTypewriter = () => {
+			const node = document.querySelector("[data-dashboard-typewriter]");
+			const quoteNode = document.querySelector("[data-dashboard-hero-quote]");
+			const quotesNode = document.querySelector("#dashboard-hero-quotes");
+
+			if (!node || !quoteNode || !quotesNode) {
+				return;
+			}
+
+			const fullText = node.dataset.dashboardTypewriterText || "";
+			const previousTimer = Number(node.dataset.dashboardTypewriterTimer || "0");
+			const previousRevealTimer = Number(node.dataset.dashboardQuoteTimer || "0");
+			const quotes = JSON.parse(quotesNode.textContent || "[]");
+			const randomQuote =
+				Array.isArray(quotes) && quotes.length > 0
+					? quotes[Math.floor(Math.random() * quotes.length)]
+					: "";
+
+			if (previousTimer) {
+				window.clearTimeout(previousTimer);
+			}
+
+			if (previousRevealTimer) {
+				window.clearTimeout(previousRevealTimer);
+			}
+
+			node.textContent = "";
+			quoteNode.hidden = true;
+			quoteNode.classList.remove("is-visible");
+			quoteNode.textContent = randomQuote;
+
+			let index = 0;
+
+			const tick = () => {
+				node.textContent = fullText.slice(0, index);
+				index += 1;
+
+				if (index <= fullText.length) {
+					const timer = window.setTimeout(tick, 120);
+					node.dataset.dashboardTypewriterTimer = String(timer);
+					return;
+				}
+
+				node.dataset.dashboardTypewriterTimer = "";
+
+				if (randomQuote) {
+					const revealTimer = window.setTimeout(() => {
+						quoteNode.hidden = false;
+						window.requestAnimationFrame(() => {
+							quoteNode.classList.add("is-visible");
+						});
+					}, 220);
+					node.dataset.dashboardQuoteTimer = String(revealTimer);
+					return;
+				}
+
+				node.dataset.dashboardQuoteTimer = "";
+			};
+
+			tick();
+		};
 
 		const initDashboardSearch = () => {
 			const root = document.querySelector("[data-dashboard-search]");
@@ -349,6 +413,7 @@ const dashboardSearchItems = [
 		};
 
 		const bootDashboard = () => {
+			initDashboardTypewriter();
 			initDashboardSearch();
 			initDashboardHints();
 			initDashboardChart();
@@ -659,6 +724,38 @@ const dashboardSearchItems = [
 		font-weight: 800;
 	}
 
+	.dashboard-typewriter-cursor {
+		display: inline-block;
+		width: 0.1em;
+		height: 1em;
+		margin-left: 0.12em;
+		border-radius: 999px;
+		vertical-align: -0.08em;
+		background: currentColor;
+		animation: dashboard-cursor-blink 900ms steps(1) infinite;
+	}
+
+	.dashboard-hero-quote {
+		margin: 0.9rem 0 0;
+		max-width: 44rem;
+		font-size: 0.95rem;
+		line-height: 1.9;
+		letter-spacing: 0.04em;
+		color: rgba(71, 85, 105, 0.9);
+		opacity: 0;
+		transform: translateY(0.45rem);
+		transition: opacity 260ms ease, transform 260ms ease;
+	}
+
+	.dashboard-hero-quote.is-visible {
+		opacity: 1;
+		transform: translateY(0);
+	}
+
+	.dark .dashboard-hero-quote {
+		color: rgba(203, 213, 225, 0.84);
+	}
+
 	.dashboard-hero-actions {
 		gap: 0.75rem;
 		align-self: flex-start;
@@ -677,6 +774,19 @@ const dashboardSearchItems = [
 	.dashboard-secondary-button {
 		padding: 0.82rem 1.05rem;
 		font-weight: 700;
+	}
+
+	.dashboard-icon-button {
+		width: 2.9rem;
+		height: 2.9rem;
+		padding: 0;
+		display: inline-grid;
+		place-items: center;
+		flex: 0 0 auto;
+	}
+
+	.dashboard-icon-button :global(svg) {
+		font-size: 1.2rem;
 	}
 
 	.dashboard-primary-button {
@@ -744,7 +854,7 @@ const dashboardSearchItems = [
 	}
 
 	.dashboard-grid {
-		grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+		grid-template-columns: 1fr;
 	}
 
 	.dashboard-panel {
@@ -905,6 +1015,7 @@ const dashboardSearchItems = [
 
 	.dashboard-recent-list {
 		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
 		gap: 0.75rem;
 	}
 
@@ -1016,8 +1127,8 @@ const dashboardSearchItems = [
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 
-		.dashboard-grid {
-			grid-template-columns: 1fr;
+		.dashboard-recent-list {
+			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 	}
 
@@ -1039,6 +1150,10 @@ const dashboardSearchItems = [
 			flex-direction: column;
 			align-items: stretch;
 		}
+
+		.dashboard-recent-list {
+			grid-template-columns: 1fr;
+		}
 	}
 
 	@media (max-width: 640px) {
@@ -1053,6 +1168,18 @@ const dashboardSearchItems = [
 
 		.dashboard-search {
 			width: 100%;
+		}
+	}
+
+	@keyframes dashboard-cursor-blink {
+		0%,
+		49% {
+			opacity: 1;
+		}
+
+		50%,
+		100% {
+			opacity: 0;
 		}
 	}
 </style>

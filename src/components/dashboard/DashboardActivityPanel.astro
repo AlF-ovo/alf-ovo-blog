@@ -1,5 +1,27 @@
 ---
-const { chartPalette, defaultRange, defaultMetrics, defaultSummary } = Astro.props;
+type ChartPalette = {
+	publish: { line: string; area: string };
+	update: { line: string; area: string };
+	delete: { line: string; area: string };
+};
+
+type ActivityMetric = {
+	label: string;
+	total: number;
+	x: number;
+	publishY: number;
+	updateY: number;
+	deleteY: number;
+};
+
+interface Props {
+	chartPalette: ChartPalette;
+	defaultRange: "week" | "month" | "year";
+	defaultMetrics: ActivityMetric[];
+	defaultSummary: string;
+}
+
+const { chartPalette, defaultRange, defaultMetrics, defaultSummary }: Props = Astro.props;
 ---
 
 <article id="activity" class="card-base dashboard-panel">

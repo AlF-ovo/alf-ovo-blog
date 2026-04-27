@@ -1,11 +1,14 @@
 ---
-import type { GetStaticPaths } from "astro";
+import type { GetStaticPaths, Page } from "astro";
+import type { CollectionEntry } from "astro:content";
 import Pagination from "../components/control/Pagination.astro";
 import PostPage from "../components/PostPage.astro";
 import { PAGE_SIZE } from "../constants/constants";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import { getSortedPosts } from "../utils/content-utils";
 import { hasMarkdownPostsOnDisk } from "../utils/post-files";
+
+type PostsPage = Page<CollectionEntry<"posts">>;
 
 export const getStaticPaths = (async ({ paginate }) => {
 	if (!hasMarkdownPostsOnDisk()) {
@@ -14,7 +17,7 @@ export const getStaticPaths = (async ({ paginate }) => {
 				params: { page: undefined },
 				props: {
 					page: {
-						data: [],
+						data: [] as CollectionEntry<"posts">[],
 						start: 0,
 						end: 0,
 						size: PAGE_SIZE,
@@ -25,8 +28,10 @@ export const getStaticPaths = (async ({ paginate }) => {
 							current: "/",
 							prev: undefined,
 							next: undefined,
+							first: undefined,
+							last: undefined,
 						},
-					},
+					} satisfies PostsPage,
 				},
 			},
 		];
@@ -36,7 +41,11 @@ export const getStaticPaths = (async ({ paginate }) => {
 	return paginate(allBlogPosts, { pageSize: PAGE_SIZE });
 }) satisfies GetStaticPaths;
 
-const { page } = Astro.props;
+interface Props {
+	page: PostsPage;
+}
+
+const { page }: Props = Astro.props;
 const len = page.data.length;
 ---
 

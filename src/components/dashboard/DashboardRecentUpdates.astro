@@ -1,5 +1,17 @@
 ---
-const { recentUpdates } = Astro.props;
+type RecentUpdate = {
+	title: string;
+	time: string;
+	url: string;
+	description: string;
+	kindLabel: "文章" | "笔记";
+};
+
+interface Props {
+	recentUpdates: RecentUpdate[];
+}
+
+const { recentUpdates }: Props = Astro.props;
 ---
 
 <article id="updates" class="card-base dashboard-panel">

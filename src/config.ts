@@ -118,7 +118,7 @@ export const navBarConfig: NavBarConfig = {
 export const profileConfig: ProfileConfig = {
 	avatar: "assets/images/alf-avatar.png",
 	name: "AlF",
-	bio: "哥先走了，有事受着",
+	bio: "不要崇拜哥，哥只是三角洲巅峰125星",
 	quote: "在终端、断点和未写完的笔记之间继续前进。",
 	links: [
 		{

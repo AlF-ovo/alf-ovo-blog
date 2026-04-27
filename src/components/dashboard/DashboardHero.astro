@@ -1,19 +1,36 @@
 ---
-const { greeting, intro } = Astro.props;
+import { Icon } from "astro-icon/components";
+
+const { greeting } = Astro.props;
 ---
 
 <section id="overview" class="dashboard-hero card-base">
 	<div>
 		<p class="dashboard-hero-eyebrow">Overview</p>
-		<h3 class="dashboard-hero-title">{greeting}</h3>
-		<p class="dashboard-hero-copy">{intro}</p>
+		<h3 class="dashboard-hero-title" aria-label={greeting}>
+			<span data-dashboard-typewriter data-dashboard-typewriter-text={greeting}></span>
+			<span class="dashboard-typewriter-cursor" aria-hidden="true"></span>
+		</h3>
+		<p class="dashboard-hero-quote" data-dashboard-hero-quote hidden></p>
 	</div>
 	<div class="dashboard-hero-actions">
-		<button class="dashboard-primary-button" type="button" data-dashboard-hint-trigger="write">
-			新建内容提示
+		<button
+			class="dashboard-primary-button dashboard-icon-button"
+			type="button"
+			title="新建内容提示"
+			aria-label="新建内容提示"
+			data-dashboard-hint-trigger="write"
+		>
+			<Icon name="material-symbols:add-notes-rounded" />
 		</button>
-		<button class="dashboard-secondary-button" type="button" data-dashboard-hint-trigger="organize">
-			内容组织原则
+		<button
+			class="dashboard-secondary-button dashboard-icon-button"
+			type="button"
+			title="内容组织原则"
+			aria-label="内容组织原则"
+			data-dashboard-hint-trigger="organize"
+		>
+			<Icon name="material-symbols:account-tree-rounded" />
 		</button>
 	</div>
 </section>
