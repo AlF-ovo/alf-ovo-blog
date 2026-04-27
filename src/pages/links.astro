@@ -15,19 +15,49 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
 		<section class="links-grid">
 			<article class="card-base rounded-[var(--radius-large)] px-6 py-6">
 				<h2 class="links-card-title">友情链接</h2>
-				<div class="friend-card">
-					<div class="friend-card-meta">
-						<p class="friend-card-name">Colix Blog</p>
-						<p class="friend-card-url">https://blog.colix.cn/</p>
+				<div class="friend-card-list">
+					<div class="friend-card">
+						<div class="friend-card-meta">
+							<p class="friend-card-name">Colix Blog</p>
+							<p class="friend-card-url">https://blog.colix.cn/</p>
+						</div>
+						<a
+							class="friend-card-link"
+							href="https://blog.colix.cn/"
+							target="_blank"
+							rel="noreferrer"
+						>
+							访问站点
+						</a>
 					</div>
-					<a
-						class="friend-card-link"
-						href="https://blog.colix.cn/"
-						target="_blank"
-						rel="noreferrer"
-					>
-						访问站点
-					</a>
+					<div class="friend-card">
+						<div class="friend-card-meta">
+							<p class="friend-card-name">BakaMU</p>
+							<p class="friend-card-url">https://bakamu.github.io/</p>
+						</div>
+						<a
+							class="friend-card-link"
+							href="https://bakamu.github.io/"
+							target="_blank"
+							rel="noreferrer"
+						>
+							访问站点
+						</a>
+					</div>
+					<div class="friend-card">
+						<div class="friend-card-meta">
+							<p class="friend-card-name">weifengdel0ng</p>
+							<p class="friend-card-url">https://weifengdel0ng.github.io/</p>
+						</div>
+						<a
+							class="friend-card-link"
+							href="https://weifengdel0ng.github.io/"
+							target="_blank"
+							rel="noreferrer"
+						>
+							访问站点
+						</a>
+					</div>
 				</div>
 			</article>
 			<article class="card-base rounded-[var(--radius-large)] px-6 py-6">
@@ -98,6 +128,11 @@ import MainGridLayout from "../layouts/MainGridLayout.astro";
 		border-radius: 1rem;
 		border: 1px solid rgba(148, 163, 184, 0.16);
 		background: linear-gradient(135deg, rgba(248, 250, 252, 0.88), rgba(240, 249, 255, 0.92));
+	}
+
+	.friend-card-list {
+		display: grid;
+		gap: 0.9rem;
 	}
 
 	.friend-card-meta {
