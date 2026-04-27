@@ -1,3 +1,4 @@
+## Disabled locally to stop GitHub Pages deployments for this repository.
 name: Deploy To GitHub Pages
 
 on:
