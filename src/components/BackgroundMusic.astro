@@ -66,7 +66,7 @@ const systemPanels = [
 			data-mascot-scale-key="system:mascot-scale"
 			data-mascot-hidden-key="system:mascot-hidden"
 			data-default-volume="0.24"
-			data-default-foreground-opacity="0.56"
+			data-default-foreground-opacity="0.8"
 			data-default-mascot-scale="1"
 			data-default-mascot-hidden="false"
 		>
@@ -182,7 +182,7 @@ const systemPanels = [
 								<p class="system-control-section__title">Wallpaper opacity</p>
 								<p class="system-control-section__copy">Adjust the transparency of the foreground UI while the wallpaper stays fully visible.</p>
 							</div>
-							<span id={foregroundOpacityValueId} class="system-control-value">56%</span>
+							<span id={foregroundOpacityValueId} class="system-control-value">80%</span>
 						</div>
 						<input
 							id={foregroundOpacityId}
@@ -191,7 +191,7 @@ const systemPanels = [
 							min="30"
 							max="100"
 							step="1"
-							value="56"
+							value="80"
 							aria-label="Foreground opacity"
 						/>
 					</div>
@@ -300,7 +300,7 @@ const systemPanels = [
 		z-index: 95;
 		display: flex;
 		align-items: flex-end;
-		opacity: var(--system-foreground-opacity, 0.56);
+		opacity: var(--system-foreground-opacity, 0.8);
 		transition: opacity 180ms ease;
 	}
 
@@ -743,7 +743,7 @@ const systemPanels = [
 			1,
 		);
 		const defaultForegroundOpacity = clamp(
-			Number.parseFloat(root.dataset.defaultForegroundOpacity || "0.56") || 0.56,
+			Number.parseFloat(root.dataset.defaultForegroundOpacity || "0.8") || 0.8,
 			0.3,
 			1,
 		);

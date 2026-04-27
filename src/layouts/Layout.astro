@@ -8,7 +8,6 @@ import ConfigCarrier from "@components/ConfigCarrier.astro";
 import Live2DMascot from "@components/Live2DMascot.astro";
 import { profileConfig, siteConfig } from "@/config";
 import {
-	AUTO_MODE,
 	BANNER_HEIGHT,
 	BANNER_HEIGHT_EXTEND,
 	BANNER_HEIGHT_HOME,
@@ -113,22 +112,17 @@ const bannerOffset =
 		))}
 
 		<!-- Set the theme before the page is rendered to avoid a flash -->
-		<script is:inline define:vars={{DEFAULT_THEME, LIGHT_MODE, DARK_MODE, AUTO_MODE, BANNER_HEIGHT_EXTEND, PAGE_WIDTH, configHue}}>
+		<script is:inline define:vars={{DEFAULT_THEME, LIGHT_MODE, DARK_MODE, BANNER_HEIGHT_EXTEND, PAGE_WIDTH, configHue}}>
 			// Load the theme from local storage
-			const theme = localStorage.getItem('theme') || DEFAULT_THEME;
+			const storedTheme = localStorage.getItem('theme');
+			const theme = storedTheme === LIGHT_MODE || storedTheme === DARK_MODE ? storedTheme : DEFAULT_THEME;
 			switch (theme) {
 				case LIGHT_MODE:
 					document.documentElement.classList.remove('dark');
 					break
 				case DARK_MODE:
+				default:
 					document.documentElement.classList.add('dark');
-					break
-				case AUTO_MODE:
-					if (window.matchMedia('(prefers-color-scheme: dark)').matches) {
-						document.documentElement.classList.add('dark');
-					} else {
-						document.documentElement.classList.remove('dark');
-					}
 			}
 
 			document.documentElement.style.setProperty('--hue', String(configHue));
@@ -144,7 +138,7 @@ const bannerOffset =
 
 			const wallpaperOpacity = parseClampedNumber(
 				localStorage.getItem('system:foreground-opacity'),
-				0.56,
+				0.8,
 				0.3,
 				1,
 			);
@@ -235,7 +229,7 @@ const bannerOffset =
 	.site-shell {
 		position: relative;
 		z-index: 1;
-		opacity: var(--system-foreground-opacity, 0.56);
+		opacity: var(--system-foreground-opacity, 0.8);
 		transition: opacity 180ms ease;
 	}
 

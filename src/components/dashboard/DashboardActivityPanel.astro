@@ -49,7 +49,11 @@ const { chartPalette, defaultRange, defaultMetrics, defaultSummary }: Props = As
 
 	<div class="dashboard-chart-shell" data-chart-root data-default-range={defaultRange}>
 		<div class="dashboard-chart-scroll">
-			<div class="dashboard-chart-stage" data-chart-stage>
+			<div
+				class="dashboard-chart-stage"
+				data-chart-stage
+				style={`--chart-base-point-count: ${defaultMetrics.length}; --chart-base-column-width: 3.4rem;`}
+			>
 				<svg class="dashboard-chart-svg" data-chart-svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="内容活动趋势图">
 					<path
 						class="dashboard-chart-area is-publish"
@@ -100,7 +104,7 @@ const { chartPalette, defaultRange, defaultMetrics, defaultSummary }: Props = As
 				<div
 					class="dashboard-chart-labels"
 					data-chart-labels
-					style={`grid-template-columns: repeat(${defaultMetrics.length}, minmax(${defaultMetrics.length > 12 ? "2rem" : "3.4rem"}, 1fr));`}
+					style={`grid-template-columns: repeat(${defaultMetrics.length}, minmax(0, 1fr));`}
 				>
 					{defaultMetrics.map((point) => <span class="dashboard-chart-label">{point.label}</span>)}
 				</div>

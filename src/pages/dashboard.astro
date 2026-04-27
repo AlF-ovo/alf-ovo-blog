@@ -362,9 +362,7 @@ const dashboardSearchItems = [
 			const summaryNode = document.querySelector("[data-chart-summary]");
 			const svg = document.querySelector("[data-chart-svg]");
 			const labels = document.querySelector("[data-chart-labels]");
-			const stage = document.querySelector("[data-chart-stage]");
-
-			if (!dataNode || !chartRoot || !switchRoot || !summaryNode || !svg || !labels || !stage) {
+			if (!dataNode || !chartRoot || !switchRoot || !summaryNode || !svg || !labels) {
 				return;
 			}
 
@@ -392,9 +390,7 @@ const dashboardSearchItems = [
 				updateLine.setAttribute("d", buildLinePath(metrics, "updateY"));
 				deleteLine.setAttribute("d", buildLinePath(metrics, "deleteY"));
 				summaryNode.textContent = summarizeDataset(dataset);
-				stage.style.setProperty("--chart-point-count", String(metrics.length));
-				stage.style.setProperty("--chart-column-width", metrics.length > 12 ? "2rem" : "3.4rem");
-				labels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(${metrics.length > 12 ? "2rem" : "3.4rem"}, 1fr))`;
+				labels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(0, 1fr))`;
 				labels.replaceChildren(
 					...metrics.map((point) => {
 						const item = document.createElement("span");
@@ -505,7 +501,7 @@ const dashboardSearchItems = [
 		font-size: 0.78rem;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: rgba(255, 255, 255, 0.98);
+		color: rgba(14, 116, 144, 0.9);
 	}
 
 	.dashboard-brand-title,
@@ -994,7 +990,7 @@ const dashboardSearchItems = [
 	}
 
 	.dashboard-chart-stage {
-		min-width: max(100%, calc(var(--chart-point-count, 7) * var(--chart-column-width, 3.4rem)));
+		min-width: max(100%, calc(var(--chart-base-point-count, 7) * var(--chart-base-column-width, 3.4rem)));
 	}
 
 	.dashboard-chart-svg {

@@ -1,5 +1,4 @@
 import {
-	AUTO_MODE,
 	DARK_MODE,
 	DEFAULT_THEME,
 	LIGHT_MODE,
@@ -33,14 +32,8 @@ export function applyThemeToDocument(theme: LIGHT_DARK_MODE) {
 			document.documentElement.classList.remove("dark");
 			break;
 		case DARK_MODE:
+		default:
 			document.documentElement.classList.add("dark");
-			break;
-		case AUTO_MODE:
-			if (window.matchMedia("(prefers-color-scheme: dark)").matches) {
-				document.documentElement.classList.add("dark");
-			} else {
-				document.documentElement.classList.remove("dark");
-			}
 			break;
 	}
 
@@ -57,5 +50,6 @@ export function setTheme(theme: LIGHT_DARK_MODE): void {
 }
 
 export function getStoredTheme(): LIGHT_DARK_MODE {
-	return (localStorage.getItem("theme") as LIGHT_DARK_MODE) || DEFAULT_THEME;
+	const theme = localStorage.getItem("theme");
+	return theme === LIGHT_MODE || theme === DARK_MODE ? theme : DEFAULT_THEME;
 }
