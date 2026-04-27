@@ -1,15 +1,25 @@
 ---
 import DashboardSurface from "@components/dashboard/DashboardSurface.astro";
-import Layout from "../layouts/Layout.astro";
+import MainGridLayout from "../layouts/MainGridLayout.astro";
 import { getDashboardData } from "../utils/dashboard-data";
 
 const { chartDatasets, recentUpdates, dashboardMetrics } = await getDashboardData();
 ---
 
-<Layout title="Dashboard" description="AlF 鍗氬鍐呭鎬昏">
-	<DashboardSurface
-		chartDatasets={chartDatasets}
-		recentUpdates={recentUpdates}
-		dashboardMetrics={dashboardMetrics}
-	/>
-</Layout>
+<MainGridLayout title="Dashboard" description="AlF blog dashboard" sidebarRight={true}>
+	<section class="dashboard-page-block mb-4 onload-animation" style="animation-delay: calc(var(--content-delay) + 50ms);">
+		<DashboardSurface
+			chartDatasets={chartDatasets}
+			recentUpdates={recentUpdates}
+			dashboardMetrics={dashboardMetrics}
+			compact={true}
+			showSidebar={false}
+		/>
+	</section>
+</MainGridLayout>
+
+<style is:global>
+	.dashboard-page-block {
+		width: 100%;
+	}
+</style>

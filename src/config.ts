@@ -105,7 +105,7 @@ export const navBarConfig: NavBarConfig = {
 		LinkPreset.About,
 		{
 			name: "Dashboard",
-			url: "/#overview",
+			url: "/dashboard/",
 		},
 		{
 			name: "GitHub",

@@ -46,6 +46,7 @@ interface Props {
 	recentUpdates: DashboardItem[];
 	dashboardMetrics: DashboardMetrics;
 	compact?: boolean;
+	showSidebar?: boolean;
 }
 
 const {
@@ -53,6 +54,7 @@ const {
 	recentUpdates,
 	dashboardMetrics,
 	compact = false,
+	showSidebar = true,
 }: Props = Astro.props;
 
 const dashboardHeroQuotes = [
@@ -156,7 +158,7 @@ const defaultMetrics = getChartMetrics(defaultDataset.points);
 const defaultSummary = summarizeDataset(defaultDataset);
 ---
 
-<div class:list={["dashboard-shell", { "dashboard-shell--compact": compact }]}>
+<div class:list={["dashboard-shell", { "dashboard-shell--compact": compact, "dashboard-shell--sidebarless": !showSidebar }]}>
 	<div class="dashboard-main">
 		<DashboardTopbar profileName={profileConfig.name} />
 		<DashboardHero greeting={`Welcome, ${profileConfig.name}`} />
@@ -174,7 +176,7 @@ const defaultSummary = summarizeDataset(defaultDataset);
 		</div>
 	</div>
 
-	<DashboardSidebar />
+	{showSidebar && <DashboardSidebar />}
 </div>
 
 <div class="dashboard-hint-overlay" data-dashboard-hint-overlay hidden>
@@ -493,6 +495,11 @@ const defaultSummary = summarizeDataset(defaultDataset);
 		padding: 0;
 		grid-template-columns: minmax(0, 1fr) 14.5rem;
 		gap: 0.85rem;
+	}
+
+	.dashboard-shell--sidebarless,
+	.dashboard-shell--compact.dashboard-shell--sidebarless {
+		grid-template-columns: minmax(0, 1fr);
 	}
 
 	.dashboard-sidebar,

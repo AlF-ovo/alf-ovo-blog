@@ -22,6 +22,7 @@ interface Props {
 	lang?: string;
 	setOGTypeArticle?: boolean;
 	headings?: MarkdownHeading[];
+	sidebarRight?: boolean;
 }
 
 const {
@@ -31,6 +32,7 @@ const {
 	lang,
 	setOGTypeArticle,
 	headings = [],
+	sidebarRight = false,
 } = Astro.props;
 const hasBannerCredit =
 	siteConfig.banner.enable && siteConfig.banner.credit.enable;
@@ -63,8 +65,10 @@ const mainPanelTop = siteConfig.banner.enable
 <div class="absolute w-full z-30 pointer-events-none" style={`top: ${mainPanelTop}`}>
     <!-- The pointer-events-none here prevent blocking the click event of the TOC -->
     <div class="relative max-w-[var(--page-width)] mx-auto pointer-events-auto">
-        <div id="main-grid" class="transition duration-700 w-full left-0 right-0 grid grid-cols-1 lg:grid-cols-[minmax(0,_1fr)_17.5rem] grid-rows-[auto_1fr_auto] lg:grid-rows-[auto]
-    mx-auto gap-4 px-0 md:px-4"
+        <div id="main-grid" class:list={[
+			"transition duration-700 w-full left-0 right-0 grid grid-cols-1 grid-rows-[auto_1fr_auto] lg:grid-rows-[auto] mx-auto gap-4 px-0 md:px-4",
+			sidebarRight ? "lg:grid-cols-[minmax(0,_1fr)_17.5rem]" : "lg:grid-cols-[17.5rem_auto]",
+		]}
         >
             <!-- Banner image credit -->
             {hasBannerCredit && <a href={siteConfig.banner.credit.url} id="banner-credit" target="_blank" rel="noopener" aria-label="Visit image source"
@@ -79,7 +83,13 @@ const mainPanelTop = siteConfig.banner.enable
                 </Icon>
             </a>}
 
-            <main id="swup-container" class="transition-swup-fade order-1 col-span-1 overflow-hidden min-w-0">
+            <main
+				id="swup-container"
+				class:list={[
+					"transition-swup-fade col-span-1 overflow-hidden min-w-0",
+					sidebarRight ? "order-1" : "order-2 lg:order-2",
+				]}
+			>
                 <div id="content-wrapper" class="onload-animation">
                     <!-- the overflow-hidden here prevent long text break the layout-->
                     <!-- make id different from windows.swup global property -->
@@ -90,7 +100,13 @@ const mainPanelTop = siteConfig.banner.enable
                 </div>
             </main>
 
-            <SideBar class="mb-4 order-2 col-span-1 lg:max-w-[17.5rem] onload-animation" headings={headings}></SideBar>
+            <SideBar
+				class:list={[
+					"mb-4 col-span-1 lg:max-w-[17.5rem] onload-animation",
+					sidebarRight ? "order-2" : "order-1 lg:order-1",
+				]}
+				headings={headings}
+			></SideBar>
 
             <div class="footer col-span-2 onload-animation block lg:hidden">
                 <Footer></Footer>
