@@ -2,10 +2,12 @@
 import type { GetStaticPaths, Page } from "astro";
 import type { CollectionEntry } from "astro:content";
 import Pagination from "../components/control/Pagination.astro";
+import DashboardSurface from "../components/dashboard/DashboardSurface.astro";
 import PostPage from "../components/PostPage.astro";
 import { PAGE_SIZE } from "../constants/constants";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import { getSortedPosts } from "../utils/content-utils";
+import { getDashboardData } from "../utils/dashboard-data";
 import { hasMarkdownPostsOnDisk } from "../utils/post-files";
 
 type PostsPage = Page<CollectionEntry<"posts">>;
@@ -47,9 +49,19 @@ interface Props {
 
 const { page }: Props = Astro.props;
 const len = page.data.length;
+const { chartDatasets, recentUpdates, dashboardMetrics } = await getDashboardData();
 ---
 
 <MainGridLayout>
+	<section class="home-dashboard-block mb-4 onload-animation" style="animation-delay: calc(var(--content-delay) + 50ms);">
+		<DashboardSurface
+			chartDatasets={chartDatasets}
+			recentUpdates={recentUpdates}
+			dashboardMetrics={dashboardMetrics}
+			compact={true}
+		/>
+	</section>
+
 	{
 		len > 0 ? (
 			<>
@@ -83,3 +95,9 @@ const len = page.data.length;
 	document.addEventListener("astro:page-load", notifyHomePageReady);
 	document.addEventListener("DOMContentLoaded", notifyHomePageReady);
 </script>
+
+<style is:global>
+	.home-dashboard-block {
+		width: 100%;
+	}
+</style>

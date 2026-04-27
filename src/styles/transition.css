@@ -12,47 +12,6 @@ html.is-animating .transition-swup-fade {
     filter: blur(0.18rem);
 }
 
-html[data-dashboard-cross-route="true"].is-changing .transition-swup-fade {
-    transition:
-        filter 500ms ease,
-        opacity 500ms ease,
-        transform 500ms ease;
-}
-
-html[data-dashboard-cross-route="true"].is-animating .transition-swup-fade {
-    opacity: 1;
-    transform: none;
-    filter: blur(0.8rem);
-}
-
-html[data-dashboard-cross-route="true"] .onload-animation {
-    animation: none !important;
-    opacity: 1 !important;
-    transform: none !important;
-    filter: none !important;
-}
-
-html[data-dashboard-cross-route="true"] .site-wallpaper,
-html[data-dashboard-cross-route="true"] #site-shell,
-html[data-dashboard-cross-route="true"] .live2d-mascot,
-html[data-dashboard-cross-route="true"] .system-control {
-    will-change: filter;
-}
-
-html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="out"] .site-wallpaper,
-html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="out"] #site-shell,
-html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="out"] .live2d-mascot,
-html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="out"] .system-control {
-    filter: blur(0.8rem);
-}
-
-html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="in"] .site-wallpaper,
-html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="in"] #site-shell,
-html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="in"] .live2d-mascot,
-html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="in"] .system-control {
-    animation: alf-dashboard-page-clear 500ms ease forwards;
-}
-
 .onload-animation {
     opacity: 0;
     transform: translateY(0.95rem);
@@ -80,24 +39,10 @@ html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="in"] .s
     }
 }
 
-@keyframes alf-dashboard-page-clear {
-    from {
-        filter: blur(0.8rem);
-    }
-
-    to {
-        filter: blur(0);
-    }
-}
-
 @media (prefers-reduced-motion: reduce) {
     html.is-changing .transition-swup-fade,
     html.is-animating .transition-swup-fade,
-    .onload-animation,
-    html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="in"] .site-wallpaper,
-    html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="in"] #site-shell,
-    html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="in"] .live2d-mascot,
-    html[data-dashboard-cross-route="true"][data-dashboard-transition-phase="in"] .system-control {
+    .onload-animation {
         transition: none;
         animation: none;
         opacity: 1;
