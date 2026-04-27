@@ -1,7 +1,9 @@
 # About
 
-This is AlF's blog. It starts with a minimal public version first.
+这里是 AlF 的个人博客。
+
+我主要把它当成一个公开的技术档案库，用来记录 Pwn 学习、CTF 题解、调试过程和少量阶段性反思。比起“写给所有人看”，这里更像是把做过的事、踩过的坑和当下的想法整理成能回看的内容。
 
 ::github{repo="AlF-ovo/alf-ovo-blog"}
 
-More personal details, categories, and project notes will be added later.
+后面还会继续补全更详细的学习路径、系列题解和个人项目记录。

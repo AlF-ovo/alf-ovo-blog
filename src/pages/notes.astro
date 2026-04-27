@@ -1,45 +1,63 @@
 ---
 import MainGridLayout from "../layouts/MainGridLayout.astro";
-import { getSortedPostsList } from "../utils/content-utils";
 import { formatDateToYYYYMMDD } from "../utils/date-utils";
-import { getPostUrlBySlug } from "../utils/url-utils";
+import { getSortedNotesList } from "../utils/content-utils";
 
-const posts = (await getSortedPostsList()).slice(0, 8);
+const notes = await getSortedNotesList();
 ---
 
-<MainGridLayout title="札记" description="短记录、调试碎片与最近更新">
+<MainGridLayout title="札记" description="短记录、调试碎片与尚未扩写成长文的内容。">
 	<div class="grid gap-4">
 		<section class="card-base rounded-[var(--radius-large)] px-8 py-7">
-			<p class="notes-eyebrow">Notebook</p>
+			<p class="notes-eyebrow">Notes</p>
 			<h1 class="notes-title">札记</h1>
 			<p class="notes-copy">
-				这里收纳一些短记录、调试片段、环境踩坑和暂时还不想写成长文的内容。现在先作为最近更新索引来用，后面可以继续扩展成真正的短内容分区。
+				这里专门收纳偏短的内容：调试记录、踩坑备忘、命令片段和临时想法。
+				长文继续留在文章流里，短内容单独沉淀，之后查找会更清晰。
 			</p>
 		</section>
 
 		<section class="card-base rounded-[var(--radius-large)] px-6 py-4">
-			<div class="notes-list">
-				{
-					posts.map((post) => (
-						<a href={getPostUrlBySlug(post.slug)} class="notes-item">
-							<div class="notes-item-main">
-								<p class="notes-item-title">{post.data.title}</p>
-								<p class="notes-item-desc">
-									{post.data.description || "暂无摘要，后续会补充更多内容。"}
-								</p>
-							</div>
-							<div class="notes-item-meta">
-								<span class="notes-item-date">
-									{formatDateToYYYYMMDD(post.data.updated ?? post.data.published)}
-								</span>
-								<span class="notes-item-tags">
-									{post.data.tags.slice(0, 3).join(" / ") || "无标签"}
-								</span>
-							</div>
-						</a>
-					))
-				}
-			</div>
+			{
+				notes.length > 0 ? (
+					<div class="notes-list">
+						{notes.map((note) => (
+							<a href={note.url} class="notes-item">
+								<div class="notes-item-main">
+									<div class="notes-item-head">
+										<p class="notes-item-title">{note.data.title}</p>
+										{note.data.series && (
+											<span class="notes-item-series">{note.data.series}</span>
+										)}
+									</div>
+									<p class="notes-item-desc">
+										{note.data.description || "这条笔记暂时还没有补摘要。"}
+									</p>
+								</div>
+								<div class="notes-item-meta">
+									<span class="notes-item-date">
+										{formatDateToYYYYMMDD(note.data.updated ?? note.data.published)}
+									</span>
+									<span class="notes-item-tags">
+										{note.data.tags.slice(0, 3).join(" / ") || "无标签"}
+									</span>
+									<span class="notes-item-category">
+										{note.data.categoryPath?.join(" / ") || note.data.category || "未分类"}
+									</span>
+								</div>
+							</a>
+						))}
+					</div>
+				) : (
+					<div class="notes-empty">
+						<p class="notes-empty-title">这里还没有单独的笔记。</p>
+						<p class="notes-empty-copy">
+							后续可以用 `pnpm new-post -- your-note --type note` 新建一条 note，
+							它会和文章流分开，但仍然出现在 archive 和 RSS 里。
+						</p>
+					</div>
+				)
+			}
 		</section>
 	</div>
 </MainGridLayout>
@@ -50,7 +68,7 @@ const posts = (await getSortedPostsList()).slice(0, 8);
 		font-size: 0.78rem;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: rgba(99, 102, 241, 0.9);
+		color: rgba(14, 116, 144, 0.9);
 	}
 
 	.notes-title {
@@ -88,11 +106,29 @@ const posts = (await getSortedPostsList()).slice(0, 8);
 		min-width: 0;
 	}
 
+	.notes-item-head {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+		flex-wrap: wrap;
+	}
+
 	.notes-item-title {
 		margin: 0;
 		font-size: 1.02rem;
 		font-weight: 700;
 		color: rgba(15, 23, 42, 0.96);
+	}
+
+	.notes-item-series {
+		display: inline-flex;
+		align-items: center;
+		padding: 0.2rem 0.55rem;
+		border-radius: 999px;
+		background: rgba(37, 99, 235, 0.08);
+		color: rgba(37, 99, 235, 0.92);
+		font-size: 0.75rem;
+		font-weight: 700;
 	}
 
 	.notes-item-desc {
@@ -103,29 +139,54 @@ const posts = (await getSortedPostsList()).slice(0, 8);
 	}
 
 	.notes-item-meta {
-		flex: 0 0 14rem;
+		flex: 0 0 15rem;
 		display: grid;
 		gap: 0.35rem;
 		text-align: right;
 	}
 
 	.notes-item-date,
-	.notes-item-tags {
+	.notes-item-tags,
+	.notes-item-category {
 		font-size: 0.82rem;
-		color: rgba(99, 102, 241, 0.92);
+		color: rgba(14, 116, 144, 0.92);
 	}
 
 	.notes-item:hover .notes-item-title {
-		color: rgba(79, 70, 229, 0.96);
+		color: rgba(2, 132, 199, 0.96);
+	}
+
+	.notes-empty {
+		padding: 1.5rem 0.75rem;
+	}
+
+	.notes-empty-title {
+		margin: 0;
+		font-size: 1rem;
+		font-weight: 700;
+		color: rgba(15, 23, 42, 0.94);
+	}
+
+	.notes-empty-copy {
+		margin: 0.75rem 0 0;
+		line-height: 1.8;
+		color: rgba(71, 85, 105, 0.9);
 	}
 
 	:global(.dark) .notes-copy,
-	:global(.dark) .notes-item-desc {
+	:global(.dark) .notes-item-desc,
+	:global(.dark) .notes-empty-copy {
 		color: rgba(203, 213, 225, 0.82);
 	}
 
-	:global(.dark) .notes-item-title {
+	:global(.dark) .notes-item-title,
+	:global(.dark) .notes-empty-title {
 		color: rgba(248, 250, 252, 0.96);
+	}
+
+	:global(.dark) .notes-item-series {
+		background: rgba(37, 99, 235, 0.16);
+		color: rgba(191, 219, 254, 0.96);
 	}
 
 	@media (max-width: 720px) {

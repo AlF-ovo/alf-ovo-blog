@@ -1,25 +1,25 @@
 <script lang="ts">
 import { onMount } from "svelte";
-
 import I18nKey from "../i18n/i18nKey";
 import { i18n } from "../i18n/translation";
-import { getPostUrlBySlug } from "../utils/url-utils";
 
 export let tags: string[] = [];
 export let categories: string[] = [];
+export let serieses: string[] = [];
 export let sortedPosts: Post[] = [];
 
-const params = new URLSearchParams(window.location.search);
-tags = params.has("tag") ? params.getAll("tag") : [];
-categories = params.has("category") ? params.getAll("category") : [];
-const uncategorized = params.get("uncategorized");
+let uncategorized: string | null = null;
 
 interface Post {
 	slug: string;
+	collection: "posts" | "notes";
+	url: string;
 	data: {
 		title: string;
 		tags: string[];
 		category?: string | null;
+		categoryPath?: string[];
+		series?: string;
 		published: Date;
 	};
 }
@@ -41,7 +41,17 @@ function formatTag(tagList: string[]) {
 	return tagList.map((t) => `#${t}`).join(" ");
 }
 
+function formatKind(kind: "posts" | "notes") {
+	return kind === "notes" ? "笔记" : "文章";
+}
+
 onMount(async () => {
+	const params = new URLSearchParams(window.location.search);
+	tags = params.has("tag") ? params.getAll("tag") : [];
+	categories = params.has("category") ? params.getAll("category") : [];
+	serieses = params.has("series") ? params.getAll("series") : [];
+	uncategorized = params.get("uncategorized");
+
 	let filteredPosts: Post[] = sortedPosts;
 
 	if (tags.length > 0) {
@@ -55,6 +65,12 @@ onMount(async () => {
 	if (categories.length > 0) {
 		filteredPosts = filteredPosts.filter(
 			(post) => post.data.category && categories.includes(post.data.category),
+		);
+	}
+
+	if (serieses.length > 0) {
+		filteredPosts = filteredPosts.filter(
+			(post) => post.data.series && serieses.includes(post.data.series),
 		);
 	}
 
@@ -105,7 +121,7 @@ onMount(async () => {
 
             {#each group.posts as post}
                 <a
-                        href={getPostUrlBySlug(post.slug)}
+                        href={post.url}
                         aria-label={post.data.title}
                         class="group btn-plain !block h-10 w-full rounded-lg hover:text-[initial]"
                 >
@@ -141,7 +157,12 @@ onMount(async () => {
                                 class="hidden md:block md:w-[15%] text-left text-sm transition
                      whitespace-nowrap overflow-ellipsis overflow-hidden text-30"
                         >
-                            {formatTag(post.data.tags)}
+                            <span>{formatKind(post.collection)}</span>
+                            {#if post.data.series}
+                                <span> · {post.data.series}</span>
+                            {:else if post.data.tags.length > 0}
+                                <span> · {formatTag(post.data.tags)}</span>
+                            {/if}
                         </div>
                     </div>
                 </a>

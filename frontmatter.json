@@ -7,6 +7,10 @@
     {
       "title": "posts",
       "path": "[[workspace]]/src/content/posts"
+    },
+    {
+      "title": "notes",
+      "path": "[[workspace]]/src/content/notes"
     }
   ],
   "frontMatter.taxonomy.contentTypes": [
@@ -49,6 +53,16 @@
         {
           "title": "category",
           "name": "category",
+          "type": "string"
+        },
+        {
+          "title": "categoryPath",
+          "name": "categoryPath",
+          "type": "list"
+        },
+        {
+          "title": "series",
+          "name": "series",
           "type": "string"
         },
         {

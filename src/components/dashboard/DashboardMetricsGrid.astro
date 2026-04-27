@@ -1,0 +1,29 @@
+---
+const { metrics } = Astro.props;
+---
+
+<section class="dashboard-metrics-grid">
+	<article class="dashboard-metric-card card-base">
+		<p class="dashboard-metric-label">近 30 天更新</p>
+		<p class="dashboard-metric-value">{metrics.updatedEntries} 条</p>
+		<p class="dashboard-metric-copy">累计约 {metrics.updatedWords.toLocaleString("zh-CN")} 字</p>
+	</article>
+
+	<article class="dashboard-metric-card card-base">
+		<p class="dashboard-metric-label">内容结构</p>
+		<p class="dashboard-metric-value dashboard-metric-value--small">{metrics.contentBreakdown}</p>
+		<p class="dashboard-metric-copy">{metrics.contentBreakdownNote}</p>
+	</article>
+
+	<article class="dashboard-metric-card card-base">
+		<p class="dashboard-metric-label">最新文章</p>
+		<a class="dashboard-metric-link" href={metrics.latestPost.url}>{metrics.latestPost.title}</a>
+		<p class="dashboard-metric-copy">{metrics.latestPost.excerpt}</p>
+	</article>
+
+	<article class="dashboard-metric-card card-base">
+		<p class="dashboard-metric-label">最新笔记</p>
+		<a class="dashboard-metric-link" href={metrics.latestNote.url}>{metrics.latestNote.title}</a>
+		<p class="dashboard-metric-copy">{metrics.latestNote.excerpt}</p>
+	</article>
+</section>

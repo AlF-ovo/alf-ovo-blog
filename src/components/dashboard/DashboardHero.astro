@@ -1,0 +1,19 @@
+---
+const { greeting, intro } = Astro.props;
+---
+
+<section id="overview" class="dashboard-hero card-base">
+	<div>
+		<p class="dashboard-hero-eyebrow">Overview</p>
+		<h3 class="dashboard-hero-title">{greeting}</h3>
+		<p class="dashboard-hero-copy">{intro}</p>
+	</div>
+	<div class="dashboard-hero-actions">
+		<button class="dashboard-primary-button" type="button" data-dashboard-hint-trigger="write">
+			新建内容提示
+		</button>
+		<button class="dashboard-secondary-button" type="button" data-dashboard-hint-trigger="organize">
+			内容组织原则
+		</button>
+	</div>
+</section>

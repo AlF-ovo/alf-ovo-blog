@@ -1,0 +1,88 @@
+---
+const { chartPalette, defaultRange, defaultMetrics, defaultSummary } = Astro.props;
+---
+
+<article id="activity" class="card-base dashboard-panel">
+	<div class="dashboard-panel-head">
+		<div>
+			<p class="dashboard-panel-eyebrow">Activity</p>
+			<h3 class="dashboard-panel-title">最近发布、修改和删除趋势</h3>
+		</div>
+		<div class="dashboard-range-switch" data-chart-switch data-active-index="0" role="tablist" aria-label="图表时间范围">
+			<span class="dashboard-range-switch-thumb" aria-hidden="true"></span>
+			<button class="dashboard-range-button is-active" type="button" data-range-option="week" role="tab" aria-selected="true">近 7 天</button>
+			<button class="dashboard-range-button" type="button" data-range-option="month" role="tab" aria-selected="false">近 30 天</button>
+			<button class="dashboard-range-button" type="button" data-range-option="year" role="tab" aria-selected="false">近 12 个月</button>
+		</div>
+	</div>
+
+	<div class="dashboard-chart-meta">
+		<div class="dashboard-chart-legend">
+			<span><i class="is-publish"></i> 发布</span>
+			<span><i class="is-update"></i> 修改</span>
+			<span><i class="is-delete"></i> 删除</span>
+		</div>
+		<p class="dashboard-chart-summary" data-chart-summary>{defaultSummary}</p>
+	</div>
+
+	<div class="dashboard-chart-shell" data-chart-root data-default-range={defaultRange}>
+		<div class="dashboard-chart-scroll">
+			<div class="dashboard-chart-stage" data-chart-stage>
+				<svg class="dashboard-chart-svg" data-chart-svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label="内容活动趋势图">
+					<path
+						class="dashboard-chart-area is-publish"
+						fill={chartPalette.publish.area}
+						stroke="none"
+						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.publishY}`).join(" ")} L 100 100 Z`}
+					></path>
+					<path
+						class="dashboard-chart-area is-update"
+						fill={chartPalette.update.area}
+						stroke="none"
+						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.updateY}`).join(" ")} L 100 100 Z`}
+					></path>
+					<path
+						class="dashboard-chart-area is-delete"
+						fill={chartPalette.delete.area}
+						stroke="none"
+						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.deleteY}`).join(" ")} L 100 100 Z`}
+					></path>
+					<path
+						class="dashboard-chart-line is-publish"
+						fill="none"
+						stroke={chartPalette.publish.line}
+						stroke-width="2.1"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.publishY}`).join(" L ")}`}
+					></path>
+					<path
+						class="dashboard-chart-line is-update"
+						fill="none"
+						stroke={chartPalette.update.line}
+						stroke-width="2.1"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.updateY}`).join(" L ")}`}
+					></path>
+					<path
+						class="dashboard-chart-line is-delete"
+						fill="none"
+						stroke={chartPalette.delete.line}
+						stroke-width="2.1"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.deleteY}`).join(" L ")}`}
+					></path>
+				</svg>
+				<div
+					class="dashboard-chart-labels"
+					data-chart-labels
+					style={`grid-template-columns: repeat(${defaultMetrics.length}, minmax(${defaultMetrics.length > 12 ? "2rem" : "3.4rem"}, 1fr));`}
+				>
+					{defaultMetrics.map((point) => <span class="dashboard-chart-label">{point.label}</span>)}
+				</div>
+			</div>
+		</div>
+	</div>
+</article>

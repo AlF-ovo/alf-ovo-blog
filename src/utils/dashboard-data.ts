@@ -1,6 +1,6 @@
 import { execSync } from "node:child_process";
-import { type CollectionEntry, getCollection } from "astro:content";
-import { getCategoryList } from "./content-utils";
+import { getCategoryList, getAllSortedContentEntries, getSeriesList } from "./content-utils";
+import { getCollectionUrl } from "./url-utils";
 
 type ActivityPoint = {
 	label: string;
@@ -19,21 +19,24 @@ type DashboardRecentUpdate = {
 	time: string;
 	url: string;
 	description: string;
+	kindLabel: "文章" | "笔记";
 };
 
-type DashboardPostSummary = {
+type DashboardEntrySummary = {
 	title: string;
 	url: string;
 	excerpt: string;
+	kindLabel: "文章" | "笔记" | "内容";
 };
 
 type DashboardMetrics = {
-	updatedPosts: number;
+	updatedEntries: number;
 	updatedWords: number;
-	totalUsage: string;
-	totalUsageNote: string;
-	lastVisitedPost: DashboardPostSummary;
-	latestPost: DashboardPostSummary;
+	contentBreakdown: string;
+	contentBreakdownNote: string;
+	lastUpdatedEntry: DashboardEntrySummary;
+	latestPost: DashboardEntrySummary;
+	latestNote: DashboardEntrySummary;
 };
 
 type DashboardData = {
@@ -42,9 +45,7 @@ type DashboardData = {
 	dashboardMetrics: DashboardMetrics;
 };
 
-type PostEntry = CollectionEntry<"posts"> & {
-	body: string;
-};
+type WrappedEntry = Awaited<ReturnType<typeof getAllSortedContentEntries>>[number];
 
 type GitDayStats = {
 	publish: number;
@@ -52,15 +53,19 @@ type GitDayStats = {
 	delete: number;
 };
 
-const DASHBOARD_FALLBACK_POST: DashboardPostSummary = {
-	title: "暂无文章",
+const DASHBOARD_FALLBACK_ENTRY: DashboardEntrySummary = {
+	title: "暂无内容",
 	url: "/archive/",
-	excerpt: "当前还没有可用于展示的文章数据。",
+	excerpt: "当前还没有可展示的内容。",
+	kindLabel: "内容",
 };
 
-const isMarkdownPostPath = (filePath: string) =>
+const isMarkdownContentPath = (filePath: string) =>
 	/\.md$/i.test(filePath) &&
-	(filePath.includes("src/content/posts/") || filePath.includes("src\\content\\posts\\"));
+	(filePath.includes("src/content/posts/") ||
+		filePath.includes("src/content/notes/") ||
+		filePath.includes("src\\content\\posts\\") ||
+		filePath.includes("src\\content\\notes\\"));
 
 const formatDateTime = (date: Date) =>
 	new Intl.DateTimeFormat("zh-CN", {
@@ -72,17 +77,19 @@ const formatDateTime = (date: Date) =>
 		hour12: false,
 	}).format(date);
 
-const formatPostUrl = (slug: string) => `/posts/${slug}/`;
+const getKindLabel = (collection: WrappedEntry["collection"]) =>
+	collection === "notes" ? "笔记" : "文章";
 
-const toPostSummary = (post?: PostEntry): DashboardPostSummary => {
-	if (!post) {
-		return DASHBOARD_FALLBACK_POST;
+const toEntrySummary = (entry?: WrappedEntry): DashboardEntrySummary => {
+	if (!entry) {
+		return DASHBOARD_FALLBACK_ENTRY;
 	}
 
 	return {
-		title: post.data.title,
-		url: formatPostUrl(post.slug),
-		excerpt: post.data.description || "这篇文章暂时还没有补充摘要。",
+		title: entry.entry.data.title,
+		url: getCollectionUrl(entry.collection, entry.entry.slug),
+		excerpt: entry.entry.data.description || "这条内容暂时还没有摘要。",
+		kindLabel: getKindLabel(entry.collection),
 	};
 };
 
@@ -92,8 +99,8 @@ const getWordCount = (content: string) => {
 	return latinWords + cjkChars;
 };
 
-const getPostDisplayDate = (post: PostEntry) =>
-	new Date(post.data.updated ?? post.data.published);
+const getEntryDisplayDate = (entry: WrappedEntry) =>
+	new Date(entry.entry.data.updated ?? entry.entry.data.published);
 
 const startOfDay = (date: Date) =>
 	new Date(date.getFullYear(), date.getMonth(), date.getDate());
@@ -136,7 +143,7 @@ const parseGitActivity = () => {
 
 	try {
 		const output = execSync(
-			'git log --name-status --find-renames --date=short --format="commit %H %ad" -- src/content/posts',
+			'git log --name-status --find-renames --date=short --format="commit %H %ad" -- src/content/posts src/content/notes',
 			{
 				encoding: "utf8",
 				stdio: ["ignore", "pipe", "ignore"],
@@ -175,7 +182,7 @@ const parseGitActivity = () => {
 
 			if (status.startsWith("A")) {
 				const filePath = parts[1] || "";
-				if (isMarkdownPostPath(filePath)) {
+				if (isMarkdownContentPath(filePath)) {
 					stats.publish += 1;
 				}
 				continue;
@@ -183,7 +190,7 @@ const parseGitActivity = () => {
 
 			if (status.startsWith("M")) {
 				const filePath = parts[1] || "";
-				if (isMarkdownPostPath(filePath)) {
+				if (isMarkdownContentPath(filePath)) {
 					stats.update += 1;
 				}
 				continue;
@@ -191,7 +198,7 @@ const parseGitActivity = () => {
 
 			if (status.startsWith("D")) {
 				const filePath = parts[1] || "";
-				if (isMarkdownPostPath(filePath)) {
+				if (isMarkdownContentPath(filePath)) {
 					stats.delete += 1;
 				}
 				continue;
@@ -199,7 +206,7 @@ const parseGitActivity = () => {
 
 			if (status.startsWith("R") || status.startsWith("C")) {
 				const targetPath = parts[2] || parts[1] || "";
-				if (isMarkdownPostPath(targetPath)) {
+				if (isMarkdownContentPath(targetPath)) {
 					stats.update += 1;
 				}
 			}
@@ -250,11 +257,7 @@ const buildDatasetFromMonths = (
 		label,
 		points: dates.map((date) => {
 			const monthKey = `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, "0")}`;
-			const stats = monthStats.get(monthKey) || {
-				publish: 0,
-				update: 0,
-				delete: 0,
-			};
+			const stats = monthStats.get(monthKey) || { publish: 0, update: 0, delete: 0 };
 
 			return {
 				label: `${date.getMonth() + 1}月`,
@@ -267,41 +270,36 @@ const buildDatasetFromMonths = (
 };
 
 export async function getDashboardData(): Promise<DashboardData> {
-	const posts = (await getCollection("posts", ({ data }) => {
-		return import.meta.env.PROD ? data.draft !== true : true;
-	})) as PostEntry[];
+	const allEntries = await getAllSortedContentEntries();
 	const categories = await getCategoryList();
+	const seriesList = await getSeriesList();
 
-	const postsByUpdated = [...posts].sort(
-		(a, b) => getPostDisplayDate(b).getTime() - getPostDisplayDate(a).getTime(),
-	);
-	const postsByPublished = [...posts].sort(
-		(a, b) =>
-			new Date(b.data.published).getTime() - new Date(a.data.published).getTime(),
-	);
+	const posts = allEntries.filter((entry) => entry.collection === "posts");
+	const notes = allEntries.filter((entry) => entry.collection === "notes");
 
 	const thirtyDaysAgo = startOfDay(new Date());
 	thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 29);
 
-	const updatedPosts = posts.filter(
-		(post) => getPostDisplayDate(post).getTime() >= thirtyDaysAgo.getTime(),
+	const updatedEntries = allEntries.filter(
+		(entry) => getEntryDisplayDate(entry).getTime() >= thirtyDaysAgo.getTime(),
 	);
 
-	const updatedWords = updatedPosts.reduce(
-		(sum, post) => sum + getWordCount(post.body || ""),
+	const updatedWords = updatedEntries.reduce(
+		(sum, entry) => sum + getWordCount(String(entry.entry.body || "")),
 		0,
 	);
 
-	const recentUpdates = postsByUpdated.slice(0, 3).map((post) => ({
-		title: post.data.title,
-		time: formatDateTime(getPostDisplayDate(post)),
-		url: formatPostUrl(post.slug),
-		description: post.data.description || "这篇文章暂时还没有补充摘要。",
+	const recentUpdates = allEntries.slice(0, 5).map((entry) => ({
+		title: entry.entry.data.title,
+		time: formatDateTime(getEntryDisplayDate(entry)),
+		url: getCollectionUrl(entry.collection, entry.entry.slug),
+		description: entry.entry.data.description || "这条内容暂时还没有摘要。",
+		kindLabel: getKindLabel(entry.collection),
 	}));
 
 	const categorySummary = categories
 		.slice(0, 3)
-		.map((category) => `${category.name} ${category.count} 篇`)
+		.map((category) => `${category.name} ${category.count} 条`)
 		.join("，");
 
 	const dayStats = parseGitActivity();
@@ -309,18 +307,19 @@ export async function getDashboardData(): Promise<DashboardData> {
 
 	return {
 		chartDatasets: {
-			week: buildDatasetFromDays("近7日", createDaySeries(7, now), dayStats),
-			month: buildDatasetFromDays("近1个月", createDaySeries(30, now), dayStats),
-			year: buildDatasetFromMonths("近1年", createMonthSeries(12, now), dayStats),
+			week: buildDatasetFromDays("近 7 天", createDaySeries(7, now), dayStats),
+			month: buildDatasetFromDays("近 30 天", createDaySeries(30, now), dayStats),
+			year: buildDatasetFromMonths("近 12 个月", createMonthSeries(12, now), dayStats),
 		},
 		recentUpdates,
 		dashboardMetrics: {
-			updatedPosts: updatedPosts.length,
+			updatedEntries: updatedEntries.length,
 			updatedWords,
-			totalUsage: `${categories.length} 个分类`,
-			totalUsageNote: `当前共 ${posts.length} 篇文章${categorySummary ? `，${categorySummary}` : ""}`,
-			lastVisitedPost: toPostSummary(postsByUpdated[0]),
-			latestPost: toPostSummary(postsByPublished[0]),
+			contentBreakdown: `${posts.length} 篇文章 / ${notes.length} 条笔记`,
+			contentBreakdownNote: `当前共 ${categories.length} 个分类${seriesList.length > 0 ? `，${seriesList.length} 个系列` : ""}${categorySummary ? `，重点分类：${categorySummary}` : ""}`,
+			lastUpdatedEntry: toEntrySummary(allEntries[0]),
+			latestPost: toEntrySummary(posts[0]),
+			latestNote: toEntrySummary(notes[0]),
 		},
 	};
 }

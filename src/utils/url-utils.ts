@@ -1,6 +1,8 @@
 import I18nKey from "@i18n/i18nKey";
 import { i18n } from "@i18n/translation";
 
+export type ContentCollection = "posts" | "notes";
+
 export function pathsEqual(path1: string, path2: string) {
 	const normalizedPath1 = path1.replace(/^\/|\/$/g, "").toLowerCase();
 	const normalizedPath2 = path2.replace(/^\/|\/$/g, "").toLowerCase();
@@ -16,6 +18,17 @@ export function getPostUrlBySlug(slug: string): string {
 	return url(`/posts/${slug}/`);
 }
 
+export function getNoteUrlBySlug(slug: string): string {
+	return url(`/notes/${slug}/`);
+}
+
+export function getCollectionUrl(
+	collection: ContentCollection,
+	slug: string,
+): string {
+	return collection === "notes" ? getNoteUrlBySlug(slug) : getPostUrlBySlug(slug);
+}
+
 export function getTagUrl(tag: string): string {
 	if (!tag) return url("/archive/");
 	return url(`/archive/?tag=${encodeURIComponent(tag.trim())}`);
@@ -29,6 +42,11 @@ export function getCategoryUrl(category: string | null): string {
 	)
 		return url("/archive/?uncategorized=true");
 	return url(`/archive/?category=${encodeURIComponent(category.trim())}`);
+}
+
+export function getSeriesUrl(series: string | null): string {
+	if (!series || series.trim() === "") return url("/archive/");
+	return url(`/archive/?series=${encodeURIComponent(series.trim())}`);
 }
 
 export function getDir(path: string): string {

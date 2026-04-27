@@ -35,25 +35,29 @@ export const getStaticPaths = (async ({ paginate }) => {
 	const allBlogPosts = await getSortedPosts();
 	return paginate(allBlogPosts, { pageSize: PAGE_SIZE });
 }) satisfies GetStaticPaths;
-// https://github.com/withastro/astro/issues/6507#issuecomment-1489916992
 
 const { page } = Astro.props;
-
 const len = page.data.length;
 ---
 
 <MainGridLayout>
-    {len > 0 ? (
-        <>
-            <PostPage page={page}></PostPage>
-            <Pagination class="mx-auto onload-animation" page={page} style={`animation-delay: calc(var(--content-delay) + ${len * 50}ms)`}></Pagination>
-        </>
-    ) : (
-        <section class="card-base mx-auto mb-4 w-full rounded-[var(--radius-large)] px-8 py-10 text-center onload-animation">
-            <h1 class="mb-3 text-2xl font-bold text-black/85 dark:text-white/85">暂无文章</h1>
-            <p class="text-black/55 dark:text-white/55">这个博客的文章列表已经清空。</p>
-        </section>
-    )}
+	{
+		len > 0 ? (
+			<>
+				<PostPage page={page}></PostPage>
+				<Pagination
+					class="mx-auto onload-animation"
+					page={page}
+					style={`animation-delay: calc(var(--content-delay) + ${len * 50}ms)`}
+				></Pagination>
+			</>
+		) : (
+			<section class="card-base mx-auto mb-4 w-full rounded-[var(--radius-large)] px-8 py-10 text-center onload-animation">
+				<h1 class="mb-3 text-2xl font-bold text-black/85 dark:text-white/85">暂时还没有文章</h1>
+				<p class="text-black/55 dark:text-white/55">首页文章流目前为空，后续发布内容后会自动出现在这里。</p>
+			</section>
+		)
+	}
 </MainGridLayout>
 
 <script is:inline>

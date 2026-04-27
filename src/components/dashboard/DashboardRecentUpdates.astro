@@ -1,0 +1,27 @@
+---
+const { recentUpdates } = Astro.props;
+---
+
+<article id="updates" class="card-base dashboard-panel">
+	<div class="dashboard-panel-head">
+		<div>
+			<p class="dashboard-panel-eyebrow">Recent</p>
+			<h3 class="dashboard-panel-title">最近更新</h3>
+		</div>
+	</div>
+
+	<div class="dashboard-recent-list">
+		{
+			recentUpdates.map((item) => (
+				<a href={item.url} class="dashboard-recent-item">
+					<div class="dashboard-recent-meta">
+						<span class="dashboard-recent-kind">{item.kindLabel}</span>
+						<span>{item.time}</span>
+					</div>
+					<p class="dashboard-recent-title">{item.title}</p>
+					<p class="dashboard-recent-copy">{item.description}</p>
+				</a>
+			))
+		}
+	</div>
+</article>

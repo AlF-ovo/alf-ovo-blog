@@ -1,0 +1,33 @@
+---
+const { profileName } = Astro.props;
+---
+
+<header class="dashboard-topbar">
+	<div>
+		<p class="dashboard-topbar-label">Blog Dashboard</p>
+		<h2 class="dashboard-topbar-title">内容总览与维护入口</h2>
+	</div>
+	<div class="dashboard-topbar-actions">
+		<div class="dashboard-search" data-dashboard-search>
+			<input
+				type="search"
+				class="dashboard-search-input"
+				placeholder="搜索最新文章、笔记和更新"
+				aria-label="搜索最新文章、笔记和更新"
+				autocomplete="off"
+				data-dashboard-search-input
+			/>
+			<div class="dashboard-search-results" data-dashboard-search-results hidden>
+				<div class="dashboard-search-results-list" data-dashboard-search-list></div>
+				<p class="dashboard-search-empty" data-dashboard-search-empty hidden>没有匹配到结果。</p>
+			</div>
+		</div>
+		<div class="dashboard-profile-chip">
+			<div class="dashboard-profile-avatar">{profileName?.slice(0, 1) || "A"}</div>
+			<div>
+				<p class="dashboard-profile-name">{profileName}</p>
+				<p class="dashboard-profile-role">Writer / Maintainer</p>
+			</div>
+		</div>
+	</div>
+</header>

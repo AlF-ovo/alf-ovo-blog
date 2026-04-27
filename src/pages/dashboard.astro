@@ -1,19 +1,20 @@
 ---
-import { Icon } from "astro-icon/components";
+import DashboardActivityPanel from "@components/dashboard/DashboardActivityPanel.astro";
+import DashboardGuidePanel from "@components/dashboard/DashboardGuidePanel.astro";
+import DashboardHero from "@components/dashboard/DashboardHero.astro";
+import DashboardMetricsGrid from "@components/dashboard/DashboardMetricsGrid.astro";
+import DashboardRecentUpdates from "@components/dashboard/DashboardRecentUpdates.astro";
+import DashboardSidebar from "@components/dashboard/DashboardSidebar.astro";
+import DashboardTopbar from "@components/dashboard/DashboardTopbar.astro";
 import Layout from "../layouts/Layout.astro";
+import { profileConfig } from "../config";
 import { getDashboardData } from "../utils/dashboard-data";
-import { url } from "../utils/url-utils";
 
 type ActivityPoint = {
 	label: string;
 	publish: number;
 	update: number;
 	delete: number;
-};
-
-type ActivityDataset = {
-	label: string;
-	points: ActivityPoint[];
 };
 
 type ActivityMetric = ActivityPoint & {
@@ -24,834 +25,155 @@ type ActivityMetric = ActivityPoint & {
 	deleteY: number;
 };
 
-type DashboardSearchItem = {
-	title: string;
-	type: string;
-	description: string;
-	time?: string;
-	url: string;
-};
-
 const chartPalette = {
 	publish: {
 		line: "rgb(59, 130, 246)",
-		glow: "rgba(59, 130, 246, 0.34)",
-		area: "rgba(59, 130, 246, 0.1)",
+		area: "rgba(59, 130, 246, 0.12)",
 	},
 	update: {
-		line: "rgb(139, 92, 246)",
-		glow: "rgba(139, 92, 246, 0.32)",
-		area: "rgba(139, 92, 246, 0.09)",
+		line: "rgb(14, 165, 233)",
+		area: "rgba(14, 165, 233, 0.12)",
 	},
 	delete: {
-		line: "rgb(250, 204, 21)",
-		glow: "rgba(250, 204, 21, 0.28)",
-		area: "rgba(250, 204, 21, 0.1)",
+		line: "rgb(245, 158, 11)",
+		area: "rgba(245, 158, 11, 0.12)",
 	},
 };
 
-const { chartDatasets, recentUpdates, dashboardMetrics } =
-	await getDashboardData();
+const { chartDatasets, recentUpdates, dashboardMetrics } = await getDashboardData();
 
 const getChartMetrics = (points: ActivityPoint[]): ActivityMetric[] => {
 	const maxTotal = Math.max(
-		...points.map(
-			(point: ActivityPoint) => point.publish + point.update + point.delete,
-		),
+		...points.map((point) => point.publish + point.update + point.delete),
 		1,
 	);
 	const denominator = Math.max(points.length - 1, 1);
 
-	return points.map((point: ActivityPoint, index: number) => {
-		const total = point.publish + point.update + point.delete;
-		const x = (index / denominator) * 100;
-
-		return {
-			...point,
-			total,
-			x,
-			publishY: 100 - (point.publish / maxTotal) * 100,
-			updateY: 100 - (point.update / maxTotal) * 100,
-			deleteY: 100 - (point.delete / maxTotal) * 100,
-		};
-	});
+	return points.map((point, index) => ({
+		...point,
+		total: point.publish + point.update + point.delete,
+		x: (index / denominator) * 100,
+		publishY: 100 - (point.publish / maxTotal) * 100,
+		updateY: 100 - (point.update / maxTotal) * 100,
+		deleteY: 100 - (point.delete / maxTotal) * 100,
+	}));
 };
 
-const summarizeDataset = (dataset: ActivityDataset) =>
-	`本${dataset.label}共发布 ${dataset.points.reduce((sum: number, point: ActivityPoint) => sum + point.publish, 0)} 篇，修改 ${dataset.points.reduce((sum: number, point: ActivityPoint) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum: number, point: ActivityPoint) => sum + point.delete, 0)} 次。`;
+const summarizeDataset = (dataset: (typeof chartDatasets)["week"]) =>
+	`${dataset.label}共发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 条，修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次。`;
 
 const defaultRange = "week";
 const defaultDataset = chartDatasets[defaultRange];
 const defaultMetrics = getChartMetrics(defaultDataset.points);
 const defaultSummary = summarizeDataset(defaultDataset);
-const chartDataJson = JSON.stringify(chartDatasets);
+
 const dashboardHints = {
 	write: {
-		title: "写文章提示",
-		content: `1. 先在仓库根目录运行 pnpm new-post your-slug
-2. 新文章默认会生成到 src/content/posts/your-slug.md
-3. 如果这篇文章还要放封面或插图，更推荐改成目录结构：
+		title: "新建内容建议",
+		content: `1. 长文默认使用：pnpm new-post -- your-slug
+2. 短笔记使用：pnpm new-post -- your-note --type note
+3. 新内容会默认生成目录式结构：
    src/content/posts/your-slug/index.md
-4. 图片、附件放在同目录下，例如：
-   src/content/posts/your-slug/cover.jpeg
-   src/content/posts/your-slug/diagram.png
-5. 在 frontmatter 里补全 title、published、description、tags、category
-6. 如果用了封面，image 写相对路径，例如 ./cover.jpeg
-7. 写完后先本地预览，确认路由、封面和正文都正常
-8. 之后再统一 commit 和 push 到 main，现有 Pages 工作流会重新构建`,
+   或
+   src/content/notes/your-note/index.md
+4. 图片、exp、附件尽量和 index.md 放在同一个 slug 目录
+5. frontmatter 里优先补全 title、description、tags、category、categoryPath、series
+6. 发版前至少跑一次 pnpm build，确认路径、图片和分类都正常`,
 	},
-	upload: {
-		title: "本地上传提示",
-		content: `1. 这个项目没有在线上传后台，'本地上传' 的正确含义是把文件放进仓库内容目录
-2. 单文件文章可以先改成目录文章，再把资源和 index.md 放在一起：
-   src/content/posts/your-slug/index.md
-   src/content/posts/your-slug/your-image.png
-3. 正文里的图片引用尽量使用相对路径，例如：
-   ![desc](./your-image.png)
-4. 封面图放在同目录时，frontmatter 里的 image 可以写 ./cover.jpeg
-5. 不建议把资源随便丢到仓库根目录或 public 里，这样后续整理文章会很乱
-6. 如果是附件、脚本或二进制样例，也建议跟文章放同一个 slug 目录
-7. 所有文件进了 src/content/posts 后，再本地检查路径是否能正确渲染
-8. 确认无误后再统一 commit 和 push`,
+	organize: {
+		title: "内容组织原则",
+		content: `1. category 只放一级分类，例如 ctfshow、随笔、站点
+2. categoryPath 用来表达层级路径，例如 ["ctfshow", "test_your_nc"]
+3. series 用来聚合同一组连续内容，例如 ctfshow-test_your_nc
+4. 长文走 posts，短记录走 notes，避免首页文章流越来越杂
+5. 新内容优先用目录式结构，别再把资源随手丢到 public 根下
+6. 如果内容需要长期维护，优先保证标题、摘要和分类可搜索`,
 	},
 };
-const dashboardHintsJson = JSON.stringify(dashboardHints);
-const dashboardSearchItems: DashboardSearchItem[] = [
+
+const dashboardSearchItems = [
 	{
-		title: dashboardMetrics.lastVisitedPost.title,
-		type: "最近修改",
-		description: dashboardMetrics.lastVisitedPost.excerpt,
-		url: url(dashboardMetrics.lastVisitedPost.url),
+		title: dashboardMetrics.lastUpdatedEntry.title,
+		type: `最近更新 · ${dashboardMetrics.lastUpdatedEntry.kindLabel}`,
+		description: dashboardMetrics.lastUpdatedEntry.excerpt,
+		url: dashboardMetrics.lastUpdatedEntry.url,
 	},
 	{
 		title: dashboardMetrics.latestPost.title,
-		type: "最新文章",
+		type: `最新文章 · ${dashboardMetrics.latestPost.kindLabel}`,
 		description: dashboardMetrics.latestPost.excerpt,
-		url: url(dashboardMetrics.latestPost.url),
+		url: dashboardMetrics.latestPost.url,
 	},
-	...recentUpdates.slice(0, 3).map((item) => ({
+	{
+		title: dashboardMetrics.latestNote.title,
+		type: `最新笔记 · ${dashboardMetrics.latestNote.kindLabel}`,
+		description: dashboardMetrics.latestNote.excerpt,
+		url: dashboardMetrics.latestNote.url,
+	},
+	...recentUpdates.map((item) => ({
 		title: item.title,
-		type: "最近修改",
+		type: `最近更新 · ${item.kindLabel}`,
 		description: item.description,
 		time: item.time,
-		url: url(item.url),
+		url: item.url,
 	})),
 ];
-const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 ---
 
-<Layout title="Dashboard" description="Dashboard UI example">
-	<div class="dashboard-shell" data-sidebar-collapsed="false">
-		<aside class="dashboard-sidebar">
-			<div class="brand-block">
-				<div class="brand-copy-wrap">
-					<div class="brand-mark">
-						<Icon name="fa6-solid:gauge-high" class="text-[1.35rem]" />
-					</div>
-					<div class="brand-copy">
-						<p class="brand-eyebrow">Example</p>
-						<h1 class="brand-title">Dashboard</h1>
-					</div>
-				</div>
-				<button
-					class="sidebar-toggle"
-					type="button"
-					data-sidebar-toggle
-					aria-expanded="true"
-					aria-label="收起侧边栏"
-				>
-					<span data-sidebar-toggle-icon>&lt;&lt;</span>
-				</button>
-			</div>
-
-			<nav class="menu-block">
-				<a class="menu-item is-active" href="#overview">
-					<Icon name="fa6-solid:table-columns" />
-					<span>仪表盘</span>
-				</a>
-				<a class="menu-item" href="#workspace">
-					<Icon name="fa6-solid:border-all" />
-					<span>工作区</span>
-				</a>
-				<a class="menu-item" href={url("/")}>
-					<Icon name="fa6-solid:house" />
-					<span>主页</span>
-				</a>
-			</nav>
-
-			<div class="sidebar-panel">
-				<p class="panel-label">当前状态</p>
-				<div class="status-chip">
-					<span class="status-dot"></span>
-					<span>占位模式</span>
-				</div>
-				<div class="stack-skeleton">
-					<div class="skeleton-line w-100"></div>
-					<div class="skeleton-line w-72"></div>
-					<div class="skeleton-line w-56"></div>
-				</div>
-			</div>
-		</aside>
+<Layout title="Dashboard" description="AlF 博客内容总览">
+	<div class="dashboard-shell">
+		<DashboardSidebar />
 
 		<div class="dashboard-main">
-			<header class="dashboard-topbar">
-				<div>
-					<p class="topbar-label">AIXJ style example</p>
-					<h2 class="topbar-title">AlF-0v0-blog</h2>
-				</div>
-				<div class="topbar-actions">
-					<div class="ghost-input dashboard-search" data-dashboard-search>
-						<Icon name="fa6-solid:magnifying-glass" />
-						<input
-							class="ghost-search-input"
-							type="search"
-							placeholder="搜索"
-							aria-label="搜索"
-							autocomplete="off"
-							data-dashboard-search-input
-						/>
-						<div class="search-results" data-dashboard-search-results hidden>
-							<div class="search-results-list" data-dashboard-search-list></div>
-							<p class="search-empty" data-dashboard-search-empty hidden>没有匹配到示例数据</p>
-						</div>
-					</div>
-					<button class="ghost-button" type="button">
-						<Icon name="fa6-solid:bell" />
-					</button>
-					<div class="profile-chip">
-						<div class="profile-avatar">A</div>
-						<div>
-							<p class="profile-name">AlF</p>
-							<p class="profile-role">Dashboard Preview</p>
-						</div>
-					</div>
-				</div>
-			</header>
+			<DashboardTopbar profileName={profileConfig.name} />
+			<DashboardHero
+				greeting="这里是博客的内容总览，不再是模板示例。"
+				intro="它主要服务于当前这套写作方式：长文进文章流，短记录进札记流；分类负责一级归档，categoryPath 负责层级路径，series 负责系列聚合。"
+			/>
+			<DashboardMetricsGrid metrics={dashboardMetrics} />
 
-			<section id="overview" class="hero-panel dashboard-card">
-				<div>
-					<p class="hero-eyebrow">Overview</p>
-					<h3 class="hero-title hero-title-typing" data-dashboard-greeting aria-live="polite">
-						<span data-dashboard-greeting-text>欢迎回来，AlF！</span>
-						<span class="hero-title-cursor" aria-hidden="true">|</span>
-					</h3>
-					<p class="hero-copy" data-dashboard-intro>
-						AlF's blog is a quiet archive of pwn notes, CTF writeups, and scattered reflections, a place where exploit chains, debugging traces, and passing thoughts are written down before they fade into the background.
-					</p>
-				</div>
-				<div class="hero-actions">
-					<button class="primary-button" type="button" data-dashboard-hint-trigger="write">写文章</button>
-					<button class="secondary-button" type="button" data-dashboard-hint-trigger="upload">本地上传</button>
-				</div>
-			</section>
-
-			<div class="dashboard-hint-overlay" data-dashboard-hint-overlay hidden>
-				<section
-					class="dashboard-hint-card"
-					data-dashboard-hint-root
-					role="dialog"
-					aria-modal="true"
-					aria-labelledby="dashboard-hint-title"
-				>
-					<div class="dashboard-hint-head">
-						<div>
-							<p class="dashboard-hint-eyebrow">Hint</p>
-							<h3 class="dashboard-hint-title" id="dashboard-hint-title" data-dashboard-hint-title>
-								操作提示
-							</h3>
-						</div>
-						<button
-							class="dashboard-hint-close"
-							type="button"
-							aria-label="关闭提示"
-							data-dashboard-hint-close
-						>
-							<Icon name="fa6-solid:xmark" />
-						</button>
-					</div>
-					<textarea
-						class="dashboard-hint-textbox"
-						data-dashboard-hint-content
-						readonly
-						spellcheck="false"
-					></textarea>
-				</section>
+			<div class="dashboard-grid">
+				<DashboardActivityPanel
+					chartPalette={chartPalette}
+					defaultRange={defaultRange}
+					defaultMetrics={defaultMetrics}
+					defaultSummary={defaultSummary}
+				/>
+				<DashboardRecentUpdates recentUpdates={recentUpdates} />
+				<DashboardGuidePanel />
 			</div>
-
-			<section class="metrics-grid">
-				<article class="metric-card dashboard-card">
-					<div class="metric-head">
-						<span>新修改文章</span>
-						<Icon name="fa6-solid:arrow-trend-up" />
-					</div>
-					<div class="metric-value metric-value-rich">
-						<p class="metric-primary">{dashboardMetrics.updatedPosts} 篇</p>
-						<p class="metric-secondary">累计新增与修订 {dashboardMetrics.updatedWords.toLocaleString("zh-CN")} 字</p>
-					</div>
-					<div class="metric-foot">
-						<div class="metric-badges">
-							<span class="metric-badge">发布后更新</span>
-							<span class="metric-badge is-accent">{dashboardMetrics.updatedWords.toLocaleString("zh-CN")} 字</span>
-						</div>
-					</div>
-				</article>
-				<article class="metric-card dashboard-card">
-					<div class="metric-head">
-						<span>分类概览</span>
-						<Icon name="fa6-solid:chart-column" />
-					</div>
-					<div class="metric-value metric-value-rich">
-						<p class="metric-primary">{dashboardMetrics.totalUsage}</p>
-						<p class="metric-secondary">{dashboardMetrics.totalUsageNote}</p>
-					</div>
-					<div class="metric-foot">
-						<p class="metric-footnote">数据来自首页“分类”组件对应的文章集合</p>
-					</div>
-				</article>
-				<article class="metric-card dashboard-card">
-					<div class="metric-head">
-						<span>最近修改文章</span>
-						<Icon name="fa6-solid:rocket" />
-					</div>
-					<div class="metric-value metric-article">
-						<p class="metric-article-title">{dashboardMetrics.lastVisitedPost.title}</p>
-						<p class="metric-article-excerpt">{dashboardMetrics.lastVisitedPost.excerpt}</p>
-					</div>
-					<div class="metric-foot">
-						<a class="metric-footnote-link" href={dashboardMetrics.lastVisitedPost.url}>
-							点击可进入文章详情
-						</a>
-					</div>
-				</article>
-				<article class="metric-card dashboard-card">
-					<div class="metric-head">
-						<span>最新文章</span>
-						<Icon name="fa6-solid:bolt" />
-					</div>
-					<div class="metric-value metric-article">
-						<p class="metric-article-title">{dashboardMetrics.latestPost.title}</p>
-						<p class="metric-article-excerpt">{dashboardMetrics.latestPost.excerpt}</p>
-					</div>
-					<div class="metric-foot">
-						<a class="metric-footnote-link" href={dashboardMetrics.latestPost.url}>
-							点击可进入文章详情
-						</a>
-					</div>
-				</article>
-			</section>
-
-			<section class="content-grid">
-				<article id="workspace" class="dashboard-card chart-card">
-					<div class="section-head">
-						<div>
-							<p class="section-eyebrow">Workspace</p>
-							<h3 class="section-title">近日Blog发布、修改及删除情况</h3>
-						</div>
-						<div
-							class="range-switch"
-							data-chart-switch
-							data-active-index="0"
-							role="tablist"
-							aria-label="图表时间范围"
-						>
-							<span class="range-switch-thumb" aria-hidden="true"></span>
-							<button class="range-switch-button is-active" type="button" data-range-option="week" role="tab" aria-selected="true">
-								近7日
-							</button>
-							<button class="range-switch-button" type="button" data-range-option="month" role="tab" aria-selected="false">
-								近1个月
-							</button>
-							<button class="range-switch-button" type="button" data-range-option="year" role="tab" aria-selected="false">
-								近1年
-							</button>
-						</div>
-					</div>
-					<div class="chart-meta">
-						<div class="chart-legend" aria-label="图例">
-							<span class="legend-item">
-								<span class="legend-swatch is-publish"></span>
-								<span>发布</span>
-							</span>
-							<span class="legend-item">
-								<span class="legend-swatch is-update"></span>
-								<span>修改</span>
-							</span>
-							<span class="legend-item">
-								<span class="legend-swatch is-delete"></span>
-								<span>删除</span>
-							</span>
-						</div>
-						<p class="chart-summary" data-chart-summary>{defaultSummary}</p>
-					</div>
-					<div class="chart-placeholder" data-chart-root data-default-range={defaultRange}>
-						<div class="grid-lines"></div>
-						<div class="chart-scroll">
-							<div class="chart-stage" data-chart-stage>
-								<svg
-									class="chart-svg"
-									data-chart-svg
-									viewBox="0 0 100 100"
-									preserveAspectRatio="none"
-									aria-label="Blog 活动趋势图"
-								>
-									<path
-										class="chart-area is-publish"
-										fill={chartPalette.publish.area}
-										stroke="none"
-										d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.publishY}`).join(" ")} L 100 100 Z`}
-									></path>
-									<path
-										class="chart-area is-update"
-										fill={chartPalette.update.area}
-										stroke="none"
-										d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.updateY}`).join(" ")} L 100 100 Z`}
-									></path>
-									<path
-										class="chart-area is-delete"
-										fill={chartPalette.delete.area}
-										stroke="none"
-										d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.deleteY}`).join(" ")} L 100 100 Z`}
-									></path>
-									<path
-										class="chart-line is-publish"
-										fill="none"
-										stroke={chartPalette.publish.line}
-										stroke-width="2.1"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.publishY}`).join(" L ")}`}
-									></path>
-										class="chart-line is-update"
-										fill="none"
-										stroke={chartPalette.update.line}
-										stroke-width="2.1"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.updateY}`).join(" L ")}`}
-									></path>
-										class="chart-line is-delete"
-										fill="none"
-										stroke={chartPalette.delete.line}
-										stroke-width="2.1"
-										stroke-linecap="round"
-										stroke-linejoin="round"
-										d={`M ${defaultMetrics.map((point) => `${point.x} ${point.deleteY}`).join(" L ")}`}
-									></path>
-								</svg>
-								<div
-									class="chart-labels"
-									data-chart-labels
-									style={`grid-template-columns: repeat(${defaultMetrics.length}, minmax(${defaultMetrics.length > 12 ? "1.9rem" : "3.2rem"}, 1fr));`}
-								>
-									{
-										defaultMetrics.map((point) => (
-											<span class="chart-label">{point.label}</span>
-										))
-									}
-								</div>
-							</div>
-						</div>
-					</div>
-				</article>
-
-				<article id="settings" class="dashboard-card wide-card">
-					<div class="section-head">
-						<div>
-							<p class="section-eyebrow">Settings</p>
-							<h3 class="section-title">模块占位区</h3>
-						</div>
-					</div>
-					<div class="module-grid">
-						<div class="module-card">
-							<div class="module-icon">
-								<Icon name="fa6-solid:key" />
-							</div>
-							<div class="skeleton-line w-58"></div>
-							<div class="skeleton-line w-82"></div>
-						</div>
-						<div class="module-card">
-							<div class="module-icon">
-								<Icon name="fa6-solid:shield-halved" />
-							</div>
-							<div class="skeleton-line w-62"></div>
-							<div class="skeleton-line w-76"></div>
-						</div>
-						<div class="module-card">
-							<div class="module-icon">
-								<Icon name="fa6-solid:share-nodes" />
-							</div>
-							<div class="skeleton-line w-54"></div>
-							<div class="skeleton-line w-72"></div>
-						</div>
-					</div>
-				</article>
-			</section>
 		</div>
 	</div>
-</Layout>
 
-<script id="blog-chart-data" type="application/json" is:inline set:html={chartDataJson}></script>
-<script id="dashboard-hint-data" type="application/json" is:inline set:html={dashboardHintsJson}></script>
-<script id="dashboard-search-data" type="application/json" is:inline set:html={dashboardSearchJson}></script>
-<script is:inline>
-	const chartPalette = {
-		publish: {
-			line: "rgb(59, 130, 246)",
-			glow: "rgba(59, 130, 246, 0.34)",
-			area: "rgba(59, 130, 246, 0.1)",
-		},
-		update: {
-			line: "rgb(139, 92, 246)",
-			glow: "rgba(139, 92, 246, 0.32)",
-			area: "rgba(139, 92, 246, 0.09)",
-		},
-		delete: {
-			line: "rgb(250, 204, 21)",
-			glow: "rgba(250, 204, 21, 0.28)",
-			area: "rgba(250, 204, 21, 0.1)",
-		},
-	};
+	<div class="dashboard-hint-overlay" data-dashboard-hint-overlay hidden>
+		<section class="dashboard-hint-card" data-dashboard-hint-root role="dialog" aria-modal="true" aria-labelledby="dashboard-hint-title">
+			<div class="dashboard-hint-head">
+				<div>
+					<p class="dashboard-panel-eyebrow">Hint</p>
+					<h3 class="dashboard-hint-title" id="dashboard-hint-title" data-dashboard-hint-title>内容提示</h3>
+				</div>
+				<button class="dashboard-hint-close" type="button" aria-label="关闭提示" data-dashboard-hint-close>
+					×
+				</button>
+			</div>
+			<textarea class="dashboard-hint-textbox" data-dashboard-hint-content readonly spellcheck="false"></textarea>
+		</section>
+	</div>
 
-	const initDashboardSearch = () => {
-		const searchRoot = document.querySelector("[data-dashboard-search]");
-		const input = document.querySelector("[data-dashboard-search-input]");
-		const results = document.querySelector("[data-dashboard-search-results]");
-		const listNode = document.querySelector("[data-dashboard-search-list]");
-		const emptyNode = document.querySelector("[data-dashboard-search-empty]");
-		const dataNode = document.querySelector("#dashboard-search-data");
+	<script id="dashboard-chart-data" type="application/json" is:inline set:html={JSON.stringify(chartDatasets)}></script>
+	<script id="dashboard-hint-data" type="application/json" is:inline set:html={JSON.stringify(dashboardHints)}></script>
+	<script id="dashboard-search-data" type="application/json" is:inline set:html={JSON.stringify(dashboardSearchItems)}></script>
 
-		if (!searchRoot || !input || !results || !listNode || !emptyNode || !dataNode) {
-			return;
-		}
-
-		const items = JSON.parse(dataNode.textContent || "[]");
-		const normalize = (value) => String(value || "").trim().toLowerCase();
-		const renderResults = (query = "") => {
-			const keyword = normalize(query);
-			const matchedItems = items
-				.filter((item) => {
-					if (!keyword) {
-						return true;
-					}
-
-					return [item.title, item.type, item.description, item.time]
-						.some((field) => normalize(field).includes(keyword));
-				})
-				.slice(0, 5);
-
-			listNode.replaceChildren();
-
-			if (matchedItems.length === 0) {
-				emptyNode.hidden = false;
-				results.hidden = false;
-				return;
-			}
-
-			emptyNode.hidden = true;
-			matchedItems.forEach((item) => {
-				const link = document.createElement("a");
-				link.className = "search-result-item";
-				link.href = item.url;
-
-				const meta = document.createElement("div");
-				meta.className = "search-result-meta";
-
-				const badge = document.createElement("span");
-				badge.className = "search-result-badge";
-				badge.textContent = item.type;
-
-				if (item.time) {
-					const time = document.createElement("time");
-					time.className = "search-result-time";
-					time.dateTime = item.time;
-					time.textContent = item.time;
-					meta.append(badge, time);
-				} else {
-					meta.append(badge);
-				}
-
-				const title = document.createElement("p");
-				title.className = "search-result-title";
-				title.textContent = item.title;
-
-				const description = document.createElement("p");
-				description.className = "search-result-description";
-				description.textContent = item.description;
-
-				link.append(meta, title, description);
-				listNode.append(link);
-			});
-
-			results.hidden = false;
+	<script is:inline>
+		const chartPalette = {
+			publish: { line: "rgb(59, 130, 246)", area: "rgba(59, 130, 246, 0.12)" },
+			update: { line: "rgb(14, 165, 233)", area: "rgba(14, 165, 233, 0.12)" },
+			delete: { line: "rgb(245, 158, 11)", area: "rgba(245, 158, 11, 0.12)" },
 		};
 
-		if (searchRoot.dataset.bound === "true") {
-			return;
-		}
-
-		input.addEventListener("focus", () => {
-			renderResults(input.value);
-		});
-
-		input.addEventListener("input", () => {
-			renderResults(input.value);
-		});
-
-		document.addEventListener("click", (event) => {
-			if (!searchRoot.contains(event.target)) {
-				results.hidden = true;
-			}
-		});
-
-		input.addEventListener("keydown", (event) => {
-			if (event.key === "Escape") {
-				results.hidden = true;
-				input.blur();
-			}
-		});
-
-		searchRoot.dataset.bound = "true";
-	};
-
-	const setDashboardGreeting = () => {
-		const greetingNode = document.querySelector("[data-dashboard-greeting]");
-		const greetingTextNode = greetingNode?.querySelector("[data-dashboard-greeting-text]");
-
-		if (!greetingNode || !greetingTextNode) {
-			return;
-		}
-
-		const greetings = [
-			"欢迎回来，AlF！",
-			"你回来了，AlF。",
-			"好的，AlF，让我们继续。",
-		];
-		const storageKey = "alf-dashboard-last-greeting";
-		let lastGreeting = "";
-
-		try {
-			lastGreeting = window.localStorage.getItem(storageKey) || "";
-		} catch (_error) {
-			lastGreeting = "";
-		}
-
-		const availableGreetings =
-			greetings.length > 1 ? greetings.filter((greeting) => greeting !== lastGreeting) : greetings;
-		const nextGreeting =
-			availableGreetings[Math.floor(Math.random() * availableGreetings.length)] || greetings[0];
-
-		try {
-			window.localStorage.setItem(storageKey, nextGreeting);
-		} catch (_error) {
-			// Ignore storage write failures and keep the greeting randomized for this visit.
-		}
-
-		const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-		const typingRunId = `${Date.now()}-${Math.random()}`;
-
-		greetingNode.dataset.typingRun = typingRunId;
-		greetingNode.dataset.typing = "true";
-		greetingTextNode.textContent = "";
-
-		if (prefersReducedMotion) {
-			greetingTextNode.textContent = nextGreeting;
-			greetingNode.dataset.typing = "false";
-			return;
-		}
-
-		const typeNextCharacter = (index = 0) => {
-			if (greetingNode.dataset.typingRun !== typingRunId) {
-				return;
-			}
-
-			greetingTextNode.textContent = nextGreeting.slice(0, index + 1);
-
-			if (index + 1 >= nextGreeting.length) {
-				greetingNode.dataset.typing = "false";
-				return;
-			}
-
-			window.setTimeout(() => typeNextCharacter(index + 1), 85);
-		};
-
-		typeNextCharacter();
-	};
-
-	const setDashboardIntro = () => {
-		const introNode = document.querySelector("[data-dashboard-intro]");
-
-		if (!introNode) {
-			return;
-		}
-
-		const intros = [
-			"AlF's blog is a quiet archive of pwn notes, CTF writeups, and scattered reflections, a place where exploit chains, debugging traces, and passing thoughts are written down before they fade into the background.",
-			"AlF's blog gathers CTF-pwn articles, exploit records, and occasional essays into one slow-growing corner of the web, where technical details and personal observations are kept with equal care.",
-			"AlF's blog is a personal space for pwn writeups, challenge breakdowns, and late-night miscellany, shaped by curiosity, repetition, and the habit of turning difficult moments into something worth recording.",
-			"AlF's blog keeps track of CTF-pwn practice, exploit experiments, and fragments of everyday thought, preserving both the precision of technical work and the quieter mood that often surrounds it.",
-			"AlF's blog is written between terminals, notes, and passing hours, collecting pwn-related articles, CTF records, and occasional reflections into a small archive of things solved, things attempted, and things remembered.",
-			"AlF's blog is a place for exploit writeups, binary notes, CTF-pwn practice, and a few words about everything in between, where technical effort and personal voice are allowed to stay on the same page.",
-		];
-
-		const nextIntro = intros[Math.floor(Math.random() * intros.length)];
-		introNode.textContent = nextIntro;
-	};
-
-	const initSidebarToggle = () => {
-		const shell = document.querySelector(".dashboard-shell");
-		const toggleButton = document.querySelector("[data-sidebar-toggle]");
-		const toggleIcon = document.querySelector("[data-sidebar-toggle-icon]");
-
-		if (!shell || !toggleButton || !toggleIcon) {
-			return;
-		}
-
-		const storageKey = "alf-dashboard-sidebar-collapsed";
-		const applySidebarState = (collapsed) => {
-			shell.dataset.sidebarCollapsed = String(collapsed);
-			toggleButton.setAttribute("aria-expanded", String(!collapsed));
-			toggleButton.setAttribute(
-				"aria-label",
-				collapsed ? "展开侧边栏" : "收起侧边栏",
-			);
-			toggleIcon.textContent = collapsed ? ">>" : "<<";
-		};
-
-		const savedState = window.localStorage.getItem(storageKey);
-		applySidebarState(savedState === "true");
-
-		if (toggleButton.dataset.bound === "true") {
-			return;
-		}
-
-		toggleButton.addEventListener("click", () => {
-			const collapsed = shell.dataset.sidebarCollapsed === "true";
-			const nextState = !collapsed;
-
-			applySidebarState(nextState);
-			window.localStorage.setItem(storageKey, String(nextState));
-		});
-
-		toggleButton.dataset.bound = "true";
-	};
-
-	const initDashboardHints = () => {
-		const overlay = document.querySelector("[data-dashboard-hint-overlay]");
-		const modal = document.querySelector("[data-dashboard-hint-root]");
-		const titleNode = document.querySelector("[data-dashboard-hint-title]");
-		const contentNode = document.querySelector("[data-dashboard-hint-content]");
-		const closeButton = document.querySelector("[data-dashboard-hint-close]");
-		const dataNode = document.querySelector("#dashboard-hint-data");
-		const triggerButtons = Array.from(
-			document.querySelectorAll("[data-dashboard-hint-trigger]"),
-		);
-
-		if (
-			!overlay ||
-			!modal ||
-			!titleNode ||
-			!contentNode ||
-			!closeButton ||
-			!dataNode ||
-			triggerButtons.length === 0
-		) {
-			return;
-		}
-
-		const hints = JSON.parse(dataNode.textContent || "{}");
-		const openHint = (hintKey) => {
-			const hint = hints[hintKey];
-
-			if (!hint) {
-				return;
-			}
-
-			titleNode.textContent = hint.title;
-			contentNode.value = hint.content;
-			overlay.hidden = false;
-			document.body.style.overflow = "hidden";
-			window.requestAnimationFrame(() => {
-				contentNode.focus();
-				contentNode.setSelectionRange(0, 0);
-			});
-		};
-
-		const closeHint = () => {
-			overlay.hidden = true;
-			document.body.style.overflow = "";
-		};
-
-		if (modal.dataset.bound === "true") {
-			return;
-		}
-
-		triggerButtons.forEach((button) => {
-			button.addEventListener("click", () => {
-				openHint(button.dataset.dashboardHintTrigger || "");
-			});
-		});
-
-		closeButton.addEventListener("click", closeHint);
-		overlay.addEventListener("click", (event) => {
-			if (event.target === overlay) {
-				closeHint();
-			}
-		});
-		document.addEventListener("keydown", (event) => {
-			if (event.key === "Escape" && !overlay.hidden) {
-				closeHint();
-			}
-		});
-
-		modal.dataset.bound = "true";
-	};
-
-	const initDashboardChart = () => {
-		const notifyDashboardReady = () => {
-			document.dispatchEvent(
-				new CustomEvent("alf:page-ready", {
-					detail: { path: window.location.pathname },
-				}),
-			);
-		};
-
-		initSidebarToggle();
-		initDashboardHints();
-		initDashboardSearch();
-		setDashboardGreeting();
-		setDashboardIntro();
-
-		const chartRoot = document.querySelector("[data-chart-root]");
-		const chartSvg = document.querySelector("[data-chart-svg]");
-		const chartLabels = document.querySelector("[data-chart-labels]");
-		const chartStage = document.querySelector("[data-chart-stage]");
-		const switchRoot = document.querySelector("[data-chart-switch]");
-		const summary = document.querySelector("[data-chart-summary]");
-		const dataNode = document.querySelector("#blog-chart-data");
-
-		if (
-			!chartRoot ||
-			!chartSvg ||
-			!chartLabels ||
-			!chartStage ||
-			!switchRoot ||
-			!summary ||
-			!dataNode
-		) {
-			notifyDashboardReady();
-			return;
-		}
-
-		const datasets = JSON.parse(dataNode.textContent || "{}");
-		const buttons = Array.from(switchRoot.querySelectorAll("[data-range-option]"));
-
-		const getMetrics = (points) => {
-			const maxTotal = Math.max(
-				...points.map((point) => point.publish + point.update + point.delete),
-				1,
-			);
+		const buildMetrics = (points) => {
+			const maxTotal = Math.max(...points.map((point) => point.publish + point.update + point.delete), 1);
 			const denominator = Math.max(points.length - 1, 1);
-
 			return points.map((point, index) => ({
 				...point,
 				x: (index / denominator) * 100,
@@ -861,628 +183,769 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 			}));
 		};
 
-		const buildLinePath = (metrics, key) =>
-			`M ${metrics.map((point) => `${point.x} ${point[key]}`).join(" L ")}`;
+		const buildAreaPath = (metrics, key) => `M 0 100 ${metrics.map((point) => `L ${point.x} ${point[key]}`).join(" ")} L 100 100 Z`;
+		const buildLinePath = (metrics, key) => `M ${metrics.map((point) => `${point.x} ${point[key]}`).join(" L ")}`;
+		const summarizeDataset = (dataset) =>
+			`${dataset.label}共发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 条，修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次。`;
 
-		const buildAreaPath = (metrics, key) =>
-			`M 0 100 ${metrics.map((point) => `L ${point.x} ${point[key]}`).join(" ")} L 100 100 Z`;
+		const initDashboardSearch = () => {
+			const root = document.querySelector("[data-dashboard-search]");
+			const input = document.querySelector("[data-dashboard-search-input]");
+			const results = document.querySelector("[data-dashboard-search-results]");
+			const listNode = document.querySelector("[data-dashboard-search-list]");
+			const emptyNode = document.querySelector("[data-dashboard-search-empty]");
+			const dataNode = document.querySelector("#dashboard-search-data");
 
-		const renderChart = (rangeKey) => {
-			const dataset = datasets[rangeKey];
-
-			if (!dataset) {
+			if (!root || !input || !results || !listNode || !emptyNode || !dataNode) {
 				return;
 			}
 
-			const metrics = getMetrics(dataset.points);
-			const minColumnWidth = metrics.length > 20 ? "1.85rem" : metrics.length > 12 ? "2.2rem" : "3.2rem";
-			const publishTotal = dataset.points.reduce((sum, point) => sum + point.publish, 0);
-			const updateTotal = dataset.points.reduce((sum, point) => sum + point.update, 0);
-			const deleteTotal = dataset.points.reduce((sum, point) => sum + point.delete, 0);
+			const items = JSON.parse(dataNode.textContent || "[]");
+			const normalize = (value) => String(value || "").trim().toLowerCase();
 
-			chartStage.style.setProperty("--chart-column-width", minColumnWidth);
-			chartStage.style.setProperty("--chart-point-count", String(metrics.length));
-			chartSvg.innerHTML = `
-				<path class="chart-area is-publish" fill="${chartPalette.publish.area}" stroke="none" d="${buildAreaPath(metrics, "publishY")}"></path>
-				<path class="chart-area is-update" fill="${chartPalette.update.area}" stroke="none" d="${buildAreaPath(metrics, "updateY")}"></path>
-				<path class="chart-area is-delete" fill="${chartPalette.delete.area}" stroke="none" d="${buildAreaPath(metrics, "deleteY")}"></path>
-				<path class="chart-line is-publish" fill="none" stroke="${chartPalette.publish.line}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "publishY")}"></path>
-				<path class="chart-line is-update" fill="none" stroke="${chartPalette.update.line}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "updateY")}"></path>
-				<path class="chart-line is-delete" fill="none" stroke="${chartPalette.delete.line}" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" d="${buildLinePath(metrics, "deleteY")}"></path>
-			`;
-			chartLabels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(${minColumnWidth}, 1fr))`;
-			chartLabels.innerHTML = metrics
-				.map((point) => `<span class="chart-label">${point.label}</span>`)
-				.join("");
+			const renderResults = (query = "") => {
+				const keyword = normalize(query);
+				const matchedItems = items
+					.filter((item) => {
+						if (!keyword) {
+							return true;
+						}
 
-			summary.textContent = `本${dataset.label}共发布 ${publishTotal} 篇，修改 ${updateTotal} 次，删除 ${deleteTotal} 次。`;
-			chartRoot.dataset.range = rangeKey;
-			switchRoot.dataset.activeIndex = String(buttons.findIndex((button) => button.dataset.rangeOption === rangeKey));
+						return [item.title, item.type, item.description, item.time].some((field) =>
+							normalize(field).includes(keyword),
+						);
+					})
+					.slice(0, 5);
 
-			buttons.forEach((button) => {
-				const isActive = button.dataset.rangeOption === rangeKey;
-				button.classList.toggle("is-active", isActive);
-				button.setAttribute("aria-selected", String(isActive));
+				listNode.replaceChildren();
+
+				if (matchedItems.length === 0) {
+					emptyNode.hidden = false;
+					results.hidden = false;
+					return;
+				}
+
+				emptyNode.hidden = true;
+				matchedItems.forEach((item) => {
+					const link = document.createElement("a");
+					link.className = "dashboard-search-result";
+					link.href = item.url;
+					link.innerHTML = `
+						<div class="dashboard-search-result-meta">${item.type}${item.time ? ` · ${item.time}` : ""}</div>
+						<div class="dashboard-search-result-title">${item.title}</div>
+						<div class="dashboard-search-result-copy">${item.description}</div>
+					`;
+					listNode.appendChild(link);
+				});
+
+				results.hidden = false;
+			};
+
+			input.onfocus = () => renderResults(input.value);
+			input.oninput = () => renderResults(input.value);
+			document.addEventListener("click", (event) => {
+				if (!root.contains(event.target)) {
+					results.hidden = true;
+				}
 			});
 		};
 
-		if (chartRoot.dataset.initialized === "true") {
-			renderChart(chartRoot.dataset.range || chartRoot.dataset.defaultRange || "week");
-			notifyDashboardReady();
-			return;
-		}
+		const initDashboardHints = () => {
+			const dataNode = document.querySelector("#dashboard-hint-data");
+			const overlay = document.querySelector("[data-dashboard-hint-overlay]");
+			const titleNode = document.querySelector("[data-dashboard-hint-title]");
+			const contentNode = document.querySelector("[data-dashboard-hint-content]");
+			const closeButton = document.querySelector("[data-dashboard-hint-close]");
+			const triggers = document.querySelectorAll("[data-dashboard-hint-trigger]");
 
-		buttons.forEach((button) => {
-			button.addEventListener("click", () => {
-				renderChart(button.dataset.rangeOption || "week");
+			if (!dataNode || !overlay || !titleNode || !contentNode || !closeButton || triggers.length === 0) {
+				return;
+			}
+
+			const hints = JSON.parse(dataNode.textContent || "{}");
+
+			const openHint = (key) => {
+				const hint = hints[key];
+				if (!hint) {
+					return;
+				}
+
+				titleNode.textContent = hint.title;
+				contentNode.value = hint.content;
+				overlay.hidden = false;
+			};
+
+			const closeHint = () => {
+				overlay.hidden = true;
+			};
+
+			triggers.forEach((trigger) => {
+				trigger.onclick = () => openHint(trigger.dataset.dashboardHintTrigger);
 			});
-		});
 
-		chartRoot.dataset.initialized = "true";
-		renderChart(chartRoot.dataset.defaultRange || "week");
-		notifyDashboardReady();
-	};
+			closeButton.onclick = closeHint;
+			overlay.onclick = (event) => {
+				if (event.target === overlay) {
+					closeHint();
+				}
+			};
+		};
 
-	document.addEventListener("astro:page-load", initDashboardChart);
-	document.addEventListener("DOMContentLoaded", initDashboardChart);
-</script>
+		const initDashboardChart = () => {
+			const dataNode = document.querySelector("#dashboard-chart-data");
+			const chartRoot = document.querySelector("[data-chart-root]");
+			const switchRoot = document.querySelector("[data-chart-switch]");
+			const summaryNode = document.querySelector("[data-chart-summary]");
+			const svg = document.querySelector("[data-chart-svg]");
+			const labels = document.querySelector("[data-chart-labels]");
+			const stage = document.querySelector("[data-chart-stage]");
 
-<style>
-	:global(body) {
-		background:
-			radial-gradient(circle at top left, rgba(20, 184, 166, 0.12), transparent 22rem),
-			radial-gradient(circle at top right, rgba(59, 130, 246, 0.1), transparent 24rem),
-			linear-gradient(180deg, rgba(248, 250, 252, 0.98), rgba(241, 245, 249, 1));
-	}
+			if (!dataNode || !chartRoot || !switchRoot || !summaryNode || !svg || !labels || !stage) {
+				return;
+			}
 
-	:global(.dark body) {
-		background:
-			radial-gradient(circle at top left, rgba(20, 184, 166, 0.16), transparent 22rem),
-			radial-gradient(circle at top right, rgba(37, 99, 235, 0.16), transparent 24rem),
-			linear-gradient(180deg, rgba(2, 6, 23, 0.98), rgba(15, 23, 42, 1));
-	}
+			const datasets = JSON.parse(dataNode.textContent || "{}");
+			const [publishArea, updateArea, deleteArea, publishLine, updateLine, deleteLine] = svg.querySelectorAll("path");
 
+			const renderChart = (range) => {
+				const dataset = datasets[range];
+				if (!dataset) {
+					return;
+				}
+
+				const metrics = buildMetrics(dataset.points);
+				switchRoot.dataset.activeIndex = range === "week" ? "0" : range === "month" ? "1" : "2";
+				switchRoot.querySelectorAll("[data-range-option]").forEach((button) => {
+					const active = button.dataset.rangeOption === range;
+					button.classList.toggle("is-active", active);
+					button.setAttribute("aria-selected", active ? "true" : "false");
+				});
+
+				publishArea.setAttribute("d", buildAreaPath(metrics, "publishY"));
+				updateArea.setAttribute("d", buildAreaPath(metrics, "updateY"));
+				deleteArea.setAttribute("d", buildAreaPath(metrics, "deleteY"));
+				publishLine.setAttribute("d", buildLinePath(metrics, "publishY"));
+				updateLine.setAttribute("d", buildLinePath(metrics, "updateY"));
+				deleteLine.setAttribute("d", buildLinePath(metrics, "deleteY"));
+				summaryNode.textContent = summarizeDataset(dataset);
+				stage.style.setProperty("--chart-point-count", String(metrics.length));
+				stage.style.setProperty("--chart-column-width", metrics.length > 12 ? "2rem" : "3.4rem");
+				labels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(${metrics.length > 12 ? "2rem" : "3.4rem"}, 1fr))`;
+				labels.replaceChildren(
+					...metrics.map((point) => {
+						const item = document.createElement("span");
+						item.className = "dashboard-chart-label";
+						item.textContent = point.label;
+						return item;
+					}),
+				);
+			};
+
+			switchRoot.querySelectorAll("[data-range-option]").forEach((button) => {
+				button.onclick = () => renderChart(button.dataset.rangeOption);
+			});
+
+			renderChart(chartRoot.dataset.defaultRange || "week");
+		};
+
+		const bootDashboard = () => {
+			initDashboardSearch();
+			initDashboardHints();
+			initDashboardChart();
+		};
+
+		document.addEventListener("astro:page-load", bootDashboard);
+		document.addEventListener("DOMContentLoaded", bootDashboard);
+	</script>
+</Layout>
+
+<style is:global>
 	.dashboard-shell {
-		min-height: 100vh;
+		max-width: 1280px;
+		margin: 0 auto;
+		padding: 1rem;
 		display: grid;
 		grid-template-columns: 280px minmax(0, 1fr);
-		gap: 1.25rem;
-		padding: 1.25rem;
-		transition: grid-template-columns 220ms ease;
-	}
-
-	.dashboard-shell[data-sidebar-collapsed="true"] {
-		grid-template-columns: 104px minmax(0, 1fr);
+		gap: 1rem;
 	}
 
 	.dashboard-sidebar,
-	.dashboard-card,
-	.ghost-input,
-	.profile-chip {
-		backdrop-filter: blur(20px);
-		background: rgba(255, 255, 255, 0.8);
-		border: 1px solid rgba(148, 163, 184, 0.18);
-		box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
-	}
-
-	:global(.dark) .dashboard-sidebar,
-	:global(.dark) .dashboard-card,
-	:global(.dark) .ghost-input,
-	:global(.dark) .profile-chip {
-		background: rgba(15, 23, 42, 0.76);
-		border-color: rgba(148, 163, 184, 0.12);
-		box-shadow: 0 20px 50px rgba(2, 6, 23, 0.38);
+	.dashboard-panel,
+	.dashboard-hero,
+	.dashboard-metric-card {
+		border-radius: 1.5rem;
 	}
 
 	.dashboard-sidebar {
 		position: sticky;
-		top: 1.25rem;
+		top: 1rem;
 		align-self: start;
-		border-radius: 1.6rem;
-		padding: 1.15rem;
-		display: flex;
-		flex-direction: column;
-		gap: 1.1rem;
+		display: grid;
+		gap: 1rem;
+		padding: 1.25rem;
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, 0.92), rgba(248, 250, 252, 0.92)),
+			radial-gradient(circle at top right, rgba(14, 165, 233, 0.12), transparent 16rem);
+		border: 1px solid rgba(148, 163, 184, 0.18);
 	}
 
-	.dashboard-shell[data-sidebar-collapsed="true"] .dashboard-sidebar {
-		padding-inline: 0.75rem;
+	.dark .dashboard-sidebar {
+		background:
+			linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.92)),
+			radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 16rem);
+		border-color: rgba(148, 163, 184, 0.12);
 	}
 
-	.brand-block,
-	.menu-item,
-	.metric-head,
-	.section-head,
-	.topbar-actions,
-	.profile-chip,
-	.mini-stat,
-	.table-row,
-	.hero-actions {
-		display: flex;
-		align-items: center;
-	}
-
-	.brand-block {
-		justify-content: space-between;
-		gap: 0.75rem;
-		padding: 0.4rem 0.15rem 0.8rem;
-	}
-
-	.brand-copy-wrap {
+	.dashboard-brand,
+	.dashboard-nav-link,
+	.dashboard-topbar,
+	.dashboard-topbar-actions,
+	.dashboard-profile-chip,
+	.dashboard-panel-head,
+	.dashboard-chart-meta,
+	.dashboard-chart-legend span,
+	.dashboard-hero-actions {
 		display: flex;
 		align-items: center;
-		gap: 0.95rem;
-		min-width: 0;
 	}
 
-	.brand-copy {
-		min-width: 0;
+	.dashboard-brand {
+		gap: 0.9rem;
 	}
 
-	.sidebar-toggle {
-		flex: 0 0 auto;
-		width: 2.4rem;
-		height: 2.4rem;
-		border: 0;
-		border-radius: 0.85rem;
-		background: rgba(37, 99, 235, 0.08);
-		color: rgba(37, 99, 235, 0.92);
-		font-size: 0.95rem;
-		font-weight: 800;
-		transition: 180ms ease;
-	}
-
-	.sidebar-toggle:hover {
-		background: rgba(37, 99, 235, 0.14);
-	}
-
-	:global(.dark) .sidebar-toggle {
-		background: rgba(59, 130, 246, 0.14);
-		color: rgba(191, 219, 254, 0.94);
-	}
-
-	:global(.dark) .sidebar-toggle:hover {
-		background: rgba(59, 130, 246, 0.22);
-	}
-
-	.brand-mark,
-	.profile-avatar,
-	.module-icon,
-	.mini-stat-icon {
+	.dashboard-brand-mark,
+	.dashboard-profile-avatar {
+		width: 3rem;
+		height: 3rem;
 		display: grid;
 		place-items: center;
 		border-radius: 1rem;
-	}
-
-	.brand-mark {
-		width: 3rem;
-		height: 3rem;
-		background: linear-gradient(135deg, #14b8a6, #2563eb);
+		background: linear-gradient(135deg, rgba(37, 99, 235, 0.95), rgba(14, 165, 233, 0.95));
 		color: white;
-		box-shadow: 0 12px 24px rgba(20, 184, 166, 0.25);
+		font-weight: 800;
 	}
 
-	.brand-eyebrow,
-	.topbar-label,
-	.section-eyebrow,
-	.hero-eyebrow,
-	.panel-label {
-		font-size: 0.74rem;
+	.dashboard-brand-eyebrow,
+	.dashboard-panel-eyebrow,
+	.dashboard-topbar-label {
+		margin: 0;
+		font-size: 0.78rem;
 		letter-spacing: 0.12em;
 		text-transform: uppercase;
-		color: rgba(71, 85, 105, 0.72);
+		color: rgba(14, 116, 144, 0.9);
 	}
 
-	:global(.dark) .brand-eyebrow,
-	:global(.dark) .topbar-label,
-	:global(.dark) .section-eyebrow,
-	:global(.dark) .hero-eyebrow,
-	:global(.dark) .panel-label {
-		color: rgba(148, 163, 184, 0.82);
+	.dashboard-brand-title,
+	.dashboard-topbar-title,
+	.dashboard-panel-title,
+	.dashboard-hero-title,
+	.dashboard-recent-title {
+		margin: 0.35rem 0 0;
+		color: rgba(15, 23, 42, 0.95);
 	}
 
-	.brand-title,
-	.topbar-title,
-	.section-title,
-	.hero-title {
-		margin: 0;
-		color: rgba(15, 23, 42, 0.96);
-	}
-
-	:global(.dark) .brand-title,
-	:global(.dark) .topbar-title,
-	:global(.dark) .section-title,
-	:global(.dark) .hero-title {
+	.dark .dashboard-brand-title,
+	.dark .dashboard-topbar-title,
+	.dark .dashboard-panel-title,
+	.dark .dashboard-hero-title,
+	.dark .dashboard-recent-title {
 		color: rgba(248, 250, 252, 0.96);
 	}
 
-	.brand-title {
-		font-size: 1.1rem;
-		font-weight: 700;
-	}
-
-	.dashboard-shell[data-sidebar-collapsed="true"] .brand-copy,
-	.dashboard-shell[data-sidebar-collapsed="true"] .menu-item span,
-	.dashboard-shell[data-sidebar-collapsed="true"] .sidebar-panel {
-		display: none;
-	}
-
-	.dashboard-shell[data-sidebar-collapsed="true"] .brand-block {
-		justify-content: center;
-	}
-
-	.dashboard-shell[data-sidebar-collapsed="true"] .brand-copy-wrap {
-		justify-content: center;
-	}
-
-	.menu-block {
-		display: grid;
-		gap: 0.32rem;
-	}
-
-	.menu-item {
-		gap: 0.8rem;
-		padding: 0.85rem 0.95rem;
-		border-radius: 1rem;
-		color: rgba(51, 65, 85, 0.82);
-		transition: 180ms ease;
-	}
-
-	.dashboard-shell[data-sidebar-collapsed="true"] .menu-item {
-		justify-content: center;
-		padding-inline: 0;
-	}
-
-	.menu-item:hover,
-	.menu-item.is-active {
-		background: rgba(20, 184, 166, 0.12);
-		color: rgba(15, 23, 42, 0.96);
-	}
-
-	:global(.dark) .menu-item {
-		color: rgba(203, 213, 225, 0.84);
-	}
-
-	:global(.dark) .menu-item:hover,
-	:global(.dark) .menu-item.is-active {
-		background: rgba(20, 184, 166, 0.16);
-		color: rgba(240, 253, 250, 0.98);
-	}
-
-	.sidebar-panel {
-		margin-top: auto;
-		padding: 1rem;
-		border-radius: 1.25rem;
-		background: linear-gradient(180deg, rgba(20, 184, 166, 0.08), rgba(37, 99, 235, 0.06));
-		border: 1px solid rgba(45, 212, 191, 0.16);
-	}
-
-	:global(.dark) .sidebar-panel {
-		background: linear-gradient(180deg, rgba(20, 184, 166, 0.12), rgba(37, 99, 235, 0.1));
-		border-color: rgba(45, 212, 191, 0.14);
-	}
-
-	.status-chip {
-		margin-top: 0.65rem;
-		display: inline-flex;
-		align-items: center;
-		gap: 0.55rem;
-		padding: 0.45rem 0.75rem;
-		border-radius: 999px;
-		background: rgba(255, 255, 255, 0.72);
-		color: rgba(15, 23, 42, 0.78);
-		font-size: 0.86rem;
-	}
-
-	:global(.dark) .status-chip {
-		background: rgba(15, 23, 42, 0.6);
-		color: rgba(240, 253, 250, 0.88);
-	}
-
-	.status-dot {
-		width: 0.55rem;
-		height: 0.55rem;
-		border-radius: 999px;
-		background: linear-gradient(135deg, #34d399, #14b8a6);
-		box-shadow: 0 0 0 0.3rem rgba(52, 211, 153, 0.18);
-	}
-
-	.dashboard-main {
-		min-width: 0;
-		display: flex;
-		flex-direction: column;
-		gap: 1.25rem;
-	}
-
-	.dashboard-topbar {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		padding: 0.35rem 0.2rem;
-	}
-
-	.topbar-title {
-		font-size: clamp(1.8rem, 4vw, 2.45rem);
-		font-weight: 800;
-		letter-spacing: -0.04em;
-	}
-
-	.topbar-actions {
-		gap: 0.75rem;
-		flex-wrap: wrap;
-		justify-content: flex-end;
-	}
-
-	.ghost-input,
-	.profile-chip {
-		border-radius: 1rem;
-	}
-
-	.ghost-input {
-		position: relative;
-		display: flex;
-		align-items: center;
-		gap: 0.7rem;
-		padding: 0.85rem 1rem;
-		min-width: 18rem;
-		color: rgba(71, 85, 105, 0.88);
-	}
-
-	:global(.dark) .ghost-input {
-		color: rgba(203, 213, 225, 0.82);
-	}
-
-	.ghost-search-input {
-		width: 100%;
-		min-width: 0;
-		border: 0;
-		outline: 0;
-		background: transparent;
-		color: inherit;
-		font: inherit;
-	}
-
-	.ghost-search-input::placeholder {
-		color: rgba(100, 116, 139, 0.78);
-	}
-
-	:global(.dark) .ghost-search-input::placeholder {
-		color: rgba(148, 163, 184, 0.76);
-	}
-
-	.search-results {
-		position: absolute;
-		top: calc(100% + 0.55rem);
-		left: 0;
-		right: 0;
-		z-index: 30;
-		padding: 0.55rem;
-		border-radius: 1rem;
-		backdrop-filter: blur(18px);
-		background: rgba(255, 255, 255, 0.96);
-		border: 1px solid rgba(148, 163, 184, 0.16);
-		box-shadow: 0 20px 38px rgba(15, 23, 42, 0.14);
-	}
-
-	:global(.dark) .search-results {
-		background: rgba(15, 23, 42, 0.96);
-		border-color: rgba(148, 163, 184, 0.14);
-		box-shadow: 0 24px 44px rgba(2, 6, 23, 0.42);
-	}
-
-	.search-results-list {
+	.dashboard-nav {
 		display: grid;
 		gap: 0.45rem;
 	}
 
-	.search-result-item {
+	.dashboard-nav-link {
+		gap: 0.7rem;
+		padding: 0.8rem 0.9rem;
+		border-radius: 1rem;
+		text-decoration: none;
+		font-weight: 700;
+		color: rgba(15, 23, 42, 0.86);
+		background: rgba(255, 255, 255, 0.65);
+	}
+
+	.dashboard-nav-link:hover {
+		background: rgba(37, 99, 235, 0.08);
+		color: rgba(37, 99, 235, 0.96);
+	}
+
+	.dark .dashboard-nav-link {
+		color: rgba(226, 232, 240, 0.92);
+		background: rgba(15, 23, 42, 0.58);
+	}
+
+	.dashboard-sidebar-card,
+	.dashboard-guide-card {
+		padding: 1rem;
+		border-radius: 1.1rem;
+		background: rgba(255, 255, 255, 0.7);
+		border: 1px solid rgba(148, 163, 184, 0.16);
+	}
+
+	.dark .dashboard-sidebar-card,
+	.dark .dashboard-guide-card {
+		background: rgba(15, 23, 42, 0.58);
+		border-color: rgba(148, 163, 184, 0.1);
+	}
+
+	.dashboard-sidebar-title,
+	.dashboard-guide-title {
+		margin: 0;
+		font-size: 0.95rem;
+		font-weight: 700;
+		color: rgba(15, 23, 42, 0.94);
+	}
+
+	.dashboard-sidebar-copy,
+	.dashboard-guide-copy,
+	.dashboard-hero-copy,
+	.dashboard-metric-copy,
+	.dashboard-recent-copy,
+	.dashboard-search-empty {
+		margin: 0.65rem 0 0;
+		line-height: 1.7;
+		color: rgba(71, 85, 105, 0.9);
+	}
+
+	.dark .dashboard-sidebar-copy,
+	.dark .dashboard-guide-copy,
+	.dark .dashboard-hero-copy,
+	.dark .dashboard-metric-copy,
+	.dark .dashboard-recent-copy,
+	.dark .dashboard-search-empty {
+		color: rgba(203, 213, 225, 0.82);
+	}
+
+	.dashboard-main {
 		display: grid;
-		gap: 0.25rem;
-		padding: 0.7rem 0.8rem;
+		gap: 1rem;
+	}
+
+	.dashboard-topbar {
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.dashboard-topbar-title {
+		font-size: clamp(1.35rem, 2.5vw, 1.8rem);
+		font-weight: 800;
+	}
+
+	.dashboard-topbar-actions {
+		gap: 0.9rem;
+	}
+
+	.dashboard-search {
+		position: relative;
+		width: min(28rem, 100%);
+	}
+
+	.dashboard-search-input {
+		width: 100%;
+		height: 3rem;
+		padding: 0 1rem;
+		border-radius: 1rem;
+		border: 1px solid rgba(148, 163, 184, 0.18);
+		background: rgba(255, 255, 255, 0.9);
+		color: rgba(15, 23, 42, 0.92);
+	}
+
+	.dark .dashboard-search-input {
+		background: rgba(15, 23, 42, 0.72);
+		border-color: rgba(148, 163, 184, 0.14);
+		color: rgba(248, 250, 252, 0.94);
+	}
+
+	.dashboard-search-results {
+		position: absolute;
+		top: calc(100% + 0.5rem);
+		left: 0;
+		right: 0;
+		padding: 0.5rem;
+		border-radius: 1rem;
+		background: rgba(255, 255, 255, 0.98);
+		border: 1px solid rgba(148, 163, 184, 0.18);
+		box-shadow: 0 24px 50px rgba(15, 23, 42, 0.16);
+		z-index: 20;
+	}
+
+	.dark .dashboard-search-results {
+		background: rgba(2, 6, 23, 0.98);
+		border-color: rgba(148, 163, 184, 0.14);
+	}
+
+	.dashboard-search-results-list {
+		display: grid;
+		gap: 0.35rem;
+	}
+
+	.dashboard-search-result {
+		display: grid;
+		gap: 0.2rem;
+		padding: 0.75rem;
 		border-radius: 0.85rem;
 		text-decoration: none;
-		background: rgba(248, 250, 252, 0.88);
-		border: 1px solid transparent;
-		transition: 160ms ease;
 	}
 
-	.search-result-item:hover {
-		transform: translateY(-1px);
-		border-color: rgba(37, 99, 235, 0.2);
-		background: rgba(239, 246, 255, 0.96);
+	.dashboard-search-result:hover {
+		background: rgba(37, 99, 235, 0.06);
 	}
 
-	:global(.dark) .search-result-item {
-		background: rgba(30, 41, 59, 0.84);
+	.dashboard-search-result-meta {
+		font-size: 0.75rem;
+		color: rgba(14, 116, 144, 0.88);
 	}
 
-	:global(.dark) .search-result-item:hover {
-		border-color: rgba(94, 234, 212, 0.18);
-		background: rgba(15, 23, 42, 0.92);
+	.dashboard-search-result-title,
+	.dashboard-profile-name,
+	.dashboard-metric-link {
+		margin: 0;
+		font-weight: 700;
+		color: rgba(15, 23, 42, 0.95);
+		text-decoration: none;
 	}
 
-	.search-result-meta {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		font-size: 0.72rem;
+	.dark .dashboard-search-result-title,
+	.dark .dashboard-profile-name,
+	.dark .dashboard-metric-link {
+		color: rgba(248, 250, 252, 0.96);
 	}
 
-	.search-result-badge {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.18rem 0.48rem;
+	.dashboard-search-result-copy,
+	.dashboard-profile-role {
+		font-size: 0.82rem;
+		color: rgba(100, 116, 139, 0.88);
+	}
+
+	.dark .dashboard-search-result-copy,
+	.dark .dashboard-profile-role {
+		color: rgba(148, 163, 184, 0.84);
+	}
+
+	.dashboard-profile-chip {
+		gap: 0.7rem;
+		padding: 0.45rem 0.6rem 0.45rem 0.45rem;
 		border-radius: 999px;
-		background: rgba(37, 99, 235, 0.12);
-		color: rgba(30, 64, 175, 0.92);
-		font-weight: 700;
-		letter-spacing: 0.04em;
+		background: rgba(255, 255, 255, 0.78);
+		border: 1px solid rgba(148, 163, 184, 0.16);
 	}
 
-	:global(.dark) .search-result-badge {
-		background: rgba(45, 212, 191, 0.16);
-		color: rgba(153, 246, 228, 0.92);
+	.dark .dashboard-profile-chip {
+		background: rgba(15, 23, 42, 0.72);
+		border-color: rgba(148, 163, 184, 0.12);
 	}
 
-	.search-result-time {
-		color: rgba(100, 116, 139, 0.82);
+	.dashboard-hero {
+		display: flex;
+		justify-content: space-between;
+		gap: 1.25rem;
+		padding: 1.4rem;
+		background:
+			linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(240, 249, 255, 0.9)),
+			radial-gradient(circle at top right, rgba(37, 99, 235, 0.1), transparent 15rem);
 	}
 
-	:global(.dark) .search-result-time {
-		color: rgba(148, 163, 184, 0.78);
+	.dark .dashboard-hero {
+		background:
+			linear-gradient(135deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.92)),
+			radial-gradient(circle at top right, rgba(37, 99, 235, 0.14), transparent 15rem);
 	}
 
-	.search-result-title {
-		margin: 0;
-		color: rgba(15, 23, 42, 0.96);
-		font-size: 0.92rem;
-		font-weight: 700;
+	.dashboard-hero-title {
+		font-size: clamp(1.4rem, 3vw, 2rem);
+		font-weight: 800;
 	}
 
-	:global(.dark) .search-result-title {
-		color: rgba(241, 245, 249, 0.95);
+	.dashboard-hero-actions {
+		gap: 0.75rem;
+		align-self: flex-start;
 	}
 
-	.search-result-description,
-	.search-empty {
-		margin: 0;
-		color: rgba(71, 85, 105, 0.9);
-		font-size: 0.78rem;
-		line-height: 1.5;
-	}
-
-	:global(.dark) .search-result-description,
-	:global(.dark) .search-empty {
-		color: rgba(203, 213, 225, 0.78);
-	}
-
-	.search-empty {
-		padding: 0.7rem 0.8rem;
-	}
-
-	.ghost-button,
-	.primary-button,
-	.secondary-button,
-	.ghost-link {
+	.dashboard-primary-button,
+	.dashboard-secondary-button,
+	.dashboard-range-button,
+	.dashboard-hint-close {
 		border: 0;
 		border-radius: 1rem;
 		transition: 180ms ease;
 	}
 
-	.ghost-button {
-		width: 3rem;
-		height: 3rem;
-		display: grid;
-		place-items: center;
-		background: rgba(255, 255, 255, 0.78);
-		border: 1px solid rgba(148, 163, 184, 0.16);
-		box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-	}
-
-	:global(.dark) .ghost-button {
-		background: rgba(15, 23, 42, 0.76);
-		border-color: rgba(148, 163, 184, 0.12);
-	}
-
-	.profile-chip {
-		gap: 0.75rem;
-		padding: 0.45rem 0.55rem 0.45rem 0.45rem;
-	}
-
-	.profile-avatar {
-		width: 2.65rem;
-		height: 2.65rem;
-		background: linear-gradient(135deg, #0f766e, #2563eb);
-		color: white;
-		font-weight: 800;
-	}
-
-	.profile-name {
-		margin: 0;
-		font-size: 0.92rem;
+	.dashboard-primary-button,
+	.dashboard-secondary-button {
+		padding: 0.82rem 1.05rem;
 		font-weight: 700;
 	}
 
-	.profile-role {
+	.dashboard-primary-button {
+		background: linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(14, 165, 233, 0.96));
+		color: white;
+	}
+
+	.dashboard-secondary-button {
+		background: rgba(255, 255, 255, 0.82);
+		color: rgba(15, 23, 42, 0.88);
+		border: 1px solid rgba(148, 163, 184, 0.18);
+	}
+
+	.dark .dashboard-secondary-button {
+		background: rgba(15, 23, 42, 0.7);
+		color: rgba(226, 232, 240, 0.9);
+		border-color: rgba(148, 163, 184, 0.12);
+	}
+
+	.dashboard-metrics-grid,
+	.dashboard-grid,
+	.dashboard-guide-grid {
+		display: grid;
+		gap: 1rem;
+	}
+
+	.dashboard-metrics-grid {
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+	}
+
+	.dashboard-metric-card {
+		padding: 1.15rem;
+	}
+
+	.dashboard-metric-label {
 		margin: 0;
-		font-size: 0.76rem;
-		color: rgba(100, 116, 139, 0.82);
+		font-size: 0.82rem;
+		font-weight: 700;
+		color: rgba(71, 85, 105, 0.88);
 	}
 
-	:global(.dark) .profile-role {
-		color: rgba(148, 163, 184, 0.82);
+	.dashboard-metric-value {
+		margin: 0.65rem 0 0;
+		font-size: 1.45rem;
+		font-weight: 800;
+		color: rgba(15, 23, 42, 0.95);
 	}
 
-	.dashboard-card {
-		border-radius: 1.6rem;
+	.dashboard-metric-value--small {
+		font-size: 1.15rem;
+		line-height: 1.5;
+	}
+
+	.dark .dashboard-metric-label {
+		color: rgba(148, 163, 184, 0.84);
+	}
+
+	.dark .dashboard-metric-value {
+		color: rgba(248, 250, 252, 0.96);
+	}
+
+	.dashboard-metric-link {
+		display: inline-block;
+		margin-top: 0.65rem;
+	}
+
+	.dashboard-grid {
+		grid-template-columns: minmax(0, 1.5fr) minmax(320px, 0.9fr);
+	}
+
+	.dashboard-panel {
 		padding: 1.2rem;
 	}
 
-	.hero-panel {
-		display: flex;
+	.dashboard-panel-head,
+	.dashboard-chart-meta {
 		justify-content: space-between;
-		gap: 1.25rem;
-		background:
-			linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(240, 253, 250, 0.9)),
-			radial-gradient(circle at right top, rgba(37, 99, 235, 0.1), transparent 15rem);
+		gap: 1rem;
+		margin-bottom: 1rem;
 	}
 
-	:global(.dark) .hero-panel {
-		background:
-			linear-gradient(135deg, rgba(15, 23, 42, 0.94), rgba(15, 23, 42, 0.86)),
-			radial-gradient(circle at right top, rgba(20, 184, 166, 0.14), transparent 16rem);
-	}
-
-	.hero-title {
-		margin-top: 0.35rem;
-		font-size: clamp(1.35rem, 2.8vw, 1.9rem);
+	.dashboard-panel-title {
+		font-size: 1.08rem;
 		font-weight: 800;
 	}
 
-	.hero-title-typing {
-		display: inline-flex;
-		align-items: baseline;
-		gap: 0.08em;
-		font-family: "Courier New", "SFMono-Regular", Consolas, monospace;
-		letter-spacing: -0.02em;
-		min-height: 1.4em;
+	.dashboard-chart-legend {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.9rem;
 	}
 
-	.hero-title-cursor {
+	.dashboard-chart-legend span {
+		gap: 0.4rem;
+		font-size: 0.84rem;
+		color: rgba(71, 85, 105, 0.88);
+	}
+
+	.dark .dashboard-chart-legend span,
+	.dark .dashboard-chart-summary {
+		color: rgba(203, 213, 225, 0.84);
+	}
+
+	.dashboard-chart-legend i {
 		display: inline-block;
-		color: rgba(37, 99, 235, 0.95);
-		animation: blink-cursor 900ms steps(1) infinite;
+		width: 0.8rem;
+		height: 0.8rem;
+		border-radius: 999px;
 	}
 
-	:global(.dark) .hero-title-cursor {
-		color: rgba(94, 234, 212, 0.95);
+	.dashboard-chart-legend .is-publish {
+		background: rgb(59, 130, 246);
 	}
 
-	.hero-copy {
-		max-width: 42rem;
-		margin: 0.75rem 0 0;
+	.dashboard-chart-legend .is-update {
+		background: rgb(14, 165, 233);
+	}
+
+	.dashboard-chart-legend .is-delete {
+		background: rgb(245, 158, 11);
+	}
+
+	.dashboard-range-switch {
+		position: relative;
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		padding: 0.28rem;
+		border-radius: 999px;
+		background: rgba(226, 232, 240, 0.78);
+		border: 1px solid rgba(148, 163, 184, 0.16);
+		min-width: min(100%, 18rem);
+	}
+
+	.dark .dashboard-range-switch {
+		background: rgba(15, 23, 42, 0.74);
+		border-color: rgba(148, 163, 184, 0.12);
+	}
+
+	.dashboard-range-switch-thumb {
+		position: absolute;
+		top: 0.28rem;
+		bottom: 0.28rem;
+		left: 0.28rem;
+		width: calc((100% - 0.56rem) / 3);
+		border-radius: 999px;
+		background: linear-gradient(135deg, rgba(37, 99, 235, 0.96), rgba(14, 165, 233, 0.96));
+		transition: transform 220ms ease;
+	}
+
+	.dashboard-range-switch[data-active-index="1"] .dashboard-range-switch-thumb {
+		transform: translateX(100%);
+	}
+
+	.dashboard-range-switch[data-active-index="2"] .dashboard-range-switch-thumb {
+		transform: translateX(200%);
+	}
+
+	.dashboard-range-button {
+		position: relative;
+		z-index: 1;
+		background: transparent;
+		padding: 0.72rem 0.8rem;
+		font-size: 0.84rem;
+		font-weight: 700;
 		color: rgba(71, 85, 105, 0.9);
-		line-height: 1.75;
 	}
 
-	:global(.dark) .hero-copy {
+	.dashboard-range-button.is-active {
+		color: white;
+	}
+
+	.dark .dashboard-range-button {
+		color: rgba(203, 213, 225, 0.84);
+	}
+
+	.dashboard-chart-shell {
+		border-radius: 1.2rem;
+		padding: 1rem;
+		background:
+			linear-gradient(180deg, rgba(248, 250, 252, 0.78), rgba(226, 232, 240, 0.58));
+		border: 1px solid rgba(148, 163, 184, 0.16);
+	}
+
+	.dark .dashboard-chart-shell {
+		background:
+			linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(15, 23, 42, 0.7));
+		border-color: rgba(148, 163, 184, 0.1);
+	}
+
+	.dashboard-chart-scroll {
+		overflow-x: auto;
+	}
+
+	.dashboard-chart-stage {
+		min-width: max(100%, calc(var(--chart-point-count, 7) * var(--chart-column-width, 3.4rem)));
+	}
+
+	.dashboard-chart-svg {
+		display: block;
+		width: 100%;
+		height: 16rem;
+	}
+
+	.dashboard-chart-line {
+		fill: none;
+		vector-effect: non-scaling-stroke;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.dashboard-chart-labels {
+		margin-top: 0.75rem;
+		display: grid;
+		gap: 0.8rem;
+	}
+
+	.dashboard-chart-label {
+		font-size: 0.76rem;
+		text-align: center;
+		color: rgba(71, 85, 105, 0.9);
+	}
+
+	.dark .dashboard-chart-label {
 		color: rgba(203, 213, 225, 0.82);
 	}
 
-	.hero-actions {
+	.dashboard-recent-list {
+		display: grid;
 		gap: 0.75rem;
-		align-self: flex-start;
+	}
+
+	.dashboard-recent-item {
+		display: grid;
+		gap: 0.35rem;
+		padding: 0.95rem 1rem;
+		border-radius: 1rem;
+		text-decoration: none;
+		background: rgba(255, 255, 255, 0.72);
+		border: 1px solid rgba(148, 163, 184, 0.16);
+	}
+
+	.dark .dashboard-recent-item {
+		background: rgba(15, 23, 42, 0.58);
+		border-color: rgba(148, 163, 184, 0.1);
+	}
+
+	.dashboard-recent-meta {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.8rem;
+		font-size: 0.76rem;
+		color: rgba(14, 116, 144, 0.88);
+	}
+
+	.dashboard-recent-kind {
+		font-weight: 700;
+	}
+
+	.dashboard-guide-grid {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 	}
 
 	.dashboard-hint-overlay {
 		position: fixed;
 		inset: 0;
-		z-index: 50;
+		z-index: 60;
 		display: grid;
 		place-items: center;
-		padding: 1.5rem;
+		padding: 1rem;
 		background: rgba(15, 23, 42, 0.48);
 		backdrop-filter: blur(12px);
 	}
@@ -1493,762 +956,68 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 
 	.dashboard-hint-card {
 		width: min(42rem, 100%);
-		display: grid;
-		gap: 1rem;
-		padding: 1.2rem;
-		border-radius: 1.5rem;
-		background:
-			linear-gradient(180deg, rgba(255, 255, 255, 0.96), rgba(248, 250, 252, 0.94)),
-			radial-gradient(circle at top right, rgba(20, 184, 166, 0.12), transparent 16rem);
-		border: 1px solid rgba(148, 163, 184, 0.22);
-		box-shadow: 0 30px 80px rgba(15, 23, 42, 0.28);
+		padding: 1.1rem;
+		border-radius: 1.4rem;
+		background: rgba(255, 255, 255, 0.98);
+		border: 1px solid rgba(148, 163, 184, 0.18);
+		box-shadow: 0 28px 60px rgba(15, 23, 42, 0.24);
 	}
 
-	:global(.dark) .dashboard-hint-card {
-		background:
-			linear-gradient(180deg, rgba(15, 23, 42, 0.96), rgba(15, 23, 42, 0.92)),
-			radial-gradient(circle at top right, rgba(20, 184, 166, 0.14), transparent 16rem);
-		border-color: rgba(148, 163, 184, 0.16);
+	.dark .dashboard-hint-card {
+		background: rgba(2, 6, 23, 0.98);
+		border-color: rgba(148, 163, 184, 0.12);
 	}
 
 	.dashboard-hint-head {
 		display: flex;
-		align-items: flex-start;
 		justify-content: space-between;
 		gap: 1rem;
-	}
-
-	.dashboard-hint-eyebrow,
-	.dashboard-hint-title {
-		margin: 0;
-	}
-
-	.dashboard-hint-eyebrow {
-		font-size: 0.78rem;
-		font-weight: 700;
-		letter-spacing: 0.12em;
-		text-transform: uppercase;
-		color: rgba(14, 116, 144, 0.82);
+		margin-bottom: 0.9rem;
 	}
 
 	.dashboard-hint-title {
-		margin-top: 0.35rem;
-		font-size: 1.25rem;
+		margin: 0.35rem 0 0;
+		font-size: 1.15rem;
 		font-weight: 800;
 		color: rgba(15, 23, 42, 0.96);
 	}
 
-	:global(.dark) .dashboard-hint-title {
-		color: rgba(248, 250, 252, 0.94);
-	}
-
-	.dashboard-hint-close {
-		width: 2.75rem;
-		height: 2.75rem;
-		display: grid;
-		place-items: center;
-		border: 0;
-		border-radius: 999px;
-		background: rgba(226, 232, 240, 0.72);
-		color: rgba(15, 23, 42, 0.86);
-		transition: 180ms ease;
-	}
-
-	.dashboard-hint-close:hover {
-		background: rgba(203, 213, 225, 0.88);
-	}
-
-	:global(.dark) .dashboard-hint-close {
-		background: rgba(30, 41, 59, 0.9);
-		color: rgba(226, 232, 240, 0.88);
-	}
-
-	.dashboard-hint-textbox {
-		min-height: 18rem;
-		width: 100%;
-		resize: vertical;
-		padding: 1rem 1.05rem;
-		border: 1px solid rgba(148, 163, 184, 0.22);
-		border-radius: 1rem;
-		background: rgba(255, 255, 255, 0.86);
-		color: rgba(15, 23, 42, 0.92);
-		font: 0.92rem/1.75 "JetBrains Mono Variable", "Courier New", monospace;
-		white-space: pre-wrap;
-	}
-
-	.dashboard-hint-textbox:focus {
-		outline: 2px solid rgba(20, 184, 166, 0.3);
-		outline-offset: 2px;
-	}
-
-	:global(.dark) .dashboard-hint-textbox {
-		background: rgba(2, 6, 23, 0.72);
-		border-color: rgba(148, 163, 184, 0.18);
-		color: rgba(226, 232, 240, 0.9);
-	}
-
-	.primary-button,
-	.secondary-button,
-	.ghost-link {
-		padding: 0.8rem 1.1rem;
-		font-size: 0.92rem;
-		font-weight: 700;
-	}
-
-	.primary-button {
-		background: linear-gradient(135deg, #14b8a6, #0f766e);
-		color: white;
-		box-shadow: 0 14px 30px rgba(20, 184, 166, 0.26);
-	}
-
-	.secondary-button {
-		background: rgba(255, 255, 255, 0.82);
-		border: 1px solid rgba(148, 163, 184, 0.18);
-		color: rgba(15, 23, 42, 0.82);
-	}
-
-	:global(.dark) .secondary-button {
-		background: rgba(30, 41, 59, 0.8);
-		border-color: rgba(148, 163, 184, 0.14);
-		color: rgba(226, 232, 240, 0.88);
-	}
-
-	.metrics-grid,
-	.module-grid {
-		display: grid;
-		gap: 1rem;
-	}
-
-	.metrics-grid {
-		grid-template-columns: repeat(4, minmax(0, 1fr));
-	}
-
-	.metric-card {
-		display: grid;
-		gap: 1rem;
-	}
-
-	.dashboard-shell :global(svg[data-icon]) {
-		color: rgba(255, 255, 255, 0.96);
-	}
-
-	.metric-head {
-		justify-content: space-between;
-		color: rgba(71, 85, 105, 0.88);
-		font-size: 0.92rem;
-	}
-
-	:global(.dark) .metric-head {
-		color: rgba(148, 163, 184, 0.84);
-	}
-
-	.metric-value {
-		height: 3.2rem;
-		border-radius: 1rem;
-	}
-
-	.metric-value-rich,
-	.metric-article {
-		height: auto;
-		display: grid;
-		gap: 0.45rem;
-		align-content: start;
-	}
-
-	.metric-primary,
-	.metric-secondary,
-	.metric-footnote,
-	.metric-article-excerpt {
-		margin: 0;
-	}
-
-	.metric-primary {
-		font-size: 1.4rem;
-		font-weight: 800;
-		letter-spacing: -0.04em;
-		color: rgba(15, 23, 42, 0.96);
-	}
-
-	.metric-secondary,
-	.metric-footnote,
-	.metric-article-excerpt {
-		font-size: 0.84rem;
-		line-height: 1.65;
-		color: rgba(71, 85, 105, 0.88);
-	}
-
-	.metric-badges {
-		display: flex;
-		flex-wrap: wrap;
-		gap: 0.5rem;
-	}
-
-	.metric-badge {
-		display: inline-flex;
-		align-items: center;
-		padding: 0.34rem 0.65rem;
-		border-radius: 999px;
-		background: rgba(37, 99, 235, 0.08);
-		color: rgba(37, 99, 235, 0.9);
-		font-size: 0.76rem;
-		font-weight: 700;
-	}
-
-	.metric-badge.is-accent {
-		background: rgba(139, 92, 246, 0.1);
-		color: rgba(109, 40, 217, 0.92);
-	}
-
-	.metric-article-title {
-		font-size: 1rem;
-		font-weight: 800;
-		line-height: 1.5;
-		color: rgba(15, 23, 42, 0.96);
-		margin: 0;
-	}
-
-	.metric-footnote-link {
-		font-size: 0.84rem;
-		line-height: 1.65;
-		color: rgba(37, 99, 235, 0.94);
-		text-decoration: none;
-		font-weight: 700;
-	}
-
-	.metric-footnote-link:hover {
-		color: rgba(37, 99, 235, 0.94);
-		text-decoration: underline;
-	}
-
-	.metric-foot {
-		display: flex;
-		align-items: center;
-	}
-
-	:global(.dark) .metric-primary,
-	:global(.dark) .metric-article-title {
+	.dark .dashboard-hint-title {
 		color: rgba(248, 250, 252, 0.96);
 	}
 
-	:global(.dark) .metric-secondary,
-	:global(.dark) .metric-footnote,
-	:global(.dark) .metric-article-excerpt {
-		color: rgba(203, 213, 225, 0.82);
+	.dashboard-hint-close {
+		width: 2.5rem;
+		height: 2.5rem;
+		background: rgba(226, 232, 240, 0.8);
+		color: rgba(15, 23, 42, 0.88);
 	}
 
-	:global(.dark) .metric-badge {
-		background: rgba(59, 130, 246, 0.16);
-		color: rgba(191, 219, 254, 0.96);
-	}
-
-	:global(.dark) .metric-badge.is-accent {
-		background: rgba(139, 92, 246, 0.16);
-		color: rgba(221, 214, 254, 0.96);
-	}
-
-	:global(.dark) .metric-footnote-link {
-		color: rgba(125, 211, 252, 0.96);
-	}
-
-	:global(.dark) .metric-footnote-link:hover {
-		color: rgba(125, 211, 252, 0.96);
-	}
-
-	.content-grid {
-		display: grid;
-		grid-template-columns: minmax(0, 1.55fr) minmax(320px, 0.75fr);
-		gap: 1rem;
-	}
-
-	.chart-card,
-	.wide-card {
-		grid-column: 1 / 2;
-	}
-
-	.side-card {
-		grid-column: 2 / 3;
-		grid-row: 1 / 2;
-	}
-
-	.section-head {
-		justify-content: space-between;
-		gap: 1rem;
-		margin-bottom: 1rem;
-	}
-
-	.section-title {
-		margin-top: 0.35rem;
-		font-size: 1.08rem;
-		font-weight: 750;
-	}
-
-	.ghost-link {
-		background: rgba(20, 184, 166, 0.1);
-		color: rgba(15, 118, 110, 0.9);
-	}
-
-	:global(.dark) .ghost-link {
-		background: rgba(20, 184, 166, 0.14);
-		color: rgba(94, 234, 212, 0.88);
-	}
-
-	.range-switch {
-		position: relative;
-		display: grid;
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-		align-items: center;
-		padding: 0.28rem;
-		border-radius: 999px;
-		background: rgba(226, 232, 240, 0.72);
-		border: 1px solid rgba(148, 163, 184, 0.16);
-		min-width: min(100%, 18rem);
-	}
-
-	:global(.dark) .range-switch {
-		background: rgba(15, 23, 42, 0.74);
-		border-color: rgba(148, 163, 184, 0.1);
-	}
-
-	.range-switch-thumb {
-		position: absolute;
-		top: 0.28rem;
-		bottom: 0.28rem;
-		left: 0.28rem;
-		width: calc((100% - 0.56rem) / 3);
-		border-radius: 999px;
-		background: linear-gradient(135deg, rgba(37, 99, 235, 0.92), rgba(99, 102, 241, 0.92));
-		box-shadow: 0 10px 22px rgba(37, 99, 235, 0.18);
-		transition: transform 220ms ease;
-	}
-
-	.range-switch[data-active-index="1"] .range-switch-thumb {
-		transform: translateX(100%);
-	}
-
-	.range-switch[data-active-index="2"] .range-switch-thumb {
-		transform: translateX(200%);
-	}
-
-	.range-switch-button {
-		position: relative;
-		z-index: 1;
-		border: 0;
-		background: transparent;
-		color: rgba(71, 85, 105, 0.92);
-		padding: 0.72rem 0.9rem;
-		font-size: 0.88rem;
-		font-weight: 700;
-		border-radius: 999px;
-	}
-
-	.range-switch-button.is-active {
-		color: white;
-	}
-
-	:global(.dark) .range-switch-button {
-		color: rgba(203, 213, 225, 0.88);
-	}
-
-	:global(.dark) .range-switch-button.is-active {
-		color: rgba(248, 250, 252, 0.98);
-	}
-
-	.chart-meta {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 1rem;
-		margin-bottom: 0.85rem;
-	}
-
-	.chart-legend {
-		display: flex;
-		align-items: center;
-		flex-wrap: wrap;
-		gap: 0.85rem;
-		color: rgba(255, 255, 255, 0.96);
-		font-size: 0.88rem;
-	}
-
-	:global(.dark) .chart-legend,
-	:global(.dark) .chart-summary {
-		color: rgba(255, 255, 255, 0.98);
-	}
-
-	.legend-item {
-		display: inline-flex;
-		align-items: center;
-		gap: 0.45rem;
-	}
-
-	.legend-swatch {
-		width: 0.78rem;
-		height: 0.78rem;
-		border-radius: 999px;
-	}
-
-	.legend-swatch.is-publish {
-		background: linear-gradient(180deg, rgba(59, 130, 246, 0.96), rgba(37, 99, 235, 0.96));
-	}
-
-	.legend-swatch.is-update {
-		background: linear-gradient(180deg, rgba(139, 92, 246, 0.96), rgba(124, 58, 237, 0.96));
-	}
-
-	.legend-swatch.is-delete {
-		background: linear-gradient(180deg, rgba(250, 204, 21, 0.98), rgba(234, 179, 8, 0.94));
-	}
-
-	.chart-summary {
-		margin: 0;
-		color: rgba(255, 255, 255, 0.96);
-		font-size: 0.88rem;
-		text-align: right;
-	}
-
-	.chart-placeholder {
-		--chart-dot-fill: rgba(248, 250, 252, 0.96);
-		position: relative;
-		min-height: 21rem;
-		border-radius: 1.25rem;
-		padding: 1rem;
-		overflow: hidden;
-		background:
-			linear-gradient(180deg, rgba(248, 250, 252, 0.78), rgba(226, 232, 240, 0.58));
-		border: 1px solid rgba(148, 163, 184, 0.16);
-	}
-
-	:global(.dark) .chart-placeholder {
-		--chart-dot-fill: rgba(15, 23, 42, 0.98);
-		background:
-			linear-gradient(180deg, rgba(15, 23, 42, 0.88), rgba(30, 41, 59, 0.6));
-		border-color: rgba(148, 163, 184, 0.1);
-	}
-
-	.grid-lines {
-		position: absolute;
-		inset: 0;
-		background-image:
-			linear-gradient(rgba(148, 163, 184, 0.14) 1px, transparent 1px),
-			linear-gradient(90deg, rgba(148, 163, 184, 0.12) 1px, transparent 1px);
-		background-size: 100% 20%, 12% 100%;
-		mask-image: linear-gradient(180deg, transparent 0%, black 18%, black 82%, transparent 100%);
-	}
-
-	.chart-scroll {
-		position: relative;
-		z-index: 1;
-		overflow-x: auto;
-		padding-bottom: 0.3rem;
-	}
-
-	.chart-scroll::-webkit-scrollbar {
-		height: 0.45rem;
-	}
-
-	.chart-scroll::-webkit-scrollbar-thumb {
-		background: rgba(148, 163, 184, 0.38);
-		border-radius: 999px;
-	}
-
-	.chart-stage {
-		position: relative;
-		min-width: max(100%, calc(var(--chart-point-count, 7) * var(--chart-column-width, 3.2rem)));
-	}
-
-	.chart-svg {
-		position: relative;
-		display: block;
+	.dashboard-hint-textbox {
 		width: 100%;
-		height: 16rem;
-		overflow: visible;
-	}
-
-	.chart-area {
-		stroke: none;
-	}
-
-	.chart-area.is-publish {
-		fill: rgba(59, 130, 246, 0.18);
-	}
-
-	.chart-area.is-update {
-		fill: rgba(139, 92, 246, 0.16);
-	}
-
-	.chart-area.is-delete {
-		fill: rgba(250, 204, 21, 0.18);
-	}
-
-	.chart-line {
-		fill: none;
-		vector-effect: non-scaling-stroke;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-		filter: drop-shadow(0 0 8px rgba(15, 23, 42, 0.18));
-	}
-
-	.chart-line.is-publish {
-		stroke: rgb(59, 130, 246);
-	}
-
-	.chart-line.is-update {
-		stroke: rgb(139, 92, 246);
-	}
-
-	.chart-line.is-delete {
-		stroke: rgb(250, 204, 21);
-	}
-
-	.chart-labels {
-		margin-top: 0.7rem;
-		display: grid;
-		gap: 0.8rem;
-		align-items: start;
-	}
-
-	.chart-label {
-		font-size: 0.76rem;
-		font-weight: 700;
-		color: rgba(255, 255, 255, 0.98);
-		text-align: center;
-		white-space: nowrap;
-		text-shadow: 0 1px 10px rgba(15, 23, 42, 0.35);
-	}
-
-	:global(.dark) .chart-label {
-		color: rgba(255, 255, 255, 0.98);
-	}
-
-	.stack-skeleton {
-		display: grid;
-		gap: 0.8rem;
-	}
-
-	.mini-stat {
-		gap: 0.9rem;
-		padding: 0.9rem;
+		min-height: 18rem;
+		resize: vertical;
+		padding: 0.95rem 1rem;
 		border-radius: 1rem;
-		background: rgba(248, 250, 252, 0.72);
-		border: 1px solid rgba(148, 163, 184, 0.14);
+		border: 1px solid rgba(148, 163, 184, 0.16);
+		background: rgba(248, 250, 252, 0.9);
+		font: 0.9rem/1.75 "JetBrains Mono Variable", "Courier New", monospace;
+		color: rgba(15, 23, 42, 0.92);
 	}
 
-	:global(.dark) .mini-stat {
-		background: rgba(15, 23, 42, 0.62);
-		border-color: rgba(148, 163, 184, 0.1);
-	}
-
-	.mini-stat-icon,
-	.module-icon {
-		width: 2.75rem;
-		height: 2.75rem;
-		background: rgba(20, 184, 166, 0.12);
-		color: rgba(15, 118, 110, 0.92);
-	}
-
-	:global(.dark) .mini-stat-icon,
-	:global(.dark) .module-icon {
-		background: rgba(20, 184, 166, 0.14);
-		color: rgba(94, 234, 212, 0.92);
-	}
-
-	.mini-stat-body {
-		flex: 1;
-		display: grid;
-		gap: 0.5rem;
-	}
-
-	.mini-stat-label,
-	.mini-stat-meta-label {
-		margin: 0;
-		font-size: 0.72rem;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: rgba(100, 116, 139, 0.82);
-	}
-
-	.mini-stat-title {
-		margin: 0;
-		font-size: 0.96rem;
-		font-weight: 700;
-		line-height: 1.5;
-		color: rgba(15, 23, 42, 0.94);
-	}
-
-	.mini-stat-meta {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		gap: 0.75rem;
-		font-size: 0.82rem;
-		color: rgba(71, 85, 105, 0.86);
-	}
-
-	:global(.dark) .mini-stat-label,
-	:global(.dark) .mini-stat-meta-label {
-		color: rgba(148, 163, 184, 0.8);
-	}
-
-	:global(.dark) .mini-stat-title {
-		color: rgba(248, 250, 252, 0.94);
-	}
-
-	:global(.dark) .mini-stat-meta {
-		color: rgba(203, 213, 225, 0.82);
-	}
-
-	.table-placeholder {
-		display: grid;
-		border-radius: 1.2rem;
-		border: 1px solid rgba(148, 163, 184, 0.14);
-		overflow: hidden;
-	}
-
-	.table-row {
-		display: grid;
-		grid-template-columns: 1.3fr 0.8fr 0.8fr 1fr;
-		gap: 0.8rem;
-		padding: 0.9rem 1rem;
-		align-items: center;
-		background: rgba(255, 255, 255, 0.58);
-		border-bottom: 1px solid rgba(148, 163, 184, 0.12);
-	}
-
-	:global(.dark) .table-row {
-		background: rgba(15, 23, 42, 0.5);
-		border-bottom-color: rgba(148, 163, 184, 0.1);
-	}
-
-	.table-row:last-child {
-		border-bottom: 0;
-	}
-
-	.table-head-row {
-		font-size: 0.78rem;
-		font-weight: 700;
-		letter-spacing: 0.08em;
-		text-transform: uppercase;
-		color: rgba(100, 116, 139, 0.85);
-		background: rgba(241, 245, 249, 0.85);
-	}
-
-	:global(.dark) .table-head-row {
-		color: rgba(148, 163, 184, 0.84);
-		background: rgba(15, 23, 42, 0.75);
-	}
-
-	.module-grid {
-		grid-template-columns: repeat(3, minmax(0, 1fr));
-	}
-
-	.module-card {
-		display: grid;
-		gap: 0.75rem;
-		padding: 1rem;
-		border-radius: 1.1rem;
-		background: rgba(248, 250, 252, 0.72);
-		border: 1px solid rgba(148, 163, 184, 0.14);
-	}
-
-	:global(.dark) .module-card {
-		background: rgba(15, 23, 42, 0.58);
-		border-color: rgba(148, 163, 184, 0.1);
-	}
-
-	.placeholder-block,
-	.skeleton-line,
-	.pill-placeholder {
-		position: relative;
-		overflow: hidden;
-		background: linear-gradient(90deg, rgba(148, 163, 184, 0.16), rgba(226, 232, 240, 0.7), rgba(148, 163, 184, 0.16));
-	}
-
-	:global(.dark) .placeholder-block,
-	:global(.dark) .skeleton-line,
-	:global(.dark) .pill-placeholder {
-		background: linear-gradient(90deg, rgba(71, 85, 105, 0.42), rgba(100, 116, 139, 0.72), rgba(71, 85, 105, 0.42));
-	}
-
-	.placeholder-block::after,
-	.skeleton-line::after,
-	.pill-placeholder::after {
-		content: "";
-		position: absolute;
-		inset: 0;
-		transform: translateX(-100%);
-		background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
-		animation: shimmer 2.2s infinite;
-	}
-
-	:global(.dark) .placeholder-block::after,
-	:global(.dark) .skeleton-line::after,
-	:global(.dark) .pill-placeholder::after {
-		background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.12), transparent);
-	}
-
-	.skeleton-line {
-		height: 0.72rem;
-		border-radius: 999px;
-	}
-
-	.pill-placeholder {
-		height: 1.5rem;
-		width: 5rem;
-		border-radius: 999px;
-	}
-
-	.w-100 { width: 100%; }
-	.w-82 { width: 82%; }
-	.w-76 { width: 76%; }
-	.w-72 { width: 72%; }
-	.w-70 { width: 70%; }
-	.w-68 { width: 68%; }
-	.w-64 { width: 64%; }
-	.w-62 { width: 62%; }
-	.w-58 { width: 58%; }
-	.w-56 { width: 56%; }
-	.w-54 { width: 54%; }
-	.w-52 { width: 52%; }
-	.w-48 { width: 48%; }
-	.w-46 { width: 46%; }
-	.w-44 { width: 44%; }
-	.w-42 { width: 42%; }
-	.w-40 { width: 40%; }
-	.w-36 { width: 36%; }
-
-	@keyframes shimmer {
-		to {
-			transform: translateX(100%);
-		}
-	}
-
-	@keyframes blink-cursor {
-		0%,
-		49% {
-			opacity: 1;
-		}
-
-		50%,
-		100% {
-			opacity: 0;
-		}
+	.dark .dashboard-hint-textbox {
+		background: rgba(15, 23, 42, 0.72);
+		border-color: rgba(148, 163, 184, 0.12);
+		color: rgba(226, 232, 240, 0.9);
 	}
 
 	@media (max-width: 1200px) {
-		.metrics-grid {
+		.dashboard-metrics-grid {
 			grid-template-columns: repeat(2, minmax(0, 1fr));
 		}
 
-		.content-grid {
-			grid-template-columns: minmax(0, 1fr);
-		}
-
-		.chart-card,
-		.side-card,
-		.wide-card {
-			grid-column: auto;
-			grid-row: auto;
+		.dashboard-grid {
+			grid-template-columns: 1fr;
 		}
 	}
 
@@ -2261,53 +1030,29 @@ const dashboardSearchJson = JSON.stringify(dashboardSearchItems);
 			position: static;
 		}
 
-		.module-grid {
-			grid-template-columns: 1fr;
-		}
-
-		.hero-panel,
-		.dashboard-topbar {
+		.dashboard-topbar,
+		.dashboard-topbar-actions,
+		.dashboard-hero,
+		.dashboard-hero-actions,
+		.dashboard-panel-head,
+		.dashboard-chart-meta {
 			flex-direction: column;
 			align-items: stretch;
-		}
-
-		.section-head,
-		.chart-meta {
-			flex-direction: column;
-			align-items: stretch;
-		}
-
-		.hero-actions {
-			align-self: stretch;
-			flex-wrap: wrap;
 		}
 	}
 
 	@media (max-width: 640px) {
 		.dashboard-shell {
 			padding: 0.8rem;
-			gap: 0.9rem;
 		}
 
-		.metrics-grid {
+		.dashboard-metrics-grid,
+		.dashboard-guide-grid {
 			grid-template-columns: 1fr;
 		}
 
-		.table-row {
-			grid-template-columns: 1fr 1fr;
-		}
-
-		.dashboard-hint-overlay {
-			padding: 0.9rem;
-		}
-
-		.dashboard-hint-card {
-			padding: 1rem;
-		}
-
-		.dashboard-hint-textbox {
-			min-height: 16rem;
-			font-size: 0.86rem;
+		.dashboard-search {
+			width: 100%;
 		}
 	}
 </style>
