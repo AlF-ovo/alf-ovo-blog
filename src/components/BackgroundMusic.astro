@@ -16,6 +16,9 @@ const foregroundOpacityId = "system-foreground-opacity";
 const foregroundOpacityValueId = "system-foreground-opacity-value";
 const mascotScaleId = "live2d-mascot-scale";
 const mascotScaleValueId = "live2d-mascot-scale-value";
+const mascotVisibilityId = "live2d-mascot-visibility";
+const mascotVisibilityValueId = "live2d-mascot-visibility-value";
+const panelHintId = "system-panel-hint";
 
 const backgroundMusic = siteConfig.backgroundMusic;
 const normalizedTracks = backgroundMusic.tracks.map((track) => {
@@ -39,6 +42,13 @@ const defaultTrack =
 	normalizedTracks.find((track) => track.id === backgroundMusic.defaultTrackId) ??
 	normalizedTracks[0] ??
 	null;
+
+const systemPanels = [
+	{ id: "audio", label: "Audio", icon: "fa6-solid:wave-square" },
+	{ id: "display", label: "Display", icon: "fa6-solid:image" },
+	{ id: "mascot", label: "Mascot", icon: "fa6-solid:user-astronaut" },
+	{ id: "playlist", label: "Playlist", icon: "fa6-solid:list" },
+];
 ---
 
 {
@@ -54,9 +64,11 @@ const defaultTrack =
 			data-volume-key="background-music:volume"
 			data-foreground-opacity-key="system:foreground-opacity"
 			data-mascot-scale-key="system:mascot-scale"
+			data-mascot-hidden-key="system:mascot-hidden"
 			data-default-volume="0.24"
 			data-default-foreground-opacity="0.56"
 			data-default-mascot-scale="1"
+			data-default-mascot-hidden="false"
 		>
 			<audio id={audioId} preload={defaultTrack?.hasSource ? "metadata" : "none"} playsinline></audio>
 
@@ -75,131 +87,206 @@ const defaultTrack =
 
 			<section id={drawerId} class="system-control-drawer" hidden aria-label="System panel">
 				<div class="system-control-header">
-					<div class="system-control-heading-group">
-						<p class="system-control-heading">System Panel</p>
-						<p class="system-control-subheading">Tune wallpaper visibility, music fragment and loudness.</p>
+					<div>
+						<p class="system-control-heading">System</p>
+						<p id={statusId} class="system-control-status">
+							{normalizedTracks.length > 0 ? "Ready" : "No tracks configured"}
+						</p>
 					</div>
-
-					<button
-						id={toggleId}
-						type="button"
-						class="system-control-play"
-						aria-label="Toggle background music"
-						aria-pressed="false"
-						disabled={normalizedTracks.length === 0}
-					>
-						<span class="system-control-play__icon system-control-play__icon--play" aria-hidden="true">
-							<Icon name="fa6-solid:play" />
-						</span>
-						<span class="system-control-play__icon system-control-play__icon--pause" aria-hidden="true">
-							<Icon name="fa6-solid:pause" />
-						</span>
-					</button>
 				</div>
 
-				<p id={statusId} class="system-control-status">
-					{normalizedTracks.length > 0 ? "Ready" : "No tracks configured"}
+				<div class="system-control-modes" role="tablist" aria-label="System controls">
+					{
+						systemPanels.map((panel) => (
+							<button
+								type="button"
+								class="system-control-mode"
+								role="tab"
+								aria-selected="false"
+								aria-controls={`${drawerId}-${panel.id}`}
+								data-system-panel-trigger={panel.id}
+							>
+								<span class="system-control-mode__icon" aria-hidden="true">
+									<Icon name={panel.icon} />
+								</span>
+								<span class="system-control-mode__label">{panel.label}</span>
+							</button>
+						))
+					}
+				</div>
+
+				<p id={panelHintId} class="system-control-panel-hint">
+					Select an icon to open its controls.
 				</p>
 
-				<div class="system-control-section">
-					<div class="system-control-section__row">
-						<div>
-							<p class="system-control-section__title">Wallpaper opacity</p>
-							<p class="system-control-section__copy">Adjust the transparency of the foreground UI while the wallpaper stays fully visible.</p>
-						</div>
-						<span id={foregroundOpacityValueId} class="system-control-value">56%</span>
-					</div>
-					<input
-						id={foregroundOpacityId}
-						class="system-control-slider"
-						type="range"
-						min="30"
-						max="100"
-						step="1"
-						value="56"
-						aria-label="Foreground opacity"
-					/>
-				</div>
-
-				<div class="system-control-section">
-					<div class="system-control-section__row">
-						<div>
-							<p class="system-control-section__title">Volume</p>
-							<p class="system-control-section__copy">Adjust the current music loudness.</p>
-						</div>
-						<span id={volumeValueId} class="system-control-value">24%</span>
-					</div>
-					<input
-						id={volumeId}
-						class="system-control-slider"
-						type="range"
-						min="0"
-						max="100"
-						step="1"
-						value="24"
-						aria-label="Music volume"
-					/>
-				</div>
-
-				<div class="system-control-section">
-					<div class="system-control-section__row">
-						<div>
-							<p class="system-control-section__title">Mascot size</p>
-							<p class="system-control-section__copy">Resize the Live2D mascot without affecting the rest of the layout.</p>
-						</div>
-						<span id={mascotScaleValueId} class="system-control-value">100%</span>
-					</div>
-					<input
-						id={mascotScaleId}
-						class="system-control-slider"
-						type="range"
-						min="60"
-						max="150"
-						step="1"
-						value="100"
-						aria-label="Mascot size"
-					/>
-				</div>
-
-				<div class="system-control-section">
-					<div class="system-control-section__row">
-						<div>
-							<p class="system-control-section__title">Music fragment</p>
-							<p class="system-control-section__copy">Pick the current background fragment manually.</p>
+				<section
+					id={`${drawerId}-audio`}
+					class="system-control-detail"
+					data-system-panel="audio"
+					hidden
+				>
+					<div class="system-control-section">
+						<div class="system-control-section__row">
+							<div>
+								<p class="system-control-section__title">Playback</p>
+								<p class="system-control-section__copy">Pause or resume the current background fragment.</p>
+							</div>
+							<button
+								id={toggleId}
+								type="button"
+								class="system-control-play"
+								aria-label="Toggle background music"
+								aria-pressed="false"
+								disabled={normalizedTracks.length === 0}
+							>
+								<span class="system-control-play__icon system-control-play__icon--play" aria-hidden="true">
+									<Icon name="fa6-solid:play" />
+								</span>
+								<span class="system-control-play__icon system-control-play__icon--pause" aria-hidden="true">
+									<Icon name="fa6-solid:pause" />
+								</span>
+							</button>
 						</div>
 					</div>
 
-					<div id={listId} class="system-control-track-list" role="listbox" aria-label="Background music tracks">
-						{normalizedTracks.length > 0 ? (
-							normalizedTracks.map((track) => (
-								<button
-									type="button"
-									class:list={["system-control-track", { "is-unavailable": !track.hasSource }]}
-									role="option"
-									data-track-id={track.id}
-									data-track-src={track.src}
-									data-track-title={track.title}
-									data-track-artist={track.artist ?? ""}
-									data-track-group={track.group}
-									aria-selected="false"
-									disabled={!track.hasSource}
-								>
-									<span class="system-control-track__copy">
-										<span class="system-control-track__title">{track.title}</span>
-										<span class="system-control-track__meta">
-											{track.artist ? track.artist : track.hasSource ? "Ready" : "Missing source"}
+					<div class="system-control-section">
+						<div class="system-control-section__row">
+							<div>
+								<p class="system-control-section__title">Volume</p>
+								<p class="system-control-section__copy">Adjust the current music loudness.</p>
+							</div>
+							<span id={volumeValueId} class="system-control-value">24%</span>
+						</div>
+						<input
+							id={volumeId}
+							class="system-control-slider"
+							type="range"
+							min="0"
+							max="100"
+							step="1"
+							value="24"
+							aria-label="Music volume"
+						/>
+					</div>
+				</section>
+
+				<section
+					id={`${drawerId}-display`}
+					class="system-control-detail"
+					data-system-panel="display"
+					hidden
+				>
+					<div class="system-control-section">
+						<div class="system-control-section__row">
+							<div>
+								<p class="system-control-section__title">Wallpaper opacity</p>
+								<p class="system-control-section__copy">Adjust the transparency of the foreground UI while the wallpaper stays fully visible.</p>
+							</div>
+							<span id={foregroundOpacityValueId} class="system-control-value">56%</span>
+						</div>
+						<input
+							id={foregroundOpacityId}
+							class="system-control-slider"
+							type="range"
+							min="30"
+							max="100"
+							step="1"
+							value="56"
+							aria-label="Foreground opacity"
+						/>
+					</div>
+				</section>
+
+				<section
+					id={`${drawerId}-mascot`}
+					class="system-control-detail"
+					data-system-panel="mascot"
+					hidden
+				>
+					<div class="system-control-section">
+						<div class="system-control-section__row">
+							<div>
+								<p class="system-control-section__title">Mascot visibility</p>
+								<p class="system-control-section__copy">Hide or restore the Live2D mascot from here.</p>
+							</div>
+							<span id={mascotVisibilityValueId} class="system-control-value">Visible</span>
+						</div>
+						<button
+							id={mascotVisibilityId}
+							type="button"
+							class="system-control-action"
+						>
+							Hide mascot
+						</button>
+					</div>
+
+					<div class="system-control-section">
+						<div class="system-control-section__row">
+							<div>
+								<p class="system-control-section__title">Mascot size</p>
+								<p class="system-control-section__copy">Resize the Live2D mascot without affecting the rest of the layout.</p>
+							</div>
+							<span id={mascotScaleValueId} class="system-control-value">100%</span>
+						</div>
+						<input
+							id={mascotScaleId}
+							class="system-control-slider"
+							type="range"
+							min="60"
+							max="150"
+							step="1"
+							value="100"
+							aria-label="Mascot size"
+						/>
+					</div>
+				</section>
+
+				<section
+					id={`${drawerId}-playlist`}
+					class="system-control-detail"
+					data-system-panel="playlist"
+					hidden
+				>
+					<div class="system-control-section">
+						<div class="system-control-section__row">
+							<div>
+								<p class="system-control-section__title">Music fragment</p>
+								<p class="system-control-section__copy">Pick the current background fragment manually.</p>
+							</div>
+						</div>
+
+						<div id={listId} class="system-control-track-list" role="listbox" aria-label="Background music tracks">
+							{normalizedTracks.length > 0 ? (
+								normalizedTracks.map((track) => (
+									<button
+										type="button"
+										class:list={["system-control-track", { "is-unavailable": !track.hasSource }]}
+										role="option"
+										data-track-id={track.id}
+										data-track-src={track.src}
+										data-track-title={track.title}
+										data-track-artist={track.artist ?? ""}
+										data-track-group={track.group}
+										aria-selected="false"
+										disabled={!track.hasSource}
+									>
+										<span class="system-control-track__copy">
+											<span class="system-control-track__title">{track.title}</span>
+											<span class="system-control-track__meta">
+												{track.artist ? track.artist : track.hasSource ? "Ready" : "Missing source"}
+											</span>
 										</span>
-									</span>
-									<span class="system-control-track__icon" aria-hidden="true">
-										<Icon name="fa6-solid:wave-square" />
-									</span>
-								</button>
-							))
-						) : (
-							<div class="system-control-empty">Add confirmed songs in src/config.ts.</div>
-						)}
+										<span class="system-control-track__icon" aria-hidden="true">
+											<Icon name="fa6-solid:wave-square" />
+										</span>
+									</button>
+								))
+							) : (
+								<div class="system-control-empty">Add confirmed songs in src/config.ts.</div>
+							)}
+						</div>
 					</div>
-				</div>
+				</section>
 			</section>
 		</div>
 	)
@@ -218,8 +305,10 @@ const defaultTrack =
 	}
 
 	.system-control-launch,
+	.system-control-mode,
 	.system-control-play,
-	.system-control-track {
+	.system-control-track,
+	.system-control-action {
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background: linear-gradient(180deg, rgba(12, 12, 16, 0.92), rgba(20, 20, 24, 0.82));
 		box-shadow: 0 24px 60px rgba(0, 0, 0, 0.28);
@@ -234,8 +323,10 @@ const defaultTrack =
 	}
 
 	.system-control-launch:hover,
+	.system-control-mode:hover,
 	.system-control-play:hover:not(:disabled),
-	.system-control-track:hover:not(:disabled) {
+	.system-control-track:hover:not(:disabled),
+	.system-control-action:hover {
 		transform: translateY(-2px);
 		border-color: rgba(255, 255, 255, 0.18);
 		box-shadow: 0 28px 68px rgba(0, 0, 0, 0.34);
@@ -251,16 +342,20 @@ const defaultTrack =
 		border-radius: 1.15rem;
 	}
 
-	.system-control-launch__icon {
+	.system-control-launch__icon,
+	.system-control-mode__icon {
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
+		flex-shrink: 0;
+	}
+
+	.system-control-launch__icon {
 		width: 2.55rem;
 		height: 2.55rem;
 		border-radius: 0.95rem;
 		background: rgba(255, 255, 255, 0.08);
 		color: rgba(255, 255, 255, 0.96);
-		flex-shrink: 0;
 	}
 
 	.system-control-launch__icon :global(svg) {
@@ -272,9 +367,9 @@ const defaultTrack =
 		position: absolute;
 		right: 0;
 		bottom: calc(100% + 0.75rem);
-		width: min(24rem, calc(100vw - 1.7rem));
-		padding: 1rem;
-		border-radius: 1.4rem;
+		width: min(22rem, calc(100vw - 1.7rem));
+		padding: 0.95rem;
+		border-radius: 1.35rem;
 		border: 1px solid rgba(255, 255, 255, 0.1);
 		background:
 			linear-gradient(180deg, rgba(10, 10, 12, 0.94), rgba(18, 18, 22, 0.88)),
@@ -298,62 +393,78 @@ const defaultTrack =
 		letter-spacing: 0.02em;
 	}
 
-	.system-control-subheading {
-		margin: 0.28rem 0 0;
+	.system-control-status {
+		margin: 0.5rem 0 0;
+		padding: 0.62rem 0.78rem;
+		border-radius: 0.95rem;
+		background: rgba(255, 255, 255, 0.06);
 		font-size: 0.76rem;
 		line-height: 1.5;
-		color: rgba(226, 232, 240, 0.62);
+		color: rgba(226, 232, 240, 0.84);
 	}
 
-	.system-control-play {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 3rem;
-		height: 3rem;
+	.system-control-modes {
+		display: grid;
+		grid-template-columns: repeat(4, minmax(0, 1fr));
+		gap: 0.6rem;
+		margin-top: 0.8rem;
+	}
+
+	.system-control-mode {
+		display: grid;
+		justify-items: center;
+		gap: 0.38rem;
+		padding: 0.72rem 0.5rem 0.62rem;
 		border-radius: 1rem;
-		flex-shrink: 0;
+		text-align: center;
 	}
 
-	.system-control-play:disabled {
-		opacity: 0.4;
-		cursor: not-allowed;
+	.system-control-mode[aria-selected="true"] {
+		border-color: rgba(255, 255, 255, 0.2);
+		background: linear-gradient(180deg, rgba(34, 36, 46, 0.96), rgba(18, 18, 24, 0.92));
 	}
 
-	.system-control-play__icon {
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
+	.system-control-mode__icon {
+		width: 2.35rem;
+		height: 2.35rem;
+		border-radius: 0.8rem;
+		background: rgba(255, 255, 255, 0.08);
 	}
 
-	.system-control-play__icon :global(svg) {
+	.system-control-mode__icon :global(svg) {
 		width: 0.95rem;
 		height: 0.95rem;
 	}
 
-	.system-control-play.is-playing .system-control-play__icon--play {
-		display: none;
+	.system-control-mode__label {
+		font-size: 0.72rem;
+		font-weight: 700;
+		color: rgba(248, 250, 252, 0.92);
+		letter-spacing: 0.03em;
 	}
 
-	.system-control-play:not(.is-playing) .system-control-play__icon--pause {
-		display: none;
-	}
-
-	.system-control-status {
-		margin: 0.9rem 0 0;
-		padding: 0.72rem 0.85rem;
+	.system-control-panel-hint {
+		margin: 0.8rem 0 0;
+		padding: 0.78rem 0.85rem;
 		border-radius: 1rem;
-		background: rgba(255, 255, 255, 0.06);
-		font-size: 0.78rem;
+		background: rgba(255, 255, 255, 0.04);
+		font-size: 0.76rem;
 		line-height: 1.55;
-		color: rgba(226, 232, 240, 0.84);
+		color: rgba(226, 232, 240, 0.68);
+	}
+
+	.system-control-detail {
+		margin-top: 0.8rem;
 	}
 
 	.system-control-section {
-		margin-top: 0.8rem;
 		padding: 0.85rem;
 		border-radius: 1.1rem;
 		background: rgba(255, 255, 255, 0.04);
+	}
+
+	.system-control-section + .system-control-section {
+		margin-top: 0.75rem;
 	}
 
 	.system-control-section__row {
@@ -396,11 +507,59 @@ const defaultTrack =
 		accent-color: rgb(226, 232, 240);
 	}
 
+	.system-control-action,
+	.system-control-play {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		min-height: 2.9rem;
+		border-radius: 1rem;
+	}
+
+	.system-control-action {
+		width: 100%;
+		margin-top: 0.75rem;
+		padding: 0.8rem 0.9rem;
+		font-size: 0.8rem;
+		font-weight: 700;
+	}
+
+	.system-control-play {
+		width: 3rem;
+		height: 3rem;
+		padding: 0;
+		flex-shrink: 0;
+	}
+
+	.system-control-play:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	.system-control-play__icon {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+	}
+
+	.system-control-play__icon :global(svg) {
+		width: 0.95rem;
+		height: 0.95rem;
+	}
+
+	.system-control-play.is-playing .system-control-play__icon--play {
+		display: none;
+	}
+
+	.system-control-play:not(.is-playing) .system-control-play__icon--pause {
+		display: none;
+	}
+
 	.system-control-track-list {
 		display: flex;
 		flex-direction: column;
 		gap: 0.55rem;
-		max-height: min(19rem, 42vh);
+		max-height: min(18rem, 40vh);
 		margin-top: 0.8rem;
 		overflow: auto;
 	}
@@ -482,8 +641,16 @@ const defaultTrack =
 		}
 
 		.system-control-drawer {
-			width: min(22rem, calc(100vw - 1.4rem));
-			padding: 0.9rem;
+			width: min(21rem, calc(100vw - 1.4rem));
+			padding: 0.85rem;
+		}
+
+		.system-control-modes {
+			gap: 0.5rem;
+		}
+
+		.system-control-mode {
+			padding-inline: 0.35rem;
 		}
 	}
 </style>
@@ -502,6 +669,9 @@ const defaultTrack =
 	const foregroundOpacityValueId = "system-foreground-opacity-value";
 	const mascotScaleId = "live2d-mascot-scale";
 	const mascotScaleValueId = "live2d-mascot-scale-value";
+	const mascotVisibilityId = "live2d-mascot-visibility";
+	const mascotVisibilityValueId = "live2d-mascot-visibility-value";
+	const panelHintId = "system-panel-hint";
 
 	const initBackgroundMusic = () => {
 		const root = document.getElementById(playerId);
@@ -517,6 +687,15 @@ const defaultTrack =
 		const foregroundOpacityValue = document.getElementById(foregroundOpacityValueId);
 		const mascotScaleInput = document.getElementById(mascotScaleId);
 		const mascotScaleValue = document.getElementById(mascotScaleValueId);
+		const mascotVisibilityButton = document.getElementById(mascotVisibilityId);
+		const mascotVisibilityValue = document.getElementById(mascotVisibilityValueId);
+		const panelHint = document.getElementById(panelHintId);
+		const panelTriggers = Array.from(
+			document.querySelectorAll("[data-system-panel-trigger]"),
+		);
+		const panelSections = Array.from(
+			document.querySelectorAll("[data-system-panel]"),
+		);
 
 		if (
 			!(root instanceof HTMLElement) ||
@@ -531,7 +710,10 @@ const defaultTrack =
 			!(foregroundOpacityInput instanceof HTMLInputElement) ||
 			!(foregroundOpacityValue instanceof HTMLElement) ||
 			!(mascotScaleInput instanceof HTMLInputElement) ||
-			!(mascotScaleValue instanceof HTMLElement)
+			!(mascotScaleValue instanceof HTMLElement) ||
+			!(mascotVisibilityButton instanceof HTMLButtonElement) ||
+			!(mascotVisibilityValue instanceof HTMLElement) ||
+			!(panelHint instanceof HTMLElement)
 		) {
 			return;
 		}
@@ -550,6 +732,8 @@ const defaultTrack =
 			root.dataset.foregroundOpacityKey || "system:foreground-opacity";
 		const mascotScaleKey =
 			root.dataset.mascotScaleKey || "system:mascot-scale";
+		const mascotHiddenKey =
+			root.dataset.mascotHiddenKey || "system:mascot-hidden";
 		const defaultTrackId = root.dataset.defaultTrackId || "";
 		const playlistLoop = root.dataset.playlistLoop !== "false";
 		const shouldAutoplay = root.dataset.autoplay === "true";
@@ -568,17 +752,25 @@ const defaultTrack =
 			0.6,
 			1.5,
 		);
+		const defaultMascotHidden = root.dataset.defaultMascotHidden === "true";
 		const trackButtons = Array.from(trackList.querySelectorAll("[data-track-id]")).filter(
 			(button) => button instanceof HTMLButtonElement,
 		);
 		const availableTrackButtons = trackButtons.filter(
 			(button) => Boolean(button.dataset.trackSrc),
 		);
+		const safePanelTriggers = panelTriggers.filter(
+			(button) => button instanceof HTMLButtonElement,
+		);
+		const safePanelSections = panelSections.filter(
+			(section) => section instanceof HTMLElement,
+		);
 		let currentButton = null;
 		let currentVolume = defaultVolume;
 		let isTrackSwitching = false;
 		let autoplayBlocked = false;
 		let unlockEventsBound = false;
+		let activePanel = "";
 
 		const getRememberedValue = (key) => {
 			try {
@@ -622,6 +814,21 @@ const defaultTrack =
 			status.textContent = track ? `${prefix} · ${getTrackLabel(track)}` : prefix;
 		};
 
+		const setActivePanel = (panelId) => {
+			activePanel = panelId;
+
+			for (const button of safePanelTriggers) {
+				const isActive = button.dataset.systemPanelTrigger === panelId;
+				button.setAttribute("aria-selected", isActive ? "true" : "false");
+			}
+
+			for (const section of safePanelSections) {
+				section.hidden = section.dataset.systemPanel !== panelId;
+			}
+
+			panelHint.hidden = panelId.length > 0;
+		};
+
 		const applyForegroundOpacity = (nextOpacity, shouldPersist = true) => {
 			const normalizedOpacity = clamp(nextOpacity, 0.3, 1);
 			document.documentElement.style.setProperty(
@@ -663,6 +870,21 @@ const defaultTrack =
 
 			if (shouldPersist) {
 				setRememberedValue(mascotScaleKey, String(normalizedScale));
+			}
+		};
+
+		const applyMascotVisibility = (hidden, shouldPersist = true) => {
+			document.documentElement.dataset.mascotHidden = hidden ? "true" : "false";
+			mascotVisibilityValue.textContent = hidden ? "Hidden" : "Visible";
+			mascotVisibilityButton.textContent = hidden ? "Show mascot" : "Hide mascot";
+			window.dispatchEvent(
+				new CustomEvent("alf:live2d-visibility", {
+					detail: { hidden },
+				}),
+			);
+
+			if (shouldPersist) {
+				setRememberedValue(mascotHiddenKey, hidden ? "true" : "false");
 			}
 		};
 
@@ -746,11 +968,13 @@ const defaultTrack =
 		const closeDrawer = () => {
 			drawer.hidden = true;
 			drawerToggle.setAttribute("aria-expanded", "false");
+			setActivePanel("");
 		};
 
 		const openDrawer = () => {
 			drawer.hidden = false;
 			drawerToggle.setAttribute("aria-expanded", "true");
+			setActivePanel("");
 		};
 
 		const removeUnlockEvents = () => {
@@ -805,6 +1029,8 @@ const defaultTrack =
 		const rememberedMascotScale = Number.parseFloat(
 			getRememberedValue(mascotScaleKey) || "",
 		);
+		const rememberedMascotHidden = getRememberedValue(mascotHiddenKey);
+
 		applyForegroundOpacity(
 			Number.isFinite(rememberedForegroundOpacity)
 				? rememberedForegroundOpacity
@@ -818,6 +1044,12 @@ const defaultTrack =
 				: defaultMascotScale,
 			false,
 		);
+		applyMascotVisibility(
+			rememberedMascotHidden === null
+				? defaultMascotHidden
+				: rememberedMascotHidden === "true",
+			false,
+		);
 
 		const rememberedTrackId = getRememberedValue(selectionKey);
 		const initialButton =
@@ -829,6 +1061,7 @@ const defaultTrack =
 
 		updateTrackSelection(initialButton);
 		updatePlaybackUi(false);
+		setActivePanel("");
 
 		drawerToggle.addEventListener("click", () => {
 			if (drawer.hidden) {
@@ -851,6 +1084,13 @@ const defaultTrack =
 			closeDrawer();
 		});
 
+		for (const button of safePanelTriggers) {
+			button.addEventListener("click", () => {
+				const nextPanel = button.dataset.systemPanelTrigger || "";
+				setActivePanel(activePanel === nextPanel ? "" : nextPanel);
+			});
+		}
+
 		foregroundOpacityInput.addEventListener("input", () => {
 			applyForegroundOpacity(Number.parseFloat(foregroundOpacityInput.value) / 100);
 		});
@@ -861,6 +1101,11 @@ const defaultTrack =
 
 		mascotScaleInput.addEventListener("input", () => {
 			applyMascotScale(Number.parseFloat(mascotScaleInput.value) / 100);
+		});
+
+		mascotVisibilityButton.addEventListener("click", () => {
+			const nextHidden = document.documentElement.dataset.mascotHidden !== "true";
+			applyMascotVisibility(nextHidden);
 		});
 
 		for (const button of trackButtons) {

@@ -27,24 +27,7 @@ const expressionNames = [
 	data-expression-names={JSON.stringify(expressionNames)}
 	aria-live="polite"
 >
-	<button
-		type="button"
-		class="live2d-mascot__toggle"
-		data-live2d-toggle
-		aria-label="Show mascot"
-	>
-		Mascot
-	</button>
-
 	<section class="live2d-mascot__panel" aria-label="Live2D mascot">
-		<button
-			type="button"
-			class="live2d-mascot__close"
-			data-live2d-close
-			aria-label="Hide mascot"
-		>
-			x
-		</button>
 		<div class="live2d-mascot__status" data-live2d-status>Mascot loading</div>
 		<canvas
 			class="live2d-mascot__canvas"
@@ -66,33 +49,6 @@ const expressionNames = [
 		touch-action: none;
 	}
 
-	.live2d-mascot__toggle,
-	.live2d-mascot__close {
-		pointer-events: auto;
-	}
-
-	.live2d-mascot__toggle {
-		display: none;
-		align-items: center;
-		justify-content: center;
-		padding: 0.6rem 0.85rem;
-		border: 1px solid rgb(15 23 42 / 0.1);
-		border-radius: 999px;
-		background: rgb(255 255 255 / 0.78);
-		backdrop-filter: blur(8px);
-		box-shadow: 0 0.45rem 1.2rem rgb(15 23 42 / 0.12);
-		color: rgb(15 23 42 / 0.88);
-		font-size: 0.78rem;
-		font-weight: 600;
-		letter-spacing: 0.06em;
-	}
-
-	.dark .live2d-mascot__toggle {
-		border-color: rgb(148 163 184 / 0.12);
-		background: rgb(15 23 42 / 0.68);
-		color: rgb(226 232 240 / 0.9);
-	}
-
 	.live2d-mascot__panel {
 		position: relative;
 		width: calc(clamp(11rem, 16vw, 16rem) * var(--live2d-scale, 1));
@@ -110,7 +66,7 @@ const expressionNames = [
 		top: 0.5rem;
 		left: 0.5rem;
 		z-index: 2;
-		max-width: calc(100% - 3rem);
+		max-width: calc(100% - 1rem);
 		padding: 0.3rem 0.55rem;
 		border-radius: 999px;
 		background: rgb(255 255 255 / 0.28);
@@ -139,37 +95,6 @@ const expressionNames = [
 		background: rgb(69 10 10 / 0.4);
 	}
 
-	.live2d-mascot__close {
-		position: absolute;
-		top: 1.35rem;
-		right: 1rem;
-		z-index: 3;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		width: 1.4rem;
-		height: 1.4rem;
-		border: 0;
-		border-radius: 999px;
-		background: rgb(0 0 0);
-		color: rgb(255 255 255);
-		font-size: 0.9rem;
-		line-height: 1;
-		cursor: pointer;
-		box-shadow: 0 0.2rem 0.55rem rgb(0 0 0 / 0.22);
-		transition: background-color 160ms ease, transform 160ms ease;
-	}
-
-	.live2d-mascot__close:hover {
-		background: rgb(17 17 17);
-		transform: translateY(-1px);
-	}
-
-	.dark .live2d-mascot__close {
-		background: rgb(0 0 0);
-		color: rgb(255 255 255);
-	}
-
 	.live2d-mascot__canvas {
 		position: absolute;
 		inset: 0;
@@ -181,14 +106,6 @@ const expressionNames = [
 		filter: drop-shadow(0 1rem 2rem rgb(15 23 42 / 0.16));
 	}
 
-	.live2d-mascot.is-collapsed .live2d-mascot__panel {
-		display: none;
-	}
-
-	.live2d-mascot.is-collapsed .live2d-mascot__toggle {
-		display: inline-flex;
-	}
-
 	@media (max-width: 1023px) {
 		.live2d-mascot__panel {
 			width: calc(clamp(8.5rem, 30vw, 11rem) * var(--live2d-scale, 1));
@@ -196,17 +113,6 @@ const expressionNames = [
 
 		.live2d-mascot__status {
 			display: none;
-		}
-
-		.live2d-mascot__close {
-			top: 0.95rem;
-			right: 0.7rem;
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.live2d-mascot__close {
-			transition: none;
 		}
 	}
 </style>
@@ -236,15 +142,11 @@ const expressionNames = [
 		const panel = root.querySelector(".live2d-mascot__panel");
 		const canvas = root.querySelector("[data-live2d-canvas]");
 		const status = root.querySelector("[data-live2d-status]");
-		const toggleButton = root.querySelector("[data-live2d-toggle]");
-		const closeButton = root.querySelector("[data-live2d-close]");
 
 		if (
 			!(panel instanceof HTMLElement) ||
 			!(canvas instanceof HTMLCanvasElement) ||
-			!(status instanceof HTMLElement) ||
-			!(toggleButton instanceof HTMLButtonElement) ||
-			!(closeButton instanceof HTMLButtonElement)
+			!(status instanceof HTMLElement)
 		) {
 			return;
 		}
@@ -266,6 +168,7 @@ const expressionNames = [
 		};
 
 		const positionStorageKey = "alf.live2d.position";
+		const visibilityStorageKey = "system:mascot-hidden";
 		const viewportPadding = 8;
 		const expressionIntervalMs = 15000;
 
@@ -273,10 +176,6 @@ const expressionNames = [
 			status.textContent = message;
 			status.dataset.mode = mode;
 			status.hidden = message.length === 0;
-		};
-
-		const setCollapsed = (collapsed) => {
-			root.classList.toggle("is-collapsed", collapsed);
 		};
 
 		const persistPlacement = () => {
@@ -414,6 +313,31 @@ const expressionNames = [
 			const nextPosition = clampPosition(state.position.x, state.position.y);
 			applyPosition(nextPosition.x, nextPosition.y);
 			persistPlacement();
+		};
+
+		const persistVisibility = (hidden) => {
+			try {
+				localStorage.setItem(visibilityStorageKey, hidden ? "true" : "false");
+			} catch (_error) {
+				// Ignore storage failures.
+			}
+		};
+
+		const setHiddenState = (hidden, shouldPersist = true) => {
+			root.hidden = hidden;
+			root.setAttribute("aria-hidden", hidden ? "true" : "false");
+			document.documentElement.dataset.mascotHidden = hidden ? "true" : "false";
+
+			if (shouldPersist) {
+				persistVisibility(hidden);
+			}
+
+			if (!hidden) {
+				window.requestAnimationFrame(() => {
+					fitModel();
+					updatePlacementForViewport();
+				});
+			}
 		};
 
 		const cycleExpression = () => {
@@ -570,7 +494,6 @@ const expressionNames = [
 				restorePlacement();
 				startExpressionTimer();
 				setStatus("");
-				setCollapsed(false);
 			})().catch((error) => {
 				state.initPromise = null;
 				console.error("Live2D mascot failed to initialize", error);
@@ -588,6 +511,14 @@ const expressionNames = [
 
 		window.addEventListener("resize", handleViewportResize);
 		window.addEventListener("alf:live2d-resize", handleViewportResize);
+		window.addEventListener("alf:live2d-visibility", (event) => {
+			const hidden = Boolean(event?.detail?.hidden);
+			setHiddenState(hidden, false);
+
+			if (!hidden) {
+				void initMascot();
+			}
+		});
 		canvas.addEventListener("pointerdown", beginDrag);
 		canvas.addEventListener("pointermove", handleDragMove);
 		canvas.addEventListener("pointerup", endDrag);
@@ -596,16 +527,25 @@ const expressionNames = [
 			state.dragPointerId = null;
 		});
 
-		toggleButton.addEventListener("click", () => {
-			setCollapsed(false);
+		const initiallyHidden = (() => {
+			try {
+				const rememberedVisibility = localStorage.getItem(visibilityStorageKey);
+				if (rememberedVisibility === "true") {
+					return true;
+				}
+				if (rememberedVisibility === "false") {
+					return false;
+				}
+			} catch (_error) {
+				// Ignore storage failures.
+			}
+
+			return document.documentElement.dataset.mascotHidden === "true";
+		})();
+
+		setHiddenState(initiallyHidden, false);
+		if (!initiallyHidden) {
 			void initMascot();
-		});
-
-		closeButton.addEventListener("click", () => {
-			setCollapsed(true);
-		});
-
-		setCollapsed(false);
-		void initMascot();
+		}
 	})();
 </script>

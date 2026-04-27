@@ -156,9 +156,11 @@ const bannerOffset =
 				0.6,
 				1.5,
 			);
+			const mascotHidden = localStorage.getItem('system:mascot-hidden') === 'true';
 			document.documentElement.style.setProperty('--system-wallpaper-opacity', '1');
 			document.documentElement.style.setProperty('--system-foreground-opacity', `${wallpaperOpacity}`);
 			document.documentElement.style.setProperty('--live2d-scale', `${mascotScale}`);
+			document.documentElement.dataset.mascotHidden = mascotHidden ? 'true' : 'false';
 
 			// calculate the --banner-height-extend, which needs to be a multiple of 4 to avoid blurry text
 			let offset = Math.floor(window.innerHeight * (BANNER_HEIGHT_EXTEND / 100));
@@ -237,6 +239,10 @@ const bannerOffset =
 		z-index: 1;
 		opacity: var(--system-foreground-opacity, 0.56);
 		transition: opacity 180ms ease;
+	}
+
+	html[data-mascot-hidden="true"] .live2d-mascot {
+		display: none;
 	}
 
 	.enable-banner.is-home #banner-wrapper {
