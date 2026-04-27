@@ -11,7 +11,11 @@ const { greeting } = Astro.props;
 			<span data-dashboard-typewriter data-dashboard-typewriter-text={greeting}></span>
 			<span class="dashboard-typewriter-cursor" aria-hidden="true"></span>
 		</h3>
-		<p class="dashboard-hero-quote" data-dashboard-hero-quote hidden></p>
+		<div class="dashboard-hero-quote-shell" data-dashboard-hero-quote-shell hidden>
+			<div class="dashboard-hero-quote-shell__inner">
+				<p class="dashboard-hero-quote" data-dashboard-hero-quote hidden></p>
+			</div>
+		</div>
 	</div>
 	<div class="dashboard-hero-actions">
 		<button

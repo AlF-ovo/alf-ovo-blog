@@ -193,14 +193,16 @@ const dashboardSearchItems = [
 		const initDashboardTypewriter = () => {
 			const node = document.querySelector("[data-dashboard-typewriter]");
 			const quoteNode = document.querySelector("[data-dashboard-hero-quote]");
+			const quoteShell = document.querySelector("[data-dashboard-hero-quote-shell]");
 			const quotesNode = document.querySelector("#dashboard-hero-quotes");
 
-			if (!node || !quoteNode || !quotesNode) {
+			if (!node || !quoteNode || !quoteShell || !quotesNode) {
 				return;
 			}
 
 			const fullText = node.dataset.dashboardTypewriterText || "";
 			const previousTimer = Number(node.dataset.dashboardTypewriterTimer || "0");
+			const previousExpandTimer = Number(node.dataset.dashboardQuoteShellTimer || "0");
 			const previousRevealTimer = Number(node.dataset.dashboardQuoteTimer || "0");
 			const quotes = JSON.parse(quotesNode.textContent || "[]");
 			const randomQuote =
@@ -212,11 +214,17 @@ const dashboardSearchItems = [
 				window.clearTimeout(previousTimer);
 			}
 
+			if (previousExpandTimer) {
+				window.clearTimeout(previousExpandTimer);
+			}
+
 			if (previousRevealTimer) {
 				window.clearTimeout(previousRevealTimer);
 			}
 
 			node.textContent = "";
+			quoteShell.hidden = true;
+			quoteShell.classList.remove("is-expanded");
 			quoteNode.hidden = true;
 			quoteNode.classList.remove("is-visible");
 			quoteNode.textContent = randomQuote;
@@ -236,16 +244,25 @@ const dashboardSearchItems = [
 				node.dataset.dashboardTypewriterTimer = "";
 
 				if (randomQuote) {
-					const revealTimer = window.setTimeout(() => {
-						quoteNode.hidden = false;
+					const expandTimer = window.setTimeout(() => {
+						quoteShell.hidden = false;
 						window.requestAnimationFrame(() => {
-							quoteNode.classList.add("is-visible");
+							quoteShell.classList.add("is-expanded");
 						});
+
+						const revealTimer = window.setTimeout(() => {
+							quoteNode.hidden = false;
+							window.requestAnimationFrame(() => {
+								quoteNode.classList.add("is-visible");
+							});
+						}, 320);
+						node.dataset.dashboardQuoteTimer = String(revealTimer);
 					}, 220);
-					node.dataset.dashboardQuoteTimer = String(revealTimer);
+					node.dataset.dashboardQuoteShellTimer = String(expandTimer);
 					return;
 				}
 
+				node.dataset.dashboardQuoteShellTimer = "";
 				node.dataset.dashboardQuoteTimer = "";
 			};
 
@@ -740,8 +757,7 @@ const dashboardSearchItems = [
 	}
 
 	.dashboard-hero-quote {
-		margin: 0.9rem 0 0;
-		max-width: 44rem;
+		margin: 0;
 		font-size: 0.95rem;
 		line-height: 1.9;
 		letter-spacing: 0.04em;
@@ -753,6 +769,47 @@ const dashboardSearchItems = [
 			opacity 1400ms ease,
 			transform 1400ms ease,
 			filter 1400ms ease;
+	}
+
+	.dashboard-hero-quote-shell {
+		margin: 0.9rem 0 0;
+		max-width: 44rem;
+		display: grid;
+		grid-template-rows: 0fr;
+		opacity: 0;
+		transform: translateY(0.35rem);
+		transition:
+			grid-template-rows 420ms ease,
+			opacity 320ms ease,
+			transform 420ms ease;
+	}
+
+	.dashboard-hero-quote-shell[hidden] {
+		display: none;
+	}
+
+	.dashboard-hero-quote-shell.is-expanded {
+		grid-template-rows: 1fr;
+		opacity: 1;
+		transform: translateY(0);
+	}
+
+	.dashboard-hero-quote-shell__inner {
+		overflow: hidden;
+		min-height: 0;
+		padding-left: 0.95rem;
+		border-left: 1px solid transparent;
+		transition:
+			padding 420ms ease,
+			border-color 320ms ease;
+	}
+
+	.dashboard-hero-quote-shell.is-expanded .dashboard-hero-quote-shell__inner {
+		border-left-color: rgba(59, 130, 246, 0.26);
+	}
+
+	.dark .dashboard-hero-quote-shell.is-expanded .dashboard-hero-quote-shell__inner {
+		border-left-color: rgba(103, 232, 249, 0.22);
 	}
 
 	.dashboard-hero-quote.is-visible {
