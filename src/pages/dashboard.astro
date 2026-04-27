@@ -500,6 +500,14 @@ const dashboardSearchItems = [
 		color: rgba(14, 116, 144, 0.9);
 	}
 
+	.dashboard-hero-eyebrow {
+		margin: 0;
+		font-size: 0.78rem;
+		letter-spacing: 0.12em;
+		text-transform: uppercase;
+		color: rgba(255, 255, 255, 0.98);
+	}
+
 	.dashboard-brand-title,
 	.dashboard-topbar-title,
 	.dashboard-panel-title,
@@ -743,13 +751,18 @@ const dashboardSearchItems = [
 		letter-spacing: 0.04em;
 		color: rgba(71, 85, 105, 0.9);
 		opacity: 0;
-		transform: translateY(0.45rem);
-		transition: opacity 260ms ease, transform 260ms ease;
+		transform: translateY(0.8rem);
+		filter: blur(0.35rem);
+		transition:
+			opacity 1400ms ease,
+			transform 1400ms ease,
+			filter 1400ms ease;
 	}
 
 	.dashboard-hero-quote.is-visible {
 		opacity: 1;
 		transform: translateY(0);
+		filter: blur(0);
 	}
 
 	.dark .dashboard-hero-quote {

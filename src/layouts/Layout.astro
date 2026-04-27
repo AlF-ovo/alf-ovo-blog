@@ -131,9 +131,7 @@ const bannerOffset =
 					}
 			}
 
-			// Load the hue from local storage
-			const hue = localStorage.getItem('hue') || configHue;
-			document.documentElement.style.setProperty('--hue', hue);
+			document.documentElement.style.setProperty('--hue', String(configHue));
 
 			const parseClampedNumber = (value, fallback, min, max) => {
 				const parsed = Number.parseFloat(value || '');
@@ -282,7 +280,7 @@ import {
 	// SizeObserverPlugin,
 	// ClickScrollPlugin
 } from 'overlayscrollbars';
-import {getHue, getStoredTheme, setHue, setTheme} from "../utils/setting-utils";
+import {getStoredTheme, setTheme} from "../utils/setting-utils";
 import {pathsEqual, url} from "../utils/url-utils";
 import {
 	BANNER_HEIGHT,
@@ -390,7 +388,6 @@ function setClickOutsideToClose(panel: string, ignores: string[]) {
 		panelDom!.classList.add("float-panel-closed");
 	});
 }
-setClickOutsideToClose("display-setting", ["display-setting", "display-settings-switch"])
 setClickOutsideToClose("nav-menu-panel", ["nav-menu-panel", "nav-menu-switch"])
 setClickOutsideToClose("search-panel", ["search-panel", "search-bar", "search-switch"])
 
@@ -398,10 +395,6 @@ setClickOutsideToClose("search-panel", ["search-panel", "search-bar", "search-sw
 function loadTheme() {
 	const theme = getStoredTheme()
 	setTheme(theme)
-}
-
-function loadHue() {
-	setHue(getHue())
 }
 
 function initCustomScrollbar() {
@@ -484,7 +477,6 @@ function showBanner() {
 function init() {
 	// disableAnimation()()		// TODO
 	loadTheme();
-	loadHue();
 	initCustomScrollbar();
 	showBanner();
 }

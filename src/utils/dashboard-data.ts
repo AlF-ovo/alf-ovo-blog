@@ -291,7 +291,7 @@ export async function getDashboardData(): Promise<DashboardData> {
 		0,
 	);
 
-	const recentUpdates = allEntries.slice(0, 5).map((entry) => ({
+	const recentUpdates = allEntries.slice(0, 8).map((entry) => ({
 		title: entry.entry.data.title,
 		time: formatDateTime(getEntryDisplayDate(entry)),
 		url: getCollectionUrl(entry.collection, entry.entry.slug),
