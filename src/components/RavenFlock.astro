@@ -1315,6 +1315,18 @@
 			}
 			state.scraps = state.scraps.filter((item) => item.id !== scrap.id);
 		};
+		const releaseFoodPointerCapture = (pointerId) => {
+			if (typeof pointerId !== "number") {
+				return;
+			}
+			try {
+				if (drumstickElement.hasPointerCapture(pointerId)) {
+					drumstickElement.releasePointerCapture(pointerId);
+				}
+			} catch {
+				// Ignore capture mismatches and continue the state transition.
+			}
+		};
 
 		const dropAllScrapsOffscreen = () => {
 			state.scraps.forEach((scrap) => {
@@ -2065,6 +2077,17 @@
 			applyFoodFrame();
 			summonBirdsToFood();
 		};
+		const dropDraggedFood = () => {
+			state.food.dragPointerId = null;
+			state.food.mode = "falling";
+			state.food.vy = 2.2;
+			state.food.rotationVelocity =
+				randomBetween(-1.6, 1.6) + (Math.random() < 0.5 ? -0.9 : 0.9);
+			state.food.bounceOffsetY = 0;
+			state.food.bounceVelocityY = 0;
+			applyFoodFrame();
+			ensureAnimationLoop();
+		};
 
 		const liftScrapAsFood = (scrap, event) => {
 			if (!(scrap?.element instanceof HTMLElement) || state.food.mode !== "idle") {
@@ -2090,6 +2113,11 @@
 			resetFoodMotionState(state.food);
 			state.food.dragOffsetX = event.clientX - state.food.x;
 			state.food.dragOffsetY = event.clientY - state.food.y;
+			try {
+				drumstickElement.setPointerCapture(event.pointerId);
+			} catch {
+				// Pointer capture is optional but avoids getting stuck in dragging mode.
+			}
 			removeScrap(scrap);
 			applyFoodFrame();
 			summonBirdsToFood();
@@ -2116,6 +2144,11 @@
 			state.food.bitesTotal = FOOD_BASE_BITES;
 			state.food.bitesRemaining = FOOD_BASE_BITES;
 			resetFoodMotionState(state.food);
+			try {
+				drumstickElement.setPointerCapture(event.pointerId);
+			} catch {
+				// Pointer capture is optional but avoids getting stuck in dragging mode.
+			}
 			applyFoodFrame();
 			ensureAnimationLoop();
 		};
@@ -2176,6 +2209,7 @@
 			if (event.pointerId !== state.food.dragPointerId) {
 				return;
 			}
+			releaseFoodPointerCapture(event.pointerId);
 
 			if (state.food.mode === "holding") {
 				resetFoodToHome();
@@ -2187,15 +2221,20 @@
 				return;
 			}
 
-			state.food.dragPointerId = null;
-			state.food.mode = "falling";
-			state.food.vy = 2.2;
-			state.food.rotationVelocity =
-				randomBetween(-1.6, 1.6) + (Math.random() < 0.5 ? -0.9 : 0.9);
-			state.food.bounceOffsetY = 0;
-			state.food.bounceVelocityY = 0;
-			applyFoodFrame();
-			ensureAnimationLoop();
+			dropDraggedFood();
+		};
+		const handleFoodPointerAbort = () => {
+			if (state.food.dragPointerId === null) {
+				return;
+			}
+			releaseFoodPointerCapture(state.food.dragPointerId);
+			if (state.food.mode === "holding") {
+				resetFoodToHome();
+				return;
+			}
+			if (state.food.mode === "dragging") {
+				dropDraggedFood();
+			}
 		};
 
 		const updateFood = (now) => {
@@ -2493,6 +2532,7 @@
 		window.addEventListener("pointermove", handlePointerMove, { passive: true });
 		window.addEventListener("pointerup", handlePointerUp, { passive: true });
 		window.addEventListener("pointercancel", handlePointerUp, { passive: true });
+		window.addEventListener("blur", handleFoodPointerAbort);
 		document.addEventListener("click", scheduleClickDrivenTargetChangeCheck, true);
 		window.addEventListener("resize", () => {
 			syncFoodHomePosition();
@@ -2514,6 +2554,10 @@
 			processScheduledSpawns();
 		});
 		document.addEventListener("visibilitychange", () => {
+			if (document.hidden) {
+				handleFoodPointerAbort();
+				return;
+			}
 			if (!document.hidden) {
 				processScheduledSpawns({ instantPerch: true });
 			}
