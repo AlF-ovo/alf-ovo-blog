@@ -658,9 +658,6 @@
 		drumstickGhostElement.dataset.mode = "idle";
 		drumstickGhostElement.dataset.visible = "false";
 		root.appendChild(drumstickGhostElement);
-		const drumstickGhostSpriteHost = drumstickGhostElement.querySelector(".raven-drumstick__sprite");
-		setSpriteHostMarkup(drumstickSpriteHost, "drumstick", "full");
-		setSpriteHostMarkup(drumstickGhostSpriteHost, "drumstick", "full");
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
 		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
