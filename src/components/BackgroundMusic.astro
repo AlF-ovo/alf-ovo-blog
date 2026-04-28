@@ -45,9 +45,9 @@ const defaultTrack =
 
 const systemPanels = [
 	{ id: "audio", label: "Audio", icon: "fa6-solid:wave-square" },
-	{ id: "display", label: "Display", icon: "fa6-solid:image" },
-	{ id: "mascot", label: "Mascot", icon: "fa6-solid:user-astronaut" },
 	{ id: "playlist", label: "Playlist", icon: "fa6-solid:list" },
+	{ id: "mascot", label: "Mascot", icon: "fa6-solid:user-astronaut" },
+	{ id: "display", label: "Display", icon: "fa6-solid:image" },
 ];
 ---
 
@@ -65,7 +65,7 @@ const systemPanels = [
 			data-foreground-opacity-key="system:foreground-opacity"
 			data-mascot-scale-key="system:mascot-scale"
 			data-mascot-hidden-key="system:mascot-hidden"
-			data-default-volume="0.24"
+			data-default-volume="0.20"
 			data-default-foreground-opacity="0.8"
 			data-default-mascot-scale="1"
 			data-default-mascot-hidden="false"
@@ -155,7 +155,7 @@ const systemPanels = [
 								<p class="system-control-section__title">Volume</p>
 								<p class="system-control-section__copy">Adjust the current music loudness.</p>
 							</div>
-							<span id={volumeValueId} class="system-control-value">24%</span>
+							<span id={volumeValueId} class="system-control-value">20%</span>
 						</div>
 						<input
 							id={volumeId}
@@ -164,7 +164,7 @@ const systemPanels = [
 							min="0"
 							max="100"
 							step="1"
-							value="24"
+							value="20"
 							aria-label="Music volume"
 						/>
 					</div>
@@ -738,7 +738,7 @@ const systemPanels = [
 		const playlistLoop = root.dataset.playlistLoop !== "false";
 		const shouldAutoplay = root.dataset.autoplay === "true";
 		const defaultVolume = clamp(
-			Number.parseFloat(root.dataset.defaultVolume || "0.24") || 0.24,
+			Number.parseFloat(root.dataset.defaultVolume || "0.20") || 0.2,
 			0,
 			1,
 		);

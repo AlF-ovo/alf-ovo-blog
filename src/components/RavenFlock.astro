@@ -1450,11 +1450,25 @@
 		const startFoodDash = (bird, options) => {
 			const bitePoint = getFoodBitePoint(options.index, options.source);
 			const isGroundFood = options.source?.mode === "active";
+			const sourceCenterX = options.source.x + options.source.size * 0.5;
+			const sourceCenterY = options.source.y + options.source.size * 0.54;
+			const contestOffsetX =
+				(index % 2 === 0 ? -1 : 1) *
+				(options.source.size * randomBetween(0.72, 1.05));
+			const contestOffsetY = isGroundFood
+				? randomBetween(-10, 12)
+				: randomBetween(-24, 18);
 			const destination = {
-				x: bitePoint.x - bird.width * 0.42 + randomBetween(-10, 10),
-				y: isGroundFood
-					? bitePoint.y - bird.footOffset + randomBetween(-3, 3)
-					: bitePoint.y - bird.height * 0.38 + randomBetween(-8, 8),
+				x: options.success
+					? bitePoint.x - bird.width * 0.42 + randomBetween(-10, 10)
+					: sourceCenterX + contestOffsetX - bird.width * 0.5 + randomBetween(-8, 8),
+				y: options.success
+					? isGroundFood
+						? bitePoint.y - bird.footOffset + randomBetween(-3, 3)
+						: bitePoint.y - bird.height * 0.38 + randomBetween(-8, 8)
+					: isGroundFood
+						? sourceCenterY + contestOffsetY - bird.footOffset
+						: sourceCenterY + contestOffsetY - bird.height * 0.46,
 			};
 			beginFlightSegment(bird, {
 				state: "food-dash",
@@ -1466,12 +1480,6 @@
 				finalAction: options.success ? "foodBiteSuccess" : "foodBiteFail",
 				payload: { source: options.source, success: options.success },
 			});
-			applyFoodSourceImpulse(
-				options.source,
-				bird.x + bird.width * 0.5,
-				bird.y + bird.height * 0.42,
-				{ success: false },
-			);
 		};
 
 		const completeFoodBite = (bird) => {
