@@ -4,13 +4,12 @@
 	.pixel-rain {
 		position: fixed;
 		inset: 0;
-		z-index: 62;
+		z-index: 0;
 		pointer-events: none;
 		overflow: hidden;
 	}
 
-	.pixel-rain__drop,
-	.pixel-rain__splash {
+	.pixel-rain__drop {
 		position: absolute;
 		left: 0;
 		top: 0;
@@ -20,31 +19,17 @@
 
 	.pixel-rain__drop {
 		width: var(--rain-drop-width, 2px);
-		height: var(--rain-drop-length, 14px);
+		height: var(--rain-drop-length, 22px);
 		background:
 			linear-gradient(
 				180deg,
-				rgba(220, 243, 255, 0.92) 0 30%,
-				rgba(141, 210, 255, 0.88) 30% 70%,
-				rgba(88, 171, 235, 0.8) 70% 100%
+				rgba(244, 246, 248, 0.14) 0 28%,
+				rgba(220, 225, 229, 0.24) 28% 72%,
+				rgba(188, 194, 200, 0.34) 72% 100%
 			);
-		box-shadow:
-			0 0 0 1px rgba(31, 92, 141, 0.16),
-			0 0 6px rgba(169, 225, 255, 0.1);
-		opacity: 0.82;
+		box-shadow: 0 0 0 1px rgba(228, 233, 237, 0.05);
+		opacity: 0.42;
 	}
-
-	.pixel-rain__splash {
-		width: 2px;
-		height: 2px;
-		background: #9ed6ff;
-		box-shadow:
-			-4px -2px 0 #bce5ff,
-			4px -2px 0 #bce5ff,
-			0 -4px 0 #e6f7ff;
-		opacity: 0;
-	}
-	
 </style>
 
 <script is:inline>
@@ -60,14 +45,13 @@
 		}
 
 		const RAIN_PROFILES = [
-			{ count: 44, width: 2, length: 10, speed: 8.8, drift: -0.28 },
-			{ count: 58, width: 2, length: 14, speed: 10.2, drift: -0.42 },
-			{ count: 74, width: 3, length: 18, speed: 11.4, drift: -0.56 },
+			{ count: 20, width: 1, length: 20, speed: 7.8, drift: -0.24 },
+			{ count: 28, width: 2, length: 26, speed: 9.1, drift: -0.34 },
+			{ count: 36, width: 2, length: 32, speed: 10.3, drift: -0.46 },
 		];
 		const PROFILE_SWITCH_MIN_MS = 12000;
 		const PROFILE_SWITCH_MAX_MS = 24000;
-		const SPLASH_LIFETIME_MS = 280;
-		const MAX_SPLASHES = 18;
+		const RAIN_END_BAND_START = 0.875;
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
 		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -80,7 +64,6 @@
 			lastTickAt: performance.now(),
 			rafId: 0,
 			drops: [],
-			splashes: [],
 		};
 
 		const getRavenHeadHitboxes = () => {
@@ -108,6 +91,7 @@
 				: randomBetween(-state.height * 0.22, -12);
 			drop.speed = state.profile.speed * randomBetween(0.92, 1.08);
 			drop.drift = state.profile.drift * randomBetween(0.88, 1.12);
+			drop.endY = randomBetween(state.height * RAIN_END_BAND_START, state.height + 2);
 		};
 
 		const applyDropFrame = (drop) => {
@@ -129,6 +113,7 @@
 					y: 0,
 					speed: profile.speed,
 					drift: profile.drift,
+					endY: state.height,
 				};
 				resetDrop(drop, { fresh: true });
 				applyDropFrame(drop);
@@ -136,39 +121,6 @@
 				root.appendChild(element);
 			}
 			scheduleNextProfile(now);
-		};
-
-		const spawnSplash = (x, y, scale = 1) => {
-			const element = document.createElement("div");
-			const now = performance.now();
-			element.className = "pixel-rain__splash";
-			root.appendChild(element);
-			state.splashes.push({
-				element,
-				x,
-				y,
-				scale,
-				startedAt: now,
-			});
-			if (state.splashes.length > MAX_SPLASHES) {
-				const stale = state.splashes.shift();
-				stale?.element.remove();
-			}
-		};
-
-		const updateSplashes = (now) => {
-			state.splashes = state.splashes.filter((splash) => {
-				const progress = clamp((now - splash.startedAt) / SPLASH_LIFETIME_MS, 0, 1);
-				if (progress >= 1) {
-					splash.element.remove();
-					return false;
-				}
-				const rise = progress < 0.5 ? progress * 4 : (1 - progress) * 4;
-				const opacity = progress < 0.16 ? progress / 0.16 : (1 - progress) / 0.84;
-				splash.element.style.opacity = `${clamp(opacity, 0, 1)}`;
-				splash.element.style.transform = `translate3d(${splash.x}px, ${splash.y - rise}px, 0) scale(${(splash.scale * (0.92 + progress * 0.24)).toFixed(2)})`;
-				return true;
-			});
 		};
 
 		const intersectsRavenHead = (dropCenterX, dropBottomY, hitboxes) =>
@@ -190,7 +142,6 @@
 			}
 
 			const hitboxes = getRavenHeadHitboxes();
-			const groundY = state.height - 6;
 			for (const drop of state.drops) {
 				drop.x += drop.drift * dt;
 				drop.y += drop.speed * dt;
@@ -203,8 +154,7 @@
 					continue;
 				}
 
-				if (dropBottomY >= groundY) {
-					spawnSplash(dropCenterX - 1, groundY - 2, randomBetween(0.92, 1.18));
+				if (dropBottomY >= drop.endY) {
 					resetDrop(drop);
 					applyDropFrame(drop);
 					continue;
@@ -216,7 +166,6 @@
 				applyDropFrame(drop);
 			}
 
-			updateSplashes(now);
 			state.rafId = window.requestAnimationFrame(tick);
 		};
 

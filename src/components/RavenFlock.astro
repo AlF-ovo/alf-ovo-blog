@@ -633,6 +633,8 @@
 			};
 		};
 		const isFoodDetected = () => getCurrentFoodSource() !== null;
+		const isFoodContestable = (source = getCurrentFoodSource()) =>
+			source?.mode === "active";
 		const updateDrumstickVisibility = () => {
 			const shouldShow = state.birds.length > 0 || state.food.mode !== "idle";
 			drumstickElement.dataset.visible = shouldShow ? "true" : "false";
@@ -885,12 +887,6 @@
 			bird.x = centerX - bird.width / 2;
 			bird.y = footY - bird.footOffset;
 		};
-		const getBirdBiteStrength = (bird) =>
-			clamp(
-				bird.baseScale * bird.growthScale * 1.04 + bird.foodEatenCount * 0.05,
-				0.9,
-				1.78,
-			);
 
 		const applyBirdColorVariant = (bird) => {
 			bird.element.style.setProperty(
@@ -1481,12 +1477,18 @@
 		};
 
 		const startFoodDash = (bird, options) => {
-			const bitePoint = getFoodBitePoint(options.index, options.source);
+			if (!isFoodContestable(options.source)) {
+				startFoodHover(bird, { direct: true });
+				return;
+			}
+
+			const slotIndex = options.index ?? bird.foodSlotIndex ?? 0;
+			const bitePoint = getFoodBitePoint(slotIndex, options.source);
 			const isGroundFood = options.source?.mode === "active";
 			const sourceCenterX = options.source.x + options.source.size * 0.5;
 			const sourceCenterY = options.source.y + options.source.size * 0.54;
 			const contestOffsetX =
-				(index % 2 === 0 ? -1 : 1) *
+				(slotIndex % 2 === 0 ? -1 : 1) *
 				(options.source.size * randomBetween(0.72, 1.05));
 			const contestOffsetY = isGroundFood
 				? randomBetween(-10, 12)
@@ -2109,40 +2111,6 @@
 			applyFoodFrame();
 			ensureAnimationLoop();
 		};
-		const maybePullDraggedFoodLoose = (participants) => {
-			if (
-				state.food.mode !== "dragging" ||
-				state.food.dragPointerId === null ||
-				participants.length < 2
-			) {
-				return false;
-			}
-
-			const totalBiteStrength = participants.reduce(
-				(sum, bird) => sum + getBirdBiteStrength(bird),
-				0,
-			);
-			let pullChance = 0;
-			if (participants.length >= 4) {
-				pullChance = 1;
-			} else if (participants.length === 3) {
-				pullChance = clamp((totalBiteStrength - 3.05) / 1.15, 0.24, 0.82);
-			} else {
-				pullChance = clamp((totalBiteStrength - 2.45) / 1.4, 0, 0.22);
-			}
-
-			if (Math.random() >= pullChance) {
-				return false;
-			}
-
-			releaseFoodPointerCapture(state.food.dragPointerId);
-			state.food.impulseX += randomBetween(-0.8, 0.8) + (participants.length - 2) * 0.35;
-			state.food.impulseY -= 0.8 + totalBiteStrength * 0.34;
-			state.food.rotationVelocity += randomBetween(-2.4, 2.4);
-			dropDraggedFood();
-			return true;
-		};
-
 		const liftScrapAsFood = (scrap, event) => {
 			if (!(scrap?.element instanceof HTMLElement) || state.food.mode !== "idle") {
 				return;
@@ -2402,7 +2370,10 @@
 			if (!source || now < state.food.nextContestAt) {
 				return;
 			}
-			const isDraggedMainFood = source.kind === "main" && source.mode === "dragging";
+			if (!isFoodContestable(source)) {
+				state.food.nextContestAt = now + randomBetween(180, 320);
+				return;
+			}
 
 			const candidates = shuffle(
 				state.birds.filter(
@@ -2417,23 +2388,11 @@
 			}
 
 			let participantCount = 1;
-			if (isDraggedMainFood) {
-				if (candidates.length >= 2) {
-					participantCount = 2;
-				}
-				if (candidates.length >= 3 && Math.random() < 0.76) {
-					participantCount = 3;
-				}
-				if (candidates.length >= 4 && Math.random() < 0.68) {
-					participantCount = 4;
-				}
-			} else {
-				if (candidates.length >= 2 && Math.random() < 0.82) {
-					participantCount = 2;
-				}
-				if (candidates.length >= 4 && Math.random() < 0.28) {
-					participantCount = 3;
-				}
+			if (candidates.length >= 2 && Math.random() < 0.82) {
+				participantCount = 2;
+			}
+			if (candidates.length >= 4 && Math.random() < 0.28) {
+				participantCount = 3;
 			}
 			const participants = candidates.slice(
 				0,
@@ -2443,9 +2402,6 @@
 				now - state.food.lastBiteAt >= FOOD_BITE_COOLDOWN_MS &&
 				source.bitesRemaining > 0;
 			const winner = canBite ? participants[0] : null;
-			const pulledLoose = isDraggedMainFood
-				? maybePullDraggedFoodLoose(participants)
-				: false;
 
 			participants.forEach((bird, index) => {
 				bird.foodBusyUntil = now + randomBetween(260, 540);
@@ -2463,8 +2419,8 @@
 			state.food.nextContestAt =
 				now +
 				randomBetween(
-					pulledLoose ? 520 : FOOD_CONTEST_MIN_MS,
-					pulledLoose ? 980 : FOOD_CONTEST_MAX_MS,
+					FOOD_CONTEST_MIN_MS,
+					FOOD_CONTEST_MAX_MS,
 				);
 		};
 
