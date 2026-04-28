@@ -6,10 +6,9 @@ import ImageWrapper from "../misc/ImageWrapper.astro";
 
 const config = profileConfig;
 ---
-<div class="card-base p-3">
+<div class="card-base p-4">
     <a aria-label="Go to About Page" href={url('/about/')}
-       class="group block relative mx-auto mt-1 lg:mx-0 lg:mt-0 mb-3
-       max-w-[12rem] lg:max-w-none overflow-hidden rounded-xl active:scale-95">
+       class="group block relative mx-auto lg:mx-0 overflow-hidden rounded-[var(--radius-medium)] active:scale-95">
         <div class="absolute transition pointer-events-none group-hover:bg-black/30 group-active:bg-black/50
         w-full h-full z-50 flex items-center justify-center">
             <Icon name="fa6-regular:address-card"
@@ -18,19 +17,21 @@ const config = profileConfig;
         </div>
         <ImageWrapper src={config.avatar || ""} alt="Profile Image of the Author" class="mx-auto lg:w-full h-full lg:mt-0 "></ImageWrapper>
     </a>
-    <div class="px-2">
-        <div class="font-bold text-xl text-center mb-1 dark:text-neutral-50 transition">{config.name}</div>
-        <div class="h-1 w-5 bg-[var(--primary)] mx-auto rounded-full mb-2 transition"></div>
-        <div class="text-center text-neutral-400 mb-2.5 transition">{config.bio}</div>
-        {config.quote && <div class="profile-quote transition">{config.quote}</div>}
-        <div class="flex flex-wrap gap-2 justify-center mb-1">
+    <div class="mt-4 grid gap-4 px-1">
+        <div class="text-center">
+            <p class="sidebar-eyebrow mb-2">Profile</p>
+            <div class="font-bold text-[1.35rem] text-black/90 dark:text-white/90">{config.name}</div>
+            <div class="mt-2 text-sm leading-7 text-black/55 dark:text-white/55">{config.bio}</div>
+        </div>
+        {config.quote && <div class="glass-subcard profile-quote transition">{config.quote}</div>}
+        <div class="flex flex-wrap gap-2 justify-center">
             {config.links.length > 1 && config.links.map(item =>
-                    <a rel="me" aria-label={item.name} href={item.url} target="_blank" class="btn-regular rounded-lg h-10 w-10 active:scale-90">
+                    <a rel="me" aria-label={item.name} href={item.url} target="_blank" class="glass-pill h-11 w-11 text-black/80 hover:bg-[var(--surface-hover)] hover:text-black/90 active:bg-[var(--surface-active)] active:scale-90 dark:text-white/80 dark:hover:text-white/90">
                         <Icon name={item.icon} class="text-[1.5rem]"></Icon>
                     </a>
             )}
             {config.links.length == 1 && <a rel="me" aria-label={config.links[0].name} href={config.links[0].url} target="_blank"
-                                            class="btn-regular rounded-lg h-10 gap-2 px-3 font-bold active:scale-95">
+                                            class="glass-pill h-11 gap-2 px-4 font-bold text-black/80 hover:bg-[var(--surface-hover)] hover:text-black/90 active:bg-[var(--surface-active)] active:scale-95 dark:text-white/80 dark:hover:text-white/90">
                 <Icon name={config.links[0].icon} class="text-[1.5rem]"></Icon>
                 {config.links[0].name}
             </a>}
@@ -40,11 +41,8 @@ const config = profileConfig;
 
 <style>
     .profile-quote {
-        margin: 0 auto 0.9rem;
-        max-width: 16rem;
-        padding: 0.75rem 0.9rem;
-        border-radius: 0.9rem;
-        background: rgba(99, 102, 241, 0.08);
+        margin: 0;
+        padding: 0.9rem 1rem;
         color: rgba(71, 85, 105, 0.92);
         font-size: 0.86rem;
         line-height: 1.7;
@@ -52,7 +50,6 @@ const config = profileConfig;
     }
 
     :global(.dark) .profile-quote {
-        background: rgba(99, 102, 241, 0.12);
         color: rgba(203, 213, 225, 0.88);
     }
 </style>

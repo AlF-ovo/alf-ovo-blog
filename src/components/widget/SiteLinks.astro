@@ -39,12 +39,12 @@ const links = [
 	<div class="grid gap-2">
 		{
 			links.map((link) => (
-				<a href={link.url} class="btn-regular h-10 rounded-xl px-3 justify-between active:scale-95">
-					<span class="flex items-center gap-2 font-medium">
+				<a href={link.url} class="sidebar-nav-link active:scale-95">
+					<span class="sidebar-nav-link__content">
 						<Icon name={link.icon} class="text-[1rem]" />
 						{link.name}
 					</span>
-					<Icon name="material-symbols:chevron-right-rounded" class="text-[1.2rem] text-[var(--primary)]" />
+					<Icon name="material-symbols:chevron-right-rounded" class="text-[1.2rem] text-white/70 dark:text-white/55" />
 				</a>
 			))
 		}

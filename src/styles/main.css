@@ -2,7 +2,70 @@
 
 @layer components {
     .card-base {
-        @apply rounded-[var(--radius-large)] overflow-hidden bg-[var(--card-bg)] transition;
+        @apply rounded-[var(--radius-large)] overflow-hidden border bg-transparent transition;
+        border-color: var(--frame);
+        box-shadow: var(--surface-shadow);
+        backdrop-filter: blur(12px);
+    }
+    .glass-subcard {
+        @apply rounded-[var(--radius-medium)] overflow-hidden border bg-transparent transition;
+        border-color: var(--frame);
+        box-shadow: var(--surface-shadow);
+        backdrop-filter: blur(12px);
+    }
+    .glass-pill {
+        @apply inline-flex items-center justify-center rounded-full border bg-transparent transition;
+        border-color: var(--frame);
+        box-shadow: var(--surface-shadow);
+        backdrop-filter: blur(12px);
+    }
+    .sidebar-stack {
+        @apply grid gap-4;
+    }
+    .sidebar-widget {
+        @apply rounded-[var(--radius-large)] overflow-hidden border bg-transparent px-0 pt-4 pb-4 transition;
+        border-color: var(--frame);
+        box-shadow: var(--surface-shadow);
+        backdrop-filter: blur(12px);
+    }
+    .sidebar-widget-title {
+        @apply relative mx-4 mb-3 pl-4 text-[1.05rem] font-extrabold text-black/90 dark:text-white/90;
+    }
+    .sidebar-widget-title::before {
+        content: "";
+        @apply absolute left-0 top-[0.3rem] h-4 w-1 rounded-md bg-white/70 transition dark:bg-white/40;
+    }
+    .sidebar-widget-body {
+        @apply px-4 overflow-hidden;
+    }
+    .sidebar-eyebrow {
+        @apply text-[0.78rem] uppercase tracking-[0.12em] text-black/45 dark:text-white/45;
+    }
+    .sidebar-nav-link {
+        @apply flex items-center justify-between gap-3 rounded-[var(--radius-medium)] border bg-transparent px-4 py-3 font-bold text-black/80 transition dark:text-white/80;
+        border-color: var(--frame);
+        box-shadow: var(--surface-shadow);
+        backdrop-filter: blur(12px);
+    }
+    .sidebar-nav-link:hover {
+        @apply bg-[var(--surface-hover)] text-black/90 dark:text-white/90;
+        border-color: var(--frame-strong);
+    }
+    .sidebar-nav-link--compact {
+        @apply min-h-10 px-3 py-2 text-[0.95rem] font-semibold;
+    }
+    .sidebar-nav-link--center {
+        @apply justify-center;
+    }
+    .sidebar-nav-link__content {
+        @apply flex min-w-0 items-center gap-3;
+    }
+    .sidebar-count-badge {
+        @apply inline-flex min-w-8 items-center justify-center rounded-full border px-2 text-sm font-bold text-black/65 dark:text-white/65;
+        height: 1.85rem;
+        border-color: var(--frame);
+        box-shadow: var(--surface-shadow);
+        backdrop-filter: blur(12px);
     }
     h1, h2, h3, h4, h5, h6, p, a, span, li, ul, ol, blockquote, code, pre, table, th, td, strong {
         @apply transition;
@@ -21,7 +84,10 @@
         @apply transition rounded-md p-1.5 -m-1.5 expand-animation;
     }
     .float-panel {
-        @apply top-[5.25rem] rounded-[var(--radius-large)] overflow-hidden bg-[var(--float-panel-bg)] transition shadow-xl dark:shadow-none
+        @apply top-[5.25rem] rounded-[var(--radius-large)] overflow-hidden border bg-transparent transition;
+        border-color: var(--frame);
+        box-shadow: var(--surface-shadow);
+        backdrop-filter: blur(16px);
     }
     .float-panel-closed {
         @apply -translate-y-1 opacity-0 pointer-events-none
@@ -31,8 +97,11 @@
     }
 
     .btn-card {
-        @apply transition flex items-center justify-center bg-[var(--card-bg)] hover:bg-[var(--btn-card-bg-hover)]
-        active:bg-[var(--btn-card-bg-active)]
+        @apply transition flex items-center justify-center border bg-transparent hover:bg-[var(--surface-hover)]
+        active:bg-[var(--surface-active)]
+    }
+    .btn-card:hover {
+        border-color: var(--frame-strong);
     }
     .btn-card.disabled {
         @apply pointer-events-none text-black/10 dark:text-white/10
@@ -51,8 +120,11 @@
         }
     }
     .btn-regular {
-        @apply transition flex items-center justify-center bg-[var(--btn-regular-bg)] hover:bg-[var(--btn-regular-bg-hover)] active:bg-[var(--btn-regular-bg-active)]
+        @apply transition flex items-center justify-center border bg-transparent hover:bg-[var(--surface-hover)] active:bg-[var(--surface-active)]
         text-[var(--btn-content)] dark:text-white/75
+    }
+    .btn-regular:hover {
+        border-color: var(--frame-strong);
     }
 
     .link-underline {
@@ -94,8 +166,18 @@
     }
 
     .meta-icon {
-        @apply w-8 h-8 transition rounded-md flex items-center justify-center bg-[var(--btn-regular-bg)]
+        @apply w-8 h-8 transition rounded-md flex items-center justify-center border bg-transparent
         text-[var(--btn-content)] mr-2
+    }
+    .meta-icon:hover {
+        border-color: var(--frame-strong);
+    }
+    .btn-card,
+    .btn-regular,
+    .meta-icon {
+        border-color: var(--frame);
+        box-shadow: var(--surface-shadow);
+        backdrop-filter: blur(12px);
     }
     .with-divider {
         @apply before:content-['/'] before:ml-1.5 before:mr-1.5 before:text-[var(--meta-divider)] before:text-sm
