@@ -572,6 +572,15 @@
 				resetAt: 0,
 			},
 		};
+		window.__alfRavenHeadHitboxes = () =>
+			state.birds
+				.filter((bird) => bird.state !== "escaping")
+				.map((bird) => ({
+					x: bird.x + bird.width * 0.26,
+					y: bird.y + bird.height * 0.04,
+					width: bird.width * 0.34,
+					height: bird.height * 0.22,
+				}));
 
 		drumstickElement.innerHTML = drumstickMarkup;
 		const drumstickMeter = drumstickElement.querySelector(".raven-drumstick__meter");

@@ -1,0 +1,232 @@
+<div id="pixel-rain" class="pixel-rain" aria-hidden="true"></div>
+
+<style is:global>
+	.pixel-rain {
+		position: fixed;
+		inset: 0;
+		z-index: 62;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	.pixel-rain__drop,
+	.pixel-rain__splash {
+		position: absolute;
+		left: 0;
+		top: 0;
+		pointer-events: none;
+		image-rendering: pixelated;
+	}
+
+	.pixel-rain__drop {
+		width: var(--rain-drop-width, 2px);
+		height: var(--rain-drop-length, 14px);
+		background:
+			linear-gradient(
+				180deg,
+				rgba(220, 243, 255, 0.92) 0 30%,
+				rgba(141, 210, 255, 0.88) 30% 70%,
+				rgba(88, 171, 235, 0.8) 70% 100%
+			);
+		box-shadow:
+			0 0 0 1px rgba(31, 92, 141, 0.16),
+			0 0 6px rgba(169, 225, 255, 0.1);
+		opacity: 0.82;
+	}
+
+	.pixel-rain__splash {
+		width: 2px;
+		height: 2px;
+		background: #9ed6ff;
+		box-shadow:
+			-4px -2px 0 #bce5ff,
+			4px -2px 0 #bce5ff,
+			0 -4px 0 #e6f7ff;
+		opacity: 0;
+	}
+	
+</style>
+
+<script is:inline>
+	(() => {
+		if (window.__alfPixelRainSetup) {
+			return;
+		}
+		window.__alfPixelRainSetup = true;
+
+		const root = document.getElementById("pixel-rain");
+		if (!(root instanceof HTMLElement)) {
+			return;
+		}
+
+		const RAIN_PROFILES = [
+			{ count: 44, width: 2, length: 10, speed: 8.8, drift: -0.28 },
+			{ count: 58, width: 2, length: 14, speed: 10.2, drift: -0.42 },
+			{ count: 74, width: 3, length: 18, speed: 11.4, drift: -0.56 },
+		];
+		const PROFILE_SWITCH_MIN_MS = 12000;
+		const PROFILE_SWITCH_MAX_MS = 24000;
+		const SPLASH_LIFETIME_MS = 280;
+		const MAX_SPLASHES = 18;
+
+		const randomBetween = (min, max) => min + Math.random() * (max - min);
+		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+		const state = {
+			width: window.innerWidth,
+			height: window.innerHeight,
+			profile: RAIN_PROFILES[1],
+			nextProfileAt: 0,
+			lastTickAt: performance.now(),
+			rafId: 0,
+			drops: [],
+			splashes: [],
+		};
+
+		const getRavenHeadHitboxes = () => {
+			if (typeof window.__alfRavenHeadHitboxes === "function") {
+				return window.__alfRavenHeadHitboxes();
+			}
+			return [];
+		};
+
+		const scheduleNextProfile = (now = performance.now()) => {
+			state.nextProfileAt =
+				now + randomBetween(PROFILE_SWITCH_MIN_MS, PROFILE_SWITCH_MAX_MS);
+		};
+
+		const clearDrops = () => {
+			state.drops.forEach((drop) => drop.element.remove());
+			state.drops = [];
+		};
+
+		const resetDrop = (drop, options = {}) => {
+			const { fresh = false } = options;
+			drop.x = randomBetween(-state.width * 0.08, state.width * 1.02);
+			drop.y = fresh
+				? randomBetween(-state.height, state.height)
+				: randomBetween(-state.height * 0.22, -12);
+			drop.speed = state.profile.speed * randomBetween(0.92, 1.08);
+			drop.drift = state.profile.drift * randomBetween(0.88, 1.12);
+		};
+
+		const applyDropFrame = (drop) => {
+			drop.element.style.transform = `translate3d(${drop.x}px, ${drop.y}px, 0)`;
+		};
+
+		const rebuildDrops = (profile, now = performance.now()) => {
+			state.profile = profile;
+			clearDrops();
+			root.style.setProperty("--rain-drop-width", `${profile.width}px`);
+			root.style.setProperty("--rain-drop-length", `${profile.length}px`);
+
+			for (let index = 0; index < profile.count; index += 1) {
+				const element = document.createElement("div");
+				element.className = "pixel-rain__drop";
+				const drop = {
+					element,
+					x: 0,
+					y: 0,
+					speed: profile.speed,
+					drift: profile.drift,
+				};
+				resetDrop(drop, { fresh: true });
+				applyDropFrame(drop);
+				state.drops.push(drop);
+				root.appendChild(element);
+			}
+			scheduleNextProfile(now);
+		};
+
+		const spawnSplash = (x, y, scale = 1) => {
+			const element = document.createElement("div");
+			const now = performance.now();
+			element.className = "pixel-rain__splash";
+			root.appendChild(element);
+			state.splashes.push({
+				element,
+				x,
+				y,
+				scale,
+				startedAt: now,
+			});
+			if (state.splashes.length > MAX_SPLASHES) {
+				const stale = state.splashes.shift();
+				stale?.element.remove();
+			}
+		};
+
+		const updateSplashes = (now) => {
+			state.splashes = state.splashes.filter((splash) => {
+				const progress = clamp((now - splash.startedAt) / SPLASH_LIFETIME_MS, 0, 1);
+				if (progress >= 1) {
+					splash.element.remove();
+					return false;
+				}
+				const rise = progress < 0.5 ? progress * 4 : (1 - progress) * 4;
+				const opacity = progress < 0.16 ? progress / 0.16 : (1 - progress) / 0.84;
+				splash.element.style.opacity = `${clamp(opacity, 0, 1)}`;
+				splash.element.style.transform = `translate3d(${splash.x}px, ${splash.y - rise}px, 0) scale(${(splash.scale * (0.92 + progress * 0.24)).toFixed(2)})`;
+				return true;
+			});
+		};
+
+		const intersectsRavenHead = (dropCenterX, dropBottomY, hitboxes) =>
+			hitboxes.some(
+				(box) =>
+					dropCenterX >= box.x &&
+					dropCenterX <= box.x + box.width &&
+					dropBottomY >= box.y &&
+					dropBottomY <= box.y + box.height,
+			);
+
+		const tick = (now) => {
+			const dt = clamp((now - state.lastTickAt) / 16.6667, 0.45, 2.1);
+			state.lastTickAt = now;
+			if (now >= state.nextProfileAt) {
+				const nextProfile =
+					RAIN_PROFILES[Math.floor(Math.random() * RAIN_PROFILES.length)];
+				rebuildDrops(nextProfile, now);
+			}
+
+			const hitboxes = getRavenHeadHitboxes();
+			const groundY = state.height - 6;
+			for (const drop of state.drops) {
+				drop.x += drop.drift * dt;
+				drop.y += drop.speed * dt;
+
+				const dropCenterX = drop.x + state.profile.width * 0.5;
+				const dropBottomY = drop.y + state.profile.length;
+				if (intersectsRavenHead(dropCenterX, dropBottomY, hitboxes)) {
+					resetDrop(drop);
+					applyDropFrame(drop);
+					continue;
+				}
+
+				if (dropBottomY >= groundY) {
+					spawnSplash(dropCenterX - 1, groundY - 2, randomBetween(0.92, 1.18));
+					resetDrop(drop);
+					applyDropFrame(drop);
+					continue;
+				}
+
+				if (drop.x < -18 || drop.x > state.width + 18 || drop.y > state.height + 20) {
+					resetDrop(drop);
+				}
+				applyDropFrame(drop);
+			}
+
+			updateSplashes(now);
+			state.rafId = window.requestAnimationFrame(tick);
+		};
+
+		const handleResize = () => {
+			state.width = window.innerWidth;
+			state.height = window.innerHeight;
+		};
+
+		rebuildDrops(state.profile, state.lastTickAt);
+		window.addEventListener("resize", handleResize, { passive: true });
+		state.rafId = window.requestAnimationFrame(tick);
+	})();
+</script>
