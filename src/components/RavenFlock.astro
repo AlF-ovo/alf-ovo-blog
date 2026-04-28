@@ -3,6 +3,7 @@
 ---
 
 <div id="raven-flock" class="raven-flock" aria-hidden="true">
+	<div id="raven-scarecrow" class="raven-scarecrow"></div>
 	<button
 		id="raven-scarecrow-button"
 		class="raven-scarecrow-button"
@@ -212,12 +213,48 @@
 		transform: scale(0.96);
 	}
 
-	.raven-scarecrow-button {
+	.raven-scarecrow {
 		position: absolute;
 		left: 0;
 		top: 0;
 		width: 4.7rem;
 		height: 5.2rem;
+		pointer-events: none;
+		will-change: transform;
+		transform-origin: 18% 92%;
+		filter: drop-shadow(0 0.5rem 0.8rem rgb(15 23 42 / 0.24));
+		transition:
+			filter 180ms ease,
+			opacity 180ms ease;
+	}
+
+	.raven-scarecrow[data-raised="false"] {
+		filter: drop-shadow(0 0.32rem 0.54rem rgb(15 23 42 / 0.18));
+	}
+
+	.raven-scarecrow[data-raised="true"] {
+		filter: drop-shadow(0 0.58rem 0.94rem rgb(15 23 42 / 0.3));
+	}
+
+	.raven-scarecrow__sprite,
+	.raven-scarecrow__sprite svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		image-rendering: pixelated;
+	}
+
+	.raven-scarecrow[data-raised="true"] .raven-scarecrow__sprite {
+		animation: raven-scarecrow-sway 2.8s ease-in-out infinite;
+		transform-origin: 18% 92%;
+	}
+
+	.raven-scarecrow-button {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 2.1rem;
+		height: 1.8rem;
 		padding: 0;
 		border: 0;
 		background: transparent;
@@ -225,11 +262,11 @@
 		cursor: pointer;
 		will-change: transform;
 		touch-action: manipulation;
-		transform-origin: 18% 92%;
 		filter: drop-shadow(0 0.5rem 0.8rem rgb(15 23 42 / 0.24));
 		transition:
 			filter 180ms ease,
-			opacity 180ms ease;
+			opacity 180ms ease,
+			transform 160ms ease;
 	}
 
 	.raven-scarecrow-button[data-raised="false"] {
@@ -246,11 +283,6 @@
 		width: 100%;
 		height: 100%;
 		image-rendering: pixelated;
-	}
-
-	.raven-scarecrow-button[data-raised="true"] .raven-scarecrow-button__sprite {
-		animation: raven-scarecrow-sway 2.8s ease-in-out infinite;
-		transform-origin: 18% 92%;
 	}
 
 	.raven-nameplate-button {
@@ -566,12 +598,14 @@
 		window.__alfRavenFlockSetup = true;
 
 		const root = document.getElementById("raven-flock");
+		const scarecrowElement = document.getElementById("raven-scarecrow");
 		const scarecrowButtonElement = document.getElementById("raven-scarecrow-button");
 		const nameplateButtonElement = document.getElementById("raven-nameplate-button");
 		const friesButtonElement = document.getElementById("raven-fries-button");
 		const drumstickElement = document.getElementById("raven-drumstick");
 		if (
 			!(root instanceof HTMLElement) ||
+			!(scarecrowElement instanceof HTMLElement) ||
 			!(scarecrowButtonElement instanceof HTMLElement) ||
 			!(nameplateButtonElement instanceof HTMLElement) ||
 			!(friesButtonElement instanceof HTMLElement) ||
@@ -653,7 +687,8 @@
 		const FRIES_LOOSE_BITE_COUNT = 2;
 		const FRIES_SPILL_MIN = 1;
 		const FRIES_SPILL_MAX = 3;
-		const SCARECROW_BUTTON_GAP = 8;
+		const SCARECROW_GAP = 8;
+		const SCARECROW_BUTTON_GAP = 6;
 		const SCARECROW_REST_ROTATION = -82;
 		const SCARECROW_RAISE_DURATION_MS = 760;
 		const SCARECROW_LOWER_DURATION_MS = 620;
@@ -868,6 +903,10 @@
 			'<svg viewBox="0 0 24 14" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="2" y="9" width="20" height="3" fill="#b98518" /><rect x="3" y="8" width="18" height="1" fill="#f7d772" /><rect x="4" y="6" width="3" height="3" fill="#f4cd62" /><rect x="10" y="4" width="4" height="5" fill="#ffd86a" /><rect x="17" y="6" width="3" height="3" fill="#f4cd62" /><rect x="5" y="4" width="1" height="2" fill="#f7e8a2" /><rect x="11" y="1" width="2" height="3" fill="#f7e8a2" /><rect x="18" y="4" width="1" height="2" fill="#f7e8a2" /><rect x="1" y="10" width="1" height="2" fill="#6a4a0f" /><rect x="22" y="10" width="1" height="2" fill="#6a4a0f" /><rect x="3" y="12" width="18" height="1" fill="#6a4a0f" /></svg>';
 		const scarecrowButtonSvg =
 			'<svg viewBox="0 0 48 56" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="6" y="51" width="5" height="3" fill="#704726" /><rect x="7" y="44" width="3" height="7" fill="#8b5b31" /><rect x="15" y="3" width="14" height="12" fill="#d8b27a" /><rect x="14" y="4" width="1" height="10" fill="#b18354" /><rect x="29" y="4" width="1" height="10" fill="#b18354" /><rect x="17" y="1" width="10" height="2" fill="#f0d49d" /><rect x="18" y="7" width="2" height="2" fill="#3a2917" /><rect x="24" y="7" width="2" height="2" fill="#3a2917" /><rect x="19" y="10" width="6" height="1" fill="#3a2917" /><rect x="18" y="15" width="8" height="2" fill="#9d7a51" /><rect x="19" y="17" width="6" height="3" fill="#cba26a" /><rect x="20" y="20" width="4" height="12" fill="#b98a51" /><rect x="10" y="20" width="10" height="3" fill="#b98a51" /><rect x="24" y="20" width="12" height="3" fill="#b98a51" /><rect x="7" y="19" width="3" height="5" fill="#d0b07c" /><rect x="36" y="19" width="3" height="5" fill="#d0b07c" /><rect x="9" y="20" width="2" height="2" fill="#e7c996" /><rect x="34" y="20" width="2" height="2" fill="#e7c996" /><rect x="17" y="23" width="10" height="4" fill="#d2b780" /><rect x="14" y="27" width="16" height="8" fill="#a8763d" /><rect x="15" y="28" width="14" height="6" fill="#c58a46" /><rect x="18" y="35" width="3" height="10" fill="#8b5b31" /><rect x="24" y="35" width="3" height="10" fill="#8b5b31" /><rect x="17" y="45" width="5" height="2" fill="#704726" /><rect x="23" y="45" width="5" height="2" fill="#704726" /><rect x="11" y="31" width="3" height="4" fill="#d8bf8c" /><rect x="30" y="31" width="3" height="4" fill="#d8bf8c" /></svg>';
+		const scarecrowToggleButtonSvg = (raised) =>
+			raised
+				? '<svg viewBox="0 0 24 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="2" y="5" width="20" height="11" fill="#567d3f" /><rect x="3" y="6" width="18" height="9" fill="#6b9a4a" /><rect x="7" y="8" width="10" height="1" fill="#eaf3de" /><rect x="7" y="10" width="10" height="1" fill="#eaf3de" /><rect x="7" y="12" width="10" height="1" fill="#eaf3de" /><rect x="1" y="6" width="1" height="9" fill="#2f4a22" /><rect x="22" y="6" width="1" height="9" fill="#2f4a22" /><rect x="2" y="4" width="20" height="1" fill="#2f4a22" /><rect x="2" y="16" width="20" height="1" fill="#2f4a22" /><rect x="10" y="1" width="4" height="4" fill="#f7d772" /><rect x="11" y="2" width="2" height="2" fill="#fff1b8" /></svg>'
+				: '<svg viewBox="0 0 24 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="2" y="5" width="20" height="11" fill="#8f1f1f" /><rect x="3" y="6" width="18" height="9" fill="#c73434" /><rect x="7" y="8" width="10" height="1" fill="#ffe7e7" /><rect x="8" y="10" width="8" height="1" fill="#ffe7e7" /><rect x="9" y="12" width="6" height="1" fill="#ffe7e7" /><rect x="1" y="6" width="1" height="9" fill="#4a1010" /><rect x="22" y="6" width="1" height="9" fill="#4a1010" /><rect x="2" y="4" width="20" height="1" fill="#4a1010" /><rect x="2" y="16" width="20" height="1" fill="#4a1010" /><rect x="10" y="1" width="4" height="4" fill="#f1ead3" /><rect x="11" y="2" width="2" height="2" fill="#fff7ee" /></svg>';
 		const hungerBubbleDrumstickSvg =
 			'<svg viewBox="0 0 28 22" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="5" y="2" width="18" height="13" fill="#fff7ee" /><rect x="3" y="4" width="2" height="9" fill="#fff7ee" /><rect x="23" y="4" width="2" height="9" fill="#fff7ee" /><rect x="7" y="1" width="14" height="1" fill="#fff7ee" /><rect x="8" y="15" width="12" height="1" fill="#fff7ee" /><rect x="11" y="16" width="5" height="1" fill="#fff7ee" /><rect x="9" y="17" width="3" height="2" fill="#fff7ee" /><rect x="7" y="19" width="2" height="2" fill="#fff7ee" /><rect x="5" y="21" width="1" height="1" fill="#fff7ee" /><rect x="5" y="1" width="2" height="1" fill="#4f4538" /><rect x="21" y="1" width="2" height="1" fill="#4f4538" /><rect x="3" y="3" width="2" height="1" fill="#4f4538" /><rect x="23" y="3" width="2" height="1" fill="#4f4538" /><rect x="2" y="4" width="1" height="9" fill="#4f4538" /><rect x="25" y="4" width="1" height="9" fill="#4f4538" /><rect x="3" y="13" width="2" height="1" fill="#4f4538" /><rect x="23" y="13" width="2" height="1" fill="#4f4538" /><rect x="5" y="15" width="3" height="1" fill="#4f4538" /><rect x="20" y="15" width="3" height="1" fill="#4f4538" /><rect x="11" y="16" width="5" height="1" fill="#4f4538" /><rect x="9" y="17" width="3" height="1" fill="#4f4538" /><rect x="7" y="19" width="2" height="1" fill="#4f4538" /><rect x="6" y="20" width="1" height="1" fill="#4f4538" /><rect x="10" y="9" width="2" height="2" fill="#f4ecde" /><rect x="11" y="8" width="1" height="1" fill="#f4ecde" /><rect x="12" y="9" width="1" height="1" fill="#ceb892" /><rect x="13" y="7" width="2" height="5" fill="#c77d3b" /><rect x="15" y="5" width="4" height="7" fill="#d98c47" /><rect x="19" y="6" width="2" height="5" fill="#c77d3b" /><rect x="14" y="5" width="2" height="1" fill="#edb16c" /><rect x="16" y="12" width="3" height="1" fill="#9d5525" /></svg>';
 		const hungerBubbleFriesSvg =
@@ -946,6 +985,8 @@
 				raised: false,
 				x: 0,
 				y: 0,
+				buttonX: 0,
+				buttonY: 0,
 				rotation: SCARECROW_REST_ROTATION,
 			},
 			selection: {
@@ -1005,12 +1046,17 @@
 				lastPointerAt: 0,
 			},
 		};
+		scarecrowElement.innerHTML = '<span class="raven-scarecrow__sprite"></span>';
+		const scarecrowSpriteHost = scarecrowElement.querySelector(".raven-scarecrow__sprite");
 		scarecrowButtonElement.innerHTML = '<span class="raven-scarecrow-button__sprite"></span>';
 		const scarecrowButtonSpriteHost = scarecrowButtonElement.querySelector(
 			".raven-scarecrow-button__sprite",
 		);
+		if (scarecrowSpriteHost instanceof HTMLElement) {
+			scarecrowSpriteHost.innerHTML = scarecrowButtonSvg;
+		}
 		if (scarecrowButtonSpriteHost instanceof HTMLElement) {
-			scarecrowButtonSpriteHost.innerHTML = scarecrowButtonSvg;
+			scarecrowButtonSpriteHost.innerHTML = scarecrowToggleButtonSvg(false);
 		}
 		nameplateButtonElement.innerHTML = '<span class="raven-nameplate-button__sprite"></span>';
 		const nameplateButtonSpriteHost = nameplateButtonElement.querySelector(
@@ -1562,28 +1608,42 @@
 				y: friesHome.y - NAMEPLATE_BUTTON_HEIGHT - NAMEPLATE_BUTTON_GAP,
 			};
 		};
-		const getScarecrowButtonHome = () => {
+		const getScarecrowHome = () => {
 			const nameplateHome = getNameplateButtonHome();
 			return {
 				x: nameplateHome.x - 12,
-				y: nameplateHome.y - 72 - SCARECROW_BUTTON_GAP,
+				y: nameplateHome.y - 72 - SCARECROW_GAP,
+			};
+		};
+		const getScarecrowToggleButtonHome = () => {
+			const scarecrowHome = getScarecrowHome();
+			return {
+				x: scarecrowHome.x + 54,
+				y: scarecrowHome.y + 48 + SCARECROW_BUTTON_GAP,
 			};
 		};
 		const updateScarecrowButtonFrame = (options = {}) => {
 			const nextRotation = isScarecrowRaised() ? 0 : SCARECROW_REST_ROTATION;
 			if (options.animate === true) {
-				scarecrowButtonElement.style.transition =
+				scarecrowElement.style.transition =
 					`transform ${isScarecrowRaised() ? SCARECROW_RAISE_DURATION_MS : SCARECROW_LOWER_DURATION_MS}ms ${
 						isScarecrowRaised()
 							? "cubic-bezier(0.18, 0.84, 0.24, 1.16)"
 							: "cubic-bezier(0.58, 0, 0.82, 0.5)"
 					}, filter 180ms ease, opacity 180ms ease`;
 			} else {
-				scarecrowButtonElement.style.transition = "filter 180ms ease, opacity 180ms ease";
+				scarecrowElement.style.transition = "filter 180ms ease, opacity 180ms ease";
 			}
 			state.scarecrow.rotation = nextRotation;
+			scarecrowElement.dataset.raised = isScarecrowRaised() ? "true" : "false";
 			scarecrowButtonElement.dataset.raised = isScarecrowRaised() ? "true" : "false";
-			scarecrowButtonElement.style.transform = `translate3d(${state.scarecrow.x}px, ${state.scarecrow.y}px, 0) rotate(${nextRotation}deg)`;
+			if (scarecrowButtonSpriteHost instanceof HTMLElement) {
+				scarecrowButtonSpriteHost.innerHTML = scarecrowToggleButtonSvg(
+					isScarecrowRaised(),
+				);
+			}
+			scarecrowElement.style.transform = `translate3d(${state.scarecrow.x}px, ${state.scarecrow.y}px, 0) rotate(${nextRotation}deg)`;
+			scarecrowButtonElement.style.transform = `translate3d(${state.scarecrow.buttonX}px, ${state.scarecrow.buttonY}px, 0)`;
 		};
 		const clearNameplateHover = () => {
 			if (state.selection.hoveredBirdId === null) {
@@ -1625,11 +1685,14 @@
 			state.food.homeY = window.innerHeight - FOOD_HOME_SIZE - margin;
 			const friesHome = getFriesButtonHome();
 			const nameplateHome = getNameplateButtonHome();
-			const scarecrowHome = getScarecrowButtonHome();
+			const scarecrowHome = getScarecrowHome();
+			const scarecrowButtonHome = getScarecrowToggleButtonHome();
 			state.selection.homeX = nameplateHome.x;
 			state.selection.homeY = nameplateHome.y;
 			state.scarecrow.x = scarecrowHome.x;
 			state.scarecrow.y = scarecrowHome.y;
+			state.scarecrow.buttonX = scarecrowButtonHome.x;
+			state.scarecrow.buttonY = scarecrowButtonHome.y;
 			friesButtonElement.style.transform = `translate3d(${friesHome.x}px, ${friesHome.y}px, 0)`;
 			updateScarecrowButtonFrame();
 			if (state.selection.mode !== "dragging") {
@@ -2127,6 +2190,14 @@
 				ensureAnimationLoop();
 			}
 		};
+		const clearAllRavens = ({ resetCounter = false } = {}) => {
+			state.birds.slice().forEach((bird) => {
+				removeBird(bird);
+			});
+			if (resetCounter) {
+				state.nextBirdId = 1;
+			}
+		};
 		const setScarecrowRaised = (raised) => {
 			if (state.scarecrow.raised === raised) {
 				updateScarecrowButtonFrame();
@@ -2147,6 +2218,7 @@
 				}
 				banishRavensForScarecrow();
 			} else {
+				clearAllRavens({ resetCounter: true });
 				state.nextSpawnAt = Date.now() + 320;
 				maybeSpawnBird({ instantPerch: true });
 				processScheduledSpawns({ instantPerch: true });
