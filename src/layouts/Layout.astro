@@ -6,6 +6,7 @@ import "@fontsource/roboto/700.css";
 import BackgroundMusic from "@components/BackgroundMusic.astro";
 import ConfigCarrier from "@components/ConfigCarrier.astro";
 import Live2DMascot from "@components/Live2DMascot.astro";
+import RavenFlock from "@components/RavenFlock.astro";
 import { profileConfig, siteConfig } from "@/config";
 import {
 	BANNER_HEIGHT,
@@ -168,6 +169,7 @@ const bannerOffset =
 			aria-hidden="true"
 			style={`background-image: url('${wallpaperSrc}')`}
 		></div>
+		<RavenFlock />
 		<Live2DMascot />
 		<BackgroundMusic />
 		<div id="site-shell" class="site-shell">

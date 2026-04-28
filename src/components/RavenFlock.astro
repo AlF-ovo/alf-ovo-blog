@@ -1,0 +1,922 @@
+---
+
+---
+
+<div id="raven-flock" class="raven-flock" aria-hidden="true"></div>
+
+<style is:global>
+	.raven-flock {
+		position: fixed;
+		inset: 0;
+		z-index: 65;
+		pointer-events: none;
+		overflow: hidden;
+	}
+
+	.raven-bird {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 5.25rem;
+		height: 4.125rem;
+		will-change: transform;
+		filter: drop-shadow(0 0.75rem 1.25rem rgb(15 23 42 / 0.18));
+	}
+
+	.raven-bird__frame {
+		width: 100%;
+		height: 100%;
+		transform: translate3d(
+				0,
+				calc(var(--bird-bob, 0px) + var(--bird-hop, 0px)),
+				0
+			)
+			rotate(var(--bird-tilt, 0deg));
+		transform-origin: 50% 88%;
+		will-change: transform;
+	}
+
+	.raven-bird__shell {
+		width: 100%;
+		height: 100%;
+		transform-origin: 50% 88%;
+	}
+
+	.raven-bird.is-perched .raven-bird__shell {
+		animation: raven-perch-bob 4200ms ease-in-out infinite;
+	}
+
+	.raven-bird svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		overflow: visible;
+	}
+
+	.raven-bird__body,
+	.raven-bird__head,
+	.raven-bird__tail,
+	.raven-bird__leg,
+	.raven-bird__beak {
+		fill: var(--bird-body-fill, rgb(250 250 250));
+	}
+
+	.raven-bird__body,
+	.raven-bird__head,
+	.raven-bird__tail,
+	.raven-bird__wing {
+		stroke: var(--bird-outline, rgb(15 23 42 / 0.24));
+		stroke-width: 0.7;
+	}
+
+	.raven-bird__wing {
+		transform-box: fill-box;
+		will-change: transform;
+	}
+
+	.raven-bird__wing--rear {
+		fill: var(--bird-rear-wing-fill, rgb(216 216 216));
+	}
+
+	.raven-bird__wing--front {
+		fill: var(--bird-front-wing-fill, rgb(240 240 240));
+	}
+
+	.raven-bird__head-group {
+		transform-box: fill-box;
+		transform-origin: 14% 72%;
+		transform: translateY(var(--bird-head-lift, 0px))
+			rotate(var(--bird-head-turn, 0deg));
+		transition: transform 320ms ease;
+	}
+
+	.raven-bird__eye {
+		fill: var(--bird-body-fill, rgb(250 250 250));
+	}
+
+	.raven-bird__detail {
+		fill: none;
+		stroke: var(--bird-detail, rgb(15 23 42 / 0.2));
+		stroke-width: 0.9;
+		stroke-linecap: round;
+		stroke-linejoin: round;
+	}
+
+	.raven-bird__wing--rear {
+		transform-origin: 78% 34%;
+		animation: raven-wing-flap-left var(--wing-speed, 380ms) ease-in-out infinite
+			alternate;
+	}
+
+	.raven-bird__wing--front {
+		transform-origin: 22% 34%;
+		animation: raven-wing-flap-right var(--wing-speed, 380ms) ease-in-out infinite
+			alternate;
+	}
+
+	.raven-bird.is-perched {
+		--wing-speed: 1400ms;
+	}
+
+	.raven-bird.is-escaping {
+		--wing-speed: 260ms;
+	}
+
+	.raven-bird.is-relocating {
+		--wing-speed: 320ms;
+	}
+
+	@keyframes raven-wing-flap-left {
+		0% {
+			transform: rotate(10deg) translateY(-0.15rem);
+		}
+
+		100% {
+			transform: rotate(-34deg) translateY(0.1rem);
+		}
+	}
+
+	@keyframes raven-wing-flap-right {
+		0% {
+			transform: rotate(-10deg) translateY(-0.15rem);
+		}
+
+		100% {
+			transform: rotate(34deg) translateY(0.1rem);
+		}
+	}
+
+	@keyframes raven-perch-bob {
+		0%,
+		100% {
+			transform: translateY(0);
+		}
+
+		50% {
+			transform: translateY(-0.08rem);
+		}
+	}
+</style>
+
+<script is:inline>
+	(() => {
+		if (window.__alfRavenFlockSetup) {
+			return;
+		}
+		window.__alfRavenFlockSetup = true;
+
+		const root = document.getElementById("raven-flock");
+		if (!(root instanceof HTMLElement)) {
+			return;
+		}
+
+		const TARGET_SELECTOR = [
+			".card-base",
+			".sidebar-widget",
+			".float-panel",
+			".dashboard-sidebar",
+			".dashboard-panel",
+			".dashboard-metric-card",
+			".dashboard-hero",
+		].join(",");
+
+		const MAX_BIRDS = 8;
+		const SPAWN_INTERVAL_MS = 30000;
+		const BASE_BIRD_WIDTH = 84;
+		const BASE_FOOT_OFFSET_Y = 57;
+		const VIEWPORT_PADDING = 12;
+		const MIN_TARGET_WIDTH = 112;
+		const MIN_TARGET_HEIGHT = 56;
+		const MIN_DWELL_MS = 38000;
+		const MAX_DWELL_MS = 62000;
+		const MOUSE_ESCAPE_DISTANCE = 82;
+
+		const state = {
+			birds: [],
+			rafId: 0,
+			spawnTimerId: 0,
+			initialSpawnDone: false,
+			pendingSpawns: 0,
+		};
+
+		const randomBetween = (min, max) => min + Math.random() * (max - min);
+		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+		const lerp = (start, end, progress) => start + (end - start) * progress;
+		const easeOutCubic = (progress) => 1 - (1 - progress) ** 3;
+		const easeInCubic = (progress) => progress ** 3;
+		const easeInOutSine = (progress) =>
+			-(Math.cos(Math.PI * progress) - 1) / 2;
+
+		const birdMarkup = `
+			<div class="raven-bird__frame">
+				<div class="raven-bird__shell">
+					<svg viewBox="0 0 84 66" role="presentation" focusable="false">
+						<path
+							class="raven-bird__tail"
+							d="M24 44 L10 48 L18 38 Z"
+						/>
+						<path
+							class="raven-bird__wing raven-bird__wing--rear"
+							d="M40 27 C29 14 16 12 9 19 C15 24 21 34 26 45 C34 40 39 33 40 27 Z"
+						/>
+						<ellipse class="raven-bird__body" cx="42" cy="38" rx="16" ry="11" />
+						<g class="raven-bird__head-group">
+							<circle class="raven-bird__head" cx="57" cy="28" r="7.5" />
+							<path
+								class="raven-bird__beak"
+								d="M63 28 L74 25.5 L65.5 31.5 Z"
+							/>
+							<circle class="raven-bird__eye" cx="59" cy="26.5" r="1.1" />
+						</g>
+						<path class="raven-bird__detail" d="M31 36 C36 33.5 45 33.5 51 36" />
+						<path class="raven-bird__detail" d="M26 42 C33 40 49 40 55 42" />
+						<path class="raven-bird__detail" d="M51 22 C54 20.8 58 20.8 61 22" />
+						<path
+							class="raven-bird__wing raven-bird__wing--front"
+							d="M44 28 C55 15 68 13 75 21 C69 25 63 35 58 46 C50 41 45 34 44 28 Z"
+						/>
+						<rect class="raven-bird__leg" x="37.4" y="47" width="2.2" height="9" rx="1.1" />
+						<rect class="raven-bird__leg" x="46.4" y="47" width="2.2" height="9" rx="1.1" />
+						<rect class="raven-bird__leg" x="36.3" y="55" width="6.6" height="1.6" rx="0.8" />
+						<rect class="raven-bird__leg" x="45.3" y="55" width="6.6" height="1.6" rx="0.8" />
+					</svg>
+				</div>
+			</div>
+		`;
+
+		const isVisibleTarget = (element) => {
+			if (!(element instanceof HTMLElement) || !element.isConnected) {
+				return false;
+			}
+
+			if (root.contains(element)) {
+				return false;
+			}
+
+			const style = window.getComputedStyle(element);
+			if (
+				style.display === "none" ||
+				style.visibility === "hidden" ||
+				Number.parseFloat(style.opacity || "1") === 0
+			) {
+				return false;
+			}
+
+			const rect = element.getBoundingClientRect();
+			if (rect.width < MIN_TARGET_WIDTH || rect.height < MIN_TARGET_HEIGHT) {
+				return false;
+			}
+
+			if (
+				rect.bottom < 0 ||
+				rect.top > window.innerHeight ||
+				rect.right < 0 ||
+				rect.left > window.innerWidth
+			) {
+				return false;
+			}
+
+			return rect.top >= BASE_FOOT_OFFSET_Y - 8;
+		};
+
+		const getTargetCandidates = () => {
+			const seen = new Set();
+			return Array.from(document.querySelectorAll(TARGET_SELECTOR))
+				.filter((element) => {
+					if (!(element instanceof HTMLElement) || seen.has(element)) {
+						return false;
+					}
+					seen.add(element);
+					return isVisibleTarget(element);
+				})
+				.map((element) => ({
+					element,
+					rect: element.getBoundingClientRect(),
+				}));
+		};
+
+		const chooseLandingSpot = (options = {}) => {
+			const {
+				excludeElement = null,
+				excludeX = null,
+				minDistanceFromX = 0,
+			} = options;
+			const candidates = getTargetCandidates();
+			if (candidates.length === 0) {
+				return null;
+			}
+
+			const filteredCandidates = candidates.filter((candidate) => {
+				if (!(excludeElement instanceof HTMLElement)) {
+					return true;
+				}
+
+				if (candidates.length === 1) {
+					return true;
+				}
+
+				return candidate.element !== excludeElement;
+			});
+
+			const sourceCandidates =
+				filteredCandidates.length > 0 ? filteredCandidates : candidates;
+
+			for (let attempt = 0; attempt < 12; attempt++) {
+				const candidate =
+					sourceCandidates[Math.floor(Math.random() * sourceCandidates.length)];
+				const minX = candidate.rect.left + 18;
+				const maxX = candidate.rect.right - 18;
+				if (maxX <= minX) {
+					continue;
+				}
+
+				const perchX = randomBetween(minX, maxX);
+				if (
+					typeof excludeX === "number" &&
+					Math.abs(perchX - excludeX) < minDistanceFromX &&
+					sourceCandidates.length > 1
+				) {
+					continue;
+				}
+
+				return {
+					element: candidate.element,
+					x: perchX,
+					y: candidate.rect.top,
+				};
+			}
+
+			const fallback =
+				sourceCandidates[Math.floor(Math.random() * sourceCandidates.length)];
+			return {
+				element: fallback.element,
+				x: (fallback.rect.left + fallback.rect.right) / 2,
+				y: fallback.rect.top,
+			};
+		};
+
+		const getSkyEntryPoint = (birdWidth) => ({
+			x: randomBetween(-birdWidth * 0.15, window.innerWidth - birdWidth * 0.85),
+			y: randomBetween(-180, -90),
+		});
+
+		const getExitPoint = (birdWidth) => {
+			const edge = Math.floor(Math.random() * 4);
+			if (edge === 0) {
+				return {
+					x: randomBetween(-birdWidth * 1.8, -birdWidth * 0.6),
+					y: randomBetween(-160, window.innerHeight + 60),
+				};
+			}
+
+			if (edge === 1) {
+				return {
+					x: randomBetween(
+						window.innerWidth + birdWidth * 0.6,
+						window.innerWidth + birdWidth * 1.8,
+					),
+					y: randomBetween(-160, window.innerHeight + 60),
+				};
+			}
+
+			if (edge === 2) {
+				return {
+					x: randomBetween(-birdWidth * 0.3, window.innerWidth - birdWidth * 0.7),
+					y: randomBetween(-200, -80),
+				};
+			}
+
+			return {
+				x: randomBetween(-birdWidth * 0.3, window.innerWidth - birdWidth * 0.7),
+				y: randomBetween(
+					window.innerHeight + 60,
+					window.innerHeight + 180,
+				),
+			};
+		};
+
+		const applyBirdFrame = (bird) => {
+			bird.element.style.transform = `translate3d(${bird.x}px, ${bird.y}px, 0) scaleX(${bird.facing})`;
+			bird.element.style.zIndex = String(
+				Math.max(1, Math.round(bird.y + bird.footOffset)),
+			);
+			bird.element.style.setProperty("--bird-bob", `${bird.bob}px`);
+			bird.element.style.setProperty("--bird-hop", `${bird.hop}px`);
+			bird.element.style.setProperty("--bird-tilt", `${bird.tilt}deg`);
+			bird.element.style.setProperty("--bird-head-turn", `${bird.headTurn}deg`);
+			bird.element.style.setProperty("--bird-head-lift", `${bird.headLift}px`);
+		};
+
+		const removeBird = (bird) => {
+			if (bird.element.isConnected) {
+				bird.element.remove();
+			}
+			state.birds = state.birds.filter((item) => item !== bird);
+			if (state.pendingSpawns > 0 && state.birds.length < MAX_BIRDS) {
+				const spawnCount = state.pendingSpawns;
+				state.pendingSpawns = 0;
+				for (let index = 0; index < spawnCount; index++) {
+					queueMicrotask(() => {
+						maybeSpawnBird(true);
+					});
+				}
+			}
+		};
+
+		const getBirdBounds = (bird) => ({
+			left: bird.x,
+			right: bird.x + bird.width,
+			top: bird.y,
+			bottom: bird.y + bird.height,
+		});
+
+		const birdsOverlap = (birdA, birdB) => {
+			const a = getBirdBounds(birdA);
+			const b = getBirdBounds(birdB);
+			return !(
+				a.right < b.left ||
+				a.left > b.right ||
+				a.bottom < b.top ||
+				a.top > b.bottom
+			);
+		};
+
+		const getOverlappingPerchedBirds = (bird) =>
+			state.birds.filter(
+				(otherBird) =>
+					otherBird !== bird &&
+					otherBird.state === "perched" &&
+					birdsOverlap(bird, otherBird),
+			);
+
+		const setBirdPerched = (bird) => {
+			bird.state = "perched";
+			bird.x = bird.destination.x;
+			bird.y = bird.destination.y;
+			bird.bob = 0;
+			bird.hop = 0;
+			bird.tilt = 0;
+			bird.headLift = 0;
+			bird.motionType = "idle";
+			bird.motionStartedAt = 0;
+			bird.motionDuration = 0;
+			bird.nextMotionAt = performance.now() + randomBetween(1100, 2600);
+			bird.leaveAt = performance.now() + randomBetween(MIN_DWELL_MS, MAX_DWELL_MS);
+			bird.element.classList.remove("is-escaping");
+			bird.element.classList.remove("is-relocating");
+			bird.element.classList.add("is-perched");
+			applyBirdFrame(bird);
+		};
+
+		const startEscape = (bird) => {
+			if (bird.state === "escaping") {
+				return;
+			}
+
+			bird.state = "escaping";
+			bird.source = { x: bird.x, y: bird.y };
+			bird.destination = getExitPoint(bird.width);
+			bird.startedAt = performance.now();
+			bird.duration = randomBetween(950, 1700);
+			bird.arcHeight = randomBetween(18, 86) * (bird.destination.y < bird.y ? -1 : 1);
+			bird.facing = bird.destination.x >= bird.x ? 1 : -1;
+			bird.hop = 0;
+			bird.headLift = 0;
+			bird.element.classList.remove("is-perched");
+			bird.element.classList.remove("is-relocating");
+			bird.element.classList.add("is-escaping");
+		};
+
+		const startRelocation = (bird) => {
+			const landingSpot = chooseLandingSpot({
+				excludeElement: bird.perch?.element || null,
+				excludeX: bird.perch?.x ?? null,
+				minDistanceFromX: Math.max(48, bird.width * 0.6),
+			});
+			if (!landingSpot) {
+				startEscape(bird);
+				return false;
+			}
+
+			bird.state = "relocating";
+			bird.source = { x: bird.x, y: bird.y };
+			bird.perch = landingSpot;
+			bird.destination = {
+				x: clamp(
+					landingSpot.x - bird.width / 2,
+					-VIEWPORT_PADDING,
+					window.innerWidth - bird.width + VIEWPORT_PADDING,
+				),
+				y: landingSpot.y - bird.footOffset,
+			};
+			bird.startedAt = performance.now();
+			bird.duration = randomBetween(1100, 1900);
+			bird.swayMagnitude = randomBetween(8, 16);
+			bird.facing = bird.destination.x >= bird.x ? 1 : -1;
+			bird.bob = 0;
+			bird.hop = 0;
+			bird.headLift = 0;
+			bird.motionType = "idle";
+			bird.element.classList.remove("is-perched");
+			bird.element.classList.remove("is-escaping");
+			bird.element.classList.add("is-relocating");
+			return true;
+		};
+
+		const updateApproachingBird = (bird, now) => {
+			const progress = clamp((now - bird.startedAt) / bird.duration, 0, 1);
+			const eased = easeOutCubic(progress);
+			const sway =
+				Math.sin(progress * Math.PI * 3 + bird.phase) * bird.swayMagnitude;
+
+			bird.x = lerp(bird.source.x, bird.destination.x, easeInOutSine(progress));
+			bird.y =
+				lerp(bird.source.y, bird.destination.y, eased) +
+				sway * (1 - progress * 0.7);
+			bird.bob = Math.sin(progress * Math.PI * 10 + bird.phase) * 1.6;
+			bird.tilt =
+				lerp(-12, 0, eased) * (bird.facing > 0 ? 1 : -1) +
+				Math.cos(progress * Math.PI * 4) * 1.6;
+
+			if (progress >= 1) {
+				setBirdPerched(bird);
+				return;
+			}
+
+			applyBirdFrame(bird);
+		};
+
+		const updateEscapingBird = (bird, now) => {
+			const progress = clamp((now - bird.startedAt) / bird.duration, 0, 1);
+			const eased = easeInCubic(progress);
+			const arc = Math.sin(progress * Math.PI) * bird.arcHeight;
+
+			bird.x = lerp(bird.source.x, bird.destination.x, eased);
+			bird.y = lerp(bird.source.y, bird.destination.y, eased) - arc;
+			bird.bob = Math.sin(progress * Math.PI * 16 + bird.phase) * 2.4;
+			bird.hop = 0;
+			bird.tilt = lerp(0, 18, eased) * (bird.facing > 0 ? 1 : -1);
+			bird.headTurn = lerp(bird.headTurn, 0, eased);
+			bird.headLift = 0;
+
+			applyBirdFrame(bird);
+
+			if (progress >= 1) {
+				removeBird(bird);
+			}
+		};
+
+		const maybeStartPerchedMotion = (bird, now) => {
+			if (bird.motionType !== "idle" || now < bird.nextMotionAt) {
+				return;
+			}
+
+			if (Math.random() < 0.24) {
+				bird.motionType = "hop";
+				bird.motionStartedAt = now;
+				bird.motionDuration = randomBetween(460, 720);
+				bird.motionAmplitude = randomBetween(2.2, 4.8);
+				bird.motionHeadTarget = randomBetween(-4, 4);
+				return;
+			}
+
+			bird.motionType = "look";
+			bird.motionStartedAt = now;
+			bird.motionDuration = randomBetween(620, 980);
+			bird.motionFrom = bird.headTurn;
+			const headTargets = [-10, -6, 0, 6, 10];
+			bird.motionHeadTarget =
+				headTargets[Math.floor(Math.random() * headTargets.length)];
+		};
+
+		const updatePerchedBird = (bird, now) => {
+			if (!isVisibleTarget(bird.perch.element)) {
+				startEscape(bird);
+				return;
+			}
+
+			if (now >= bird.leaveAt) {
+				startEscape(bird);
+				return;
+			}
+
+			const rect = bird.perch.element.getBoundingClientRect();
+			bird.perch.y = rect.top;
+			bird.y = rect.top - bird.footOffset;
+			bird.bob = 0;
+			bird.tilt = 0;
+
+			maybeStartPerchedMotion(bird, now);
+
+			if (bird.motionType === "look") {
+				const progress = clamp(
+					(now - bird.motionStartedAt) / bird.motionDuration,
+					0,
+					1,
+				);
+				bird.headTurn = lerp(
+					bird.motionFrom,
+					bird.motionHeadTarget,
+					easeInOutSine(progress),
+				);
+				bird.headLift = Math.abs(bird.headTurn) * -0.02;
+				bird.hop = 0;
+
+				if (progress >= 1) {
+					bird.motionType = "idle";
+					bird.headTurn = bird.motionHeadTarget;
+					bird.headLift = Math.abs(bird.headTurn) * -0.02;
+					bird.nextMotionAt = now + randomBetween(2200, 5200);
+				}
+			} else if (bird.motionType === "hop") {
+				const progress = clamp(
+					(now - bird.motionStartedAt) / bird.motionDuration,
+					0,
+					1,
+				);
+				bird.hop = -Math.sin(progress * Math.PI) * bird.motionAmplitude;
+				bird.headTurn = lerp(
+					bird.headTurn,
+					bird.motionHeadTarget,
+					0.08,
+				);
+				bird.headLift = bird.hop * 0.2;
+
+				if (progress >= 1) {
+					bird.motionType = "idle";
+					bird.hop = 0;
+					bird.headLift = 0;
+					bird.nextMotionAt = now + randomBetween(3200, 6400);
+				}
+			} else {
+				bird.hop = 0;
+				bird.headLift = lerp(bird.headLift, 0, 0.08);
+				bird.headTurn = lerp(bird.headTurn, 0, 0.018);
+			}
+
+			applyBirdFrame(bird);
+		};
+
+		const tick = (now) => {
+			state.birds.slice().forEach((bird) => {
+				if (bird.state === "approaching") {
+					updateApproachingBird(bird, now);
+					return;
+				}
+
+				if (bird.state === "escaping") {
+					updateEscapingBird(bird, now);
+					return;
+				}
+
+				if (bird.state === "relocating") {
+					updateApproachingBird(bird, now);
+					return;
+				}
+
+				if (bird.state === "perched") {
+					updatePerchedBird(bird, now);
+				}
+			});
+
+			if (state.birds.length === 0) {
+				state.rafId = 0;
+				return;
+			}
+
+			state.rafId = window.requestAnimationFrame(tick);
+		};
+
+		const ensureAnimationLoop = () => {
+			if (state.rafId !== 0) {
+				return;
+			}
+			state.rafId = window.requestAnimationFrame(tick);
+		};
+
+		const createBird = (landingSpot) => {
+			const element = document.createElement("div");
+			element.className = "raven-bird";
+			element.innerHTML = birdMarkup;
+			const sizeScale = randomBetween(0.88, 1.14);
+			const width = BASE_BIRD_WIDTH * sizeScale;
+			const footOffset = BASE_FOOT_OFFSET_Y * sizeScale;
+			const bodyTone = Math.round(randomBetween(236, 252));
+			const frontWingTone = Math.max(222, bodyTone - Math.round(randomBetween(6, 12)));
+			const rearWingTone = Math.max(194, bodyTone - Math.round(randomBetween(18, 30)));
+			const outlineAlpha = randomBetween(0.16, 0.28).toFixed(2);
+			const detailAlpha = randomBetween(0.14, 0.22).toFixed(2);
+			element.style.width = `${width}px`;
+			element.style.height = `${66 * sizeScale}px`;
+			element.style.setProperty(
+				"--wing-speed",
+				`${randomBetween(300, 420).toFixed(0)}ms`,
+			);
+			element.style.setProperty(
+				"--bird-body-fill",
+				`rgb(${bodyTone} ${bodyTone} ${bodyTone})`,
+			);
+			element.style.setProperty(
+				"--bird-front-wing-fill",
+				`rgb(${frontWingTone} ${frontWingTone} ${frontWingTone})`,
+			);
+			element.style.setProperty(
+				"--bird-rear-wing-fill",
+				`rgb(${rearWingTone} ${rearWingTone} ${rearWingTone})`,
+			);
+			element.style.setProperty(
+				"--bird-outline",
+				`rgb(15 23 42 / ${outlineAlpha})`,
+			);
+			element.style.setProperty(
+				"--bird-detail",
+				`rgb(15 23 42 / ${detailAlpha})`,
+			);
+
+			const source = getSkyEntryPoint(width);
+			const destination = {
+				x: clamp(
+					landingSpot.x - width / 2,
+					-VIEWPORT_PADDING,
+					window.innerWidth - width + VIEWPORT_PADDING,
+				),
+				y: landingSpot.y - footOffset,
+			};
+
+			const bird = {
+				element,
+				state: "approaching",
+				source,
+				destination,
+				perch: landingSpot,
+				x: source.x,
+				y: source.y,
+				bob: 0,
+				hop: 0,
+				tilt: 0,
+				headTurn: randomBetween(-2.5, 2.5),
+				headLift: 0,
+				facing: destination.x >= source.x ? 1 : -1,
+				startedAt: performance.now(),
+				duration: randomBetween(1800, 3200),
+				swayMagnitude: randomBetween(6, 18),
+				phase: randomBetween(0, Math.PI * 2),
+				arcHeight: 0,
+				width,
+				height: 66 * sizeScale,
+				footOffset,
+				motionType: "idle",
+				motionStartedAt: 0,
+				motionDuration: 0,
+				motionAmplitude: 0,
+				motionFrom: 0,
+				motionHeadTarget: 0,
+				nextMotionAt: 0,
+				leaveAt: 0,
+			};
+
+			applyBirdFrame(bird);
+			return bird;
+		};
+
+		const releaseBirdsForIncomingSpawn = () => {
+			const candidates = state.birds.filter((bird) => bird.state !== "escaping");
+			if (candidates.length === 0) {
+				return 0;
+			}
+
+			const releaseCount = Math.min(
+				candidates.length,
+				Math.floor(randomBetween(1, 4)),
+			);
+			const shuffled = [...candidates].sort(() => Math.random() - 0.5);
+			shuffled.slice(0, releaseCount).forEach((bird) => {
+				startEscape(bird);
+			});
+			return releaseCount;
+		};
+
+		const maybeSpawnBird = (isDeferred = false) => {
+			if (state.birds.length >= MAX_BIRDS) {
+				if (!isDeferred) {
+					const releasedCount = releaseBirdsForIncomingSpawn();
+					if (releasedCount > 0) {
+						state.pendingSpawns = Math.min(state.pendingSpawns + 1, MAX_BIRDS);
+						ensureAnimationLoop();
+					}
+				}
+				return;
+			}
+
+			const landingSpot = chooseLandingSpot();
+			if (!landingSpot) {
+				return;
+			}
+
+			const bird = createBird(landingSpot);
+			state.birds.push(bird);
+			root.appendChild(bird.element);
+			ensureAnimationLoop();
+		};
+
+		const spawnInitialBird = () => {
+			if (state.initialSpawnDone) {
+				return;
+			}
+
+			state.initialSpawnDone = true;
+			window.requestAnimationFrame(() => {
+				window.requestAnimationFrame(() => {
+					maybeSpawnBird();
+				});
+			});
+		};
+
+		const escapeAllBirds = () => {
+			state.birds.forEach((bird) => {
+				startEscape(bird);
+			});
+			if (state.birds.length > 0) {
+				ensureAnimationLoop();
+			}
+		};
+
+		const escapeBirdNearPointer = (clientX, clientY) => {
+			let moved = false;
+			state.birds.forEach((bird) => {
+				if (bird.state !== "perched") {
+					return;
+				}
+
+				const centerX = bird.x + bird.width / 2;
+				const centerY = bird.y + bird.footOffset * 0.52;
+				const distance = Math.hypot(clientX - centerX, clientY - centerY);
+				if (distance <= MOUSE_ESCAPE_DISTANCE) {
+					const overlappingBirds = getOverlappingPerchedBirds(bird);
+					if (overlappingBirds.length > 0) {
+						startRelocation(bird);
+						overlappingBirds.forEach((otherBird) => {
+							startRelocation(otherBird);
+						});
+						moved = true;
+						return;
+					}
+
+					if (startRelocation(bird)) {
+						moved = true;
+						return;
+					}
+
+					startEscape(bird);
+					moved = true;
+				}
+			});
+
+			if (moved) {
+				ensureAnimationLoop();
+			}
+		};
+
+		const reconcileBirdTargets = () => {
+			state.birds.forEach((bird) => {
+				if (bird.state === "perched" && !isVisibleTarget(bird.perch.element)) {
+					startEscape(bird);
+				}
+			});
+			if (state.birds.length > 0) {
+				ensureAnimationLoop();
+			}
+		};
+
+		let scrollTriggerArmed = true;
+		window.addEventListener(
+			"scroll",
+			() => {
+				if (!scrollTriggerArmed) {
+					return;
+				}
+
+				scrollTriggerArmed = false;
+				escapeAllBirds();
+				window.setTimeout(() => {
+					scrollTriggerArmed = true;
+				}, 120);
+			},
+			{ passive: true },
+		);
+
+		window.addEventListener("resize", reconcileBirdTargets);
+		document.addEventListener("astro:page-load", reconcileBirdTargets);
+		document.addEventListener("DOMContentLoaded", reconcileBirdTargets);
+		window.addEventListener(
+			"pointermove",
+			(event) => {
+				escapeBirdNearPointer(event.clientX, event.clientY);
+			},
+			{ passive: true },
+		);
+
+		spawnInitialBird();
+		state.spawnTimerId = window.setInterval(maybeSpawnBird, SPAWN_INTERVAL_MS);
+	})();
+</script>
