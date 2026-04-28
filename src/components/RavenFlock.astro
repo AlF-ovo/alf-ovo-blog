@@ -2578,13 +2578,13 @@
 			const source = getSkyEntryPoint(initialWidth);
 			const rareColorRoll = Math.random();
 			const colorVariant =
-				rareColorRoll < 0.1
+				rareColorRoll < 0.25
 					? {
 							hueRotate: randomBetween(-8, 6).toFixed(1),
 							saturate: randomBetween(0.08, 0.18).toFixed(2),
 							brightness: randomBetween(1.62, 1.86).toFixed(2),
 						}
-					: rareColorRoll < 0.2
+					: rareColorRoll < 0.5
 						? {
 								hueRotate: randomBetween(-28, -14).toFixed(1),
 								saturate: randomBetween(1.18, 1.34).toFixed(2),
