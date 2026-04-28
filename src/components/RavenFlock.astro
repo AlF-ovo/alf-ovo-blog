@@ -632,7 +632,7 @@
 		const drumstickBoneSvg =
 			'<svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="10" width="3" height="3" fill="#f4ecde" /><rect x="2" y="9" width="1" height="1" fill="#f4ecde" /><rect x="2" y="13" width="1" height="1" fill="#f4ecde" /><rect x="3" y="11" width="3" height="2" fill="#f4ecde" /><rect x="6" y="10" width="8" height="3" fill="#e7dbc6" /><rect x="14" y="10" width="3" height="3" fill="#f4ecde" /><rect x="15" y="9" width="1" height="1" fill="#f4ecde" /><rect x="15" y="13" width="1" height="1" fill="#f4ecde" /><rect x="5" y="11" width="1" height="1" fill="#ceb892" /><rect x="14" y="11" width="1" height="1" fill="#ceb892" /></svg>';
 		const friesBagSvg =
-			'<svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="5" y="1" width="1" height="7" fill="#f2c44c" /><rect x="7" y="0" width="1" height="8" fill="#f7d772" /><rect x="9" y="1" width="1" height="7" fill="#f4c84f" /><rect x="11" y="0" width="1" height="8" fill="#f7d772" /><rect x="13" y="1" width="1" height="7" fill="#f2c44c" /><rect x="4" y="7" width="12" height="8" fill="#c94b36" /><rect x="5" y="8" width="10" height="6" fill="#e06241" /><rect x="6" y="9" width="8" height="4" fill="#f07e4d" /><rect x="5" y="15" width="10" height="2" fill="#703122" /><rect x="3" y="6" width="1" height="9" fill="#703122" /><rect x="16" y="6" width="1" height="9" fill="#703122" /><rect x="6" y="10" width="6" height="1" fill="#fff0c2" /></svg>';
+			'<svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="3" y="2" width="1" height="7" fill="#d4972d" /><rect x="4" y="1" width="1" height="8" fill="#e7b744" /><rect x="5" y="0" width="1" height="9" fill="#f7d772" /><rect x="6" y="2" width="1" height="7" fill="#f0c451" /><rect x="7" y="1" width="1" height="8" fill="#f7d772" /><rect x="8" y="0" width="1" height="9" fill="#f4cd62" /><rect x="9" y="2" width="1" height="7" fill="#e5b54a" /><rect x="10" y="1" width="1" height="8" fill="#f7d772" /><rect x="11" y="0" width="1" height="9" fill="#f4cd62" /><rect x="12" y="2" width="1" height="7" fill="#e5b54a" /><rect x="13" y="1" width="1" height="8" fill="#f7d772" /><rect x="14" y="0" width="1" height="9" fill="#efc85c" /><rect x="15" y="2" width="1" height="7" fill="#dba744" /><rect x="4" y="6" width="12" height="2" fill="#fff1b8" /><rect x="4" y="7" width="12" height="9" fill="#b83c2d" /><rect x="5" y="8" width="10" height="7" fill="#d9533a" /><rect x="6" y="9" width="8" height="5" fill="#ef7a4c" /><rect x="7" y="10" width="6" height="2" fill="#ffd3a0" /><rect x="5" y="16" width="10" height="2" fill="#6d261d" /><rect x="3" y="7" width="1" height="9" fill="#6d261d" /><rect x="16" y="7" width="1" height="9" fill="#6d261d" /><rect x="8" y="11" width="4" height="1" fill="#fff2d1" /></svg>';
 		const friesSvgFull =
 			'<svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="6" y="3" width="2" height="12" fill="#f7d772" /><rect x="8" y="2" width="2" height="13" fill="#f4c84f" /><rect x="10" y="4" width="2" height="11" fill="#f7d772" /><rect x="12" y="3" width="2" height="12" fill="#e8b541" /><rect x="7" y="15" width="6" height="2" fill="#c86b36" /><rect x="6" y="16" width="8" height="1" fill="#8f4a27" /></svg>';
 		const friesSvgHalf =
@@ -1109,14 +1109,6 @@
 			x: state.food.homeX - 2,
 			y: state.food.homeY - FOOD_HOME_SIZE - FRIES_BUTTON_GAP,
 		});
-		const getFriesLaunchOrigin = () => {
-			const home = getFriesButtonHome();
-			return {
-				x: home.x + 26,
-				y: home.y + 14,
-			};
-		};
-
 		const syncFoodHomePosition = () => {
 			const margin = 16;
 			state.food.homeX = margin;
@@ -2039,6 +2031,36 @@
 				restX: preferredX,
 			};
 		};
+		const chooseRandomFriesBurstSpawn = (size) => {
+			const preferredX = getTopDropSpawnX(size);
+			const spawnSide = ["left", "right", "top"][Math.floor(Math.random() * 3)];
+			if (spawnSide === "top") {
+				return {
+					side: "top",
+					x: preferredX,
+					y: -size - randomBetween(18, 52),
+					vx: randomBetween(-0.7, 0.7),
+					vy: randomBetween(RANDOM_DROP_TOP_SPEED_MIN, RANDOM_DROP_TOP_SPEED_MAX),
+					restX: preferredX,
+				};
+			}
+
+			const inwardDirection = spawnSide === "left" ? 1 : -1;
+			const launchAngle = randomBetween(-0.14, 0.08);
+			const launchSpeed = randomBetween(5.4, 7.6);
+			return {
+				side: spawnSide,
+				x:
+					spawnSide === "left"
+						? -size - randomBetween(RANDOM_DROP_SIDE_ENTRY_MIN, RANDOM_DROP_SIDE_ENTRY_MAX)
+						: window.innerWidth +
+							randomBetween(RANDOM_DROP_SIDE_ENTRY_MIN, RANDOM_DROP_SIDE_ENTRY_MAX),
+				y: findSideDropSpawnY(size, spawnSide),
+				vx: inwardDirection * Math.cos(launchAngle) * launchSpeed,
+				vy: Math.sin(launchAngle) * launchSpeed,
+				restX: preferredX,
+			};
+		};
 		const spawnTopDroppedDrumstick = () => {
 			const scale = state.food.scale;
 			const size = FOOD_HOME_SIZE * scale;
@@ -2069,20 +2091,38 @@
 				return;
 			}
 			state.lastFriesBurstAt = now;
-			const origin = getFriesLaunchOrigin();
 			const count =
 				FRIES_BURST_MIN +
 				Math.floor(Math.random() * (FRIES_BURST_MAX - FRIES_BURST_MIN + 1));
+			const burstScale = randomBetween(0.88, 1.06);
+			const size = FRIES_BASE_SIZE * burstScale;
+			const burstSpawn = chooseRandomFriesBurstSpawn(size);
 			for (let index = 0; index < count; index += 1) {
-				const angle = randomBetween(-0.92, -0.34);
-				const speed = randomBetween(5.6, 8.4);
+				const spreadRatio =
+					count <= 1 ? 0 : index / Math.max(1, count - 1) - 0.5;
+				const offsetX =
+					burstSpawn.side === "top"
+						? spreadRatio * randomBetween(36, 72)
+						: randomBetween(-4, 4);
+				const offsetY =
+					burstSpawn.side === "top"
+						? randomBetween(-4, 4)
+						: spreadRatio * randomBetween(26, 52);
+				const burstDriftX =
+					burstSpawn.side === "top"
+						? spreadRatio * randomBetween(1.2, 3.4)
+						: randomBetween(-0.24, 0.24);
+				const burstDriftY =
+					burstSpawn.side === "top"
+						? randomBetween(-0.5, 0.3)
+						: spreadRatio * randomBetween(-0.8, 0.8);
 				createDroppedFoodItem({
 					foodKind: "fries",
 					scale: randomBetween(0.88, 1.06),
-					x: origin.x + randomBetween(-2, 2),
-					y: origin.y + randomBetween(-2, 2),
-					vx: Math.cos(angle) * speed,
-					vy: Math.sin(angle) * speed,
+					x: burstSpawn.x + offsetX,
+					y: burstSpawn.y + offsetY,
+					vx: burstSpawn.vx + burstDriftX,
+					vy: burstSpawn.vy + burstDriftY,
 					bitesTotal: FRIES_BITE_COUNT,
 					bitesRemaining: FRIES_BITE_COUNT,
 					visualOffsetX: 0,
@@ -2093,6 +2133,7 @@
 					rotationVelocity: randomBetween(-2.6, 2.6),
 					contestDelayMin: 220,
 					contestDelayMax: 520,
+					restX: burstSpawn.restX,
 				});
 			}
 			summonBirdsToFood();
@@ -3576,6 +3617,19 @@
 			vanishBirdWithHearts(bird);
 			ensureAnimationLoop();
 		};
+		const flushBirdsForReading = () => {
+			let changed = false;
+			state.birds.forEach((bird) => {
+				if (bird.state === "escaping") {
+					return;
+				}
+				startEscape(bird);
+				changed = true;
+			});
+			if (changed) {
+				ensureAnimationLoop();
+			}
+		};
 
 		const tick = (now) => {
 			updateFood(now);
@@ -3640,6 +3694,7 @@
 		window.addEventListener("pointermove", handlePointerMove, { passive: true });
 		window.addEventListener("pointerup", handlePointerUp, { passive: true });
 		window.addEventListener("pointercancel", handlePointerUp, { passive: true });
+		window.addEventListener("scroll", flushBirdsForReading, { passive: true });
 		window.addEventListener("blur", handleFoodPointerAbort);
 		document.addEventListener("click", scheduleClickDrivenTargetChangeCheck, true);
 		window.addEventListener("resize", () => {
