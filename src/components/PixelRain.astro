@@ -44,25 +44,40 @@
 			return;
 		}
 
-		const RAIN_PROFILES = [
-			{ count: 20, width: 1, length: 20, speed: 7.8, drift: -0.24 },
-			{ count: 28, width: 2, length: 26, speed: 9.1, drift: -0.34 },
-			{ count: 36, width: 2, length: 32, speed: 10.3, drift: -0.46 },
-		];
-		const PROFILE_SWITCH_MIN_MS = 12000;
-		const PROFILE_SWITCH_MAX_MS = 24000;
-		const RAIN_END_BAND_START = 0.875;
+		const MIN_DROP_COUNT = 16;
+		const MAX_DROP_COUNT = 60;
+		const MIN_DROP_WIDTH = 1.05;
+		const MAX_DROP_WIDTH = 2.35;
+		const MIN_DROP_LENGTH = 18;
+		const MAX_DROP_LENGTH = 37;
+		const MIN_DROP_SPEED = 6.6;
+		const MAX_DROP_SPEED = 12.4;
+		const MIN_DROP_DRIFT = -0.16;
+		const MAX_DROP_DRIFT = -0.56;
+		const MIN_DROP_OPACITY = 0.16;
+		const MAX_DROP_OPACITY = 0.46;
+		const RAIN_END_BAND_MIN = 0.83;
+		const RAIN_END_BAND_MAX = 0.91;
+		const INTENSITY_BASELINE = 0.14;
+		const MUSIC_WEIGHT = 0.4;
+		const RAVEN_WEIGHT = 0.3;
+		const BALANCE_WEIGHT = 0.2;
+		const AMBIENT_WEIGHT = 0.1;
+		const INTENSITY_SMOOTHING = 0.992;
+		const DROP_VISIBILITY_SMOOTHING = 0.945;
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
 		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+		const lerp = (start, end, progress) => start + (end - start) * progress;
 
 		const state = {
 			width: window.innerWidth,
 			height: window.innerHeight,
-			profile: RAIN_PROFILES[1],
-			nextProfileAt: 0,
 			lastTickAt: performance.now(),
 			rafId: 0,
+			rainIntensity: 0.28,
+			targetRainIntensity: 0.28,
+			ambientPhase: randomBetween(0, Math.PI * 2),
 			drops: [],
 		};
 
@@ -72,55 +87,109 @@
 			}
 			return [];
 		};
-
-		const scheduleNextProfile = (now = performance.now()) => {
-			state.nextProfileAt =
-				now + randomBetween(PROFILE_SWITCH_MIN_MS, PROFILE_SWITCH_MAX_MS);
+		const getMusicWeatherState = () => {
+			if (typeof window.__alfMusicWeatherState === "function") {
+				return window.__alfMusicWeatherState();
+			}
+			return { playing: false, volume: 0, intensity: 0 };
+		};
+		const getRavenWeatherState = () => {
+			if (typeof window.__alfRavenWeatherState === "function") {
+				return window.__alfRavenWeatherState();
+			}
+			return { birdCount: 0, maxBirdCount: 14, foodDetected: false };
+		};
+		const getRainMetrics = (intensity) => ({
+			desiredCount: Math.round(lerp(MIN_DROP_COUNT, MAX_DROP_COUNT, intensity)),
+			width: lerp(MIN_DROP_WIDTH, MAX_DROP_WIDTH, intensity),
+			length: lerp(MIN_DROP_LENGTH, MAX_DROP_LENGTH, intensity),
+			speed: lerp(MIN_DROP_SPEED, MAX_DROP_SPEED, intensity),
+			drift: lerp(MIN_DROP_DRIFT, MAX_DROP_DRIFT, intensity),
+			opacity: lerp(MIN_DROP_OPACITY, MAX_DROP_OPACITY, intensity),
+			endBandStart: lerp(RAIN_END_BAND_MAX, RAIN_END_BAND_MIN, intensity),
+		});
+		const computeTargetRainIntensity = (now) => {
+			const musicState = getMusicWeatherState();
+			const ravenState = getRavenWeatherState();
+			const musicFactor = clamp(musicState?.intensity ?? 0, 0, 1);
+			const ravenFactor = clamp(
+				(ravenState?.birdCount ?? 0) /
+					Math.max(6, Math.min(10, ravenState?.maxBirdCount ?? 10)),
+				0,
+				1,
+			);
+			const balancedFactor = Math.min(musicFactor, ravenFactor);
+			const ambientFactor =
+				(Math.sin(now * 0.00016 + state.ambientPhase) +
+					Math.cos(now * 0.00009 + state.ambientPhase * 0.7)) *
+				0.5;
+			return clamp(
+				INTENSITY_BASELINE +
+					musicFactor * MUSIC_WEIGHT +
+					ravenFactor * RAVEN_WEIGHT +
+					balancedFactor * BALANCE_WEIGHT +
+					(ambientFactor * 0.5 + 0.5) * AMBIENT_WEIGHT,
+				0.08,
+				1,
+			);
 		};
 
-		const clearDrops = () => {
-			state.drops.forEach((drop) => drop.element.remove());
-			state.drops = [];
-		};
-
-		const resetDrop = (drop, options = {}) => {
+		const resetDrop = (drop, metrics, options = {}) => {
 			const { fresh = false } = options;
 			drop.x = randomBetween(-state.width * 0.08, state.width * 1.02);
 			drop.y = fresh
 				? randomBetween(-state.height, state.height)
 				: randomBetween(-state.height * 0.22, -12);
-			drop.speed = state.profile.speed * randomBetween(0.92, 1.08);
-			drop.drift = state.profile.drift * randomBetween(0.88, 1.12);
-			drop.endY = randomBetween(state.height * RAIN_END_BAND_START, state.height + 2);
+			drop.speed = metrics.speed * drop.speedScale;
+			drop.drift = metrics.drift * drop.driftScale;
+			drop.endY = randomBetween(
+				state.height * metrics.endBandStart,
+				state.height + metrics.length * 0.35,
+			);
 		};
 
-		const applyDropFrame = (drop) => {
+		const applyDropFrame = (drop, metrics) => {
+			const width = metrics.width * drop.widthScale;
+			const length = metrics.length * drop.lengthScale;
+			drop.width = width;
+			drop.length = length;
+			drop.element.style.width = `${width.toFixed(2)}px`;
+			drop.element.style.height = `${length.toFixed(2)}px`;
+			drop.element.style.opacity = `${(
+				metrics.opacity *
+				drop.opacityScale *
+				drop.visibleStrength
+			).toFixed(3)}`;
 			drop.element.style.transform = `translate3d(${drop.x}px, ${drop.y}px, 0)`;
 		};
 
-		const rebuildDrops = (profile, now = performance.now()) => {
-			state.profile = profile;
-			clearDrops();
-			root.style.setProperty("--rain-drop-width", `${profile.width}px`);
-			root.style.setProperty("--rain-drop-length", `${profile.length}px`);
-
-			for (let index = 0; index < profile.count; index += 1) {
+		const buildDropPool = (metrics) => {
+			for (let index = 0; index < MAX_DROP_COUNT; index += 1) {
 				const element = document.createElement("div");
 				element.className = "pixel-rain__drop";
 				const drop = {
 					element,
+					index,
 					x: 0,
 					y: 0,
-					speed: profile.speed,
-					drift: profile.drift,
+					speed: metrics.speed,
+					drift: metrics.drift,
+					width: metrics.width,
+					length: metrics.length,
 					endY: state.height,
+					widthScale: randomBetween(0.9, 1.08),
+					lengthScale: randomBetween(0.82, 1.18),
+					speedScale: randomBetween(0.9, 1.12),
+					driftScale: randomBetween(0.86, 1.14),
+					opacityScale: randomBetween(0.82, 1.08),
+					visibleStrength: index < metrics.desiredCount ? 1 : 0,
+					targetVisible: index < metrics.desiredCount,
 				};
-				resetDrop(drop, { fresh: true });
-				applyDropFrame(drop);
+				resetDrop(drop, metrics, { fresh: true });
+				applyDropFrame(drop, metrics);
 				state.drops.push(drop);
 				root.appendChild(element);
 			}
-			scheduleNextProfile(now);
 		};
 
 		const intersectsRavenHead = (dropCenterX, dropBottomY, hitboxes) =>
@@ -135,35 +204,53 @@
 		const tick = (now) => {
 			const dt = clamp((now - state.lastTickAt) / 16.6667, 0.45, 2.1);
 			state.lastTickAt = now;
-			if (now >= state.nextProfileAt) {
-				const nextProfile =
-					RAIN_PROFILES[Math.floor(Math.random() * RAIN_PROFILES.length)];
-				rebuildDrops(nextProfile, now);
-			}
+			state.targetRainIntensity = computeTargetRainIntensity(now);
+			state.rainIntensity = lerp(
+				state.rainIntensity,
+				state.targetRainIntensity,
+				1 - INTENSITY_SMOOTHING ** dt,
+			);
+			const metrics = getRainMetrics(state.rainIntensity);
 
 			const hitboxes = getRavenHeadHitboxes();
 			for (const drop of state.drops) {
+				const shouldBeVisible = drop.index < metrics.desiredCount;
+				if (shouldBeVisible && !drop.targetVisible) {
+					resetDrop(drop, metrics);
+				}
+				drop.targetVisible = shouldBeVisible;
+				drop.visibleStrength = lerp(
+					drop.visibleStrength,
+					shouldBeVisible ? 1 : 0,
+					1 - DROP_VISIBILITY_SMOOTHING ** dt,
+				);
+				drop.speed = metrics.speed * drop.speedScale;
+				drop.drift = metrics.drift * drop.driftScale;
 				drop.x += drop.drift * dt;
 				drop.y += drop.speed * dt;
 
-				const dropCenterX = drop.x + state.profile.width * 0.5;
-				const dropBottomY = drop.y + state.profile.length;
+				const dropCenterX = drop.x + drop.width * 0.5;
+				const dropBottomY = drop.y + drop.length;
 				if (intersectsRavenHead(dropCenterX, dropBottomY, hitboxes)) {
-					resetDrop(drop);
-					applyDropFrame(drop);
+					resetDrop(drop, metrics);
+					applyDropFrame(drop, metrics);
 					continue;
 				}
 
 				if (dropBottomY >= drop.endY) {
-					resetDrop(drop);
-					applyDropFrame(drop);
+					resetDrop(drop, metrics);
+					applyDropFrame(drop, metrics);
 					continue;
 				}
 
-				if (drop.x < -18 || drop.x > state.width + 18 || drop.y > state.height + 20) {
-					resetDrop(drop);
+				if (
+					drop.x < -Math.max(18, drop.width * 8) ||
+					drop.x > state.width + Math.max(18, drop.width * 8) ||
+					drop.y > state.height + Math.max(20, drop.length * 1.2)
+				) {
+					resetDrop(drop, metrics);
 				}
-				applyDropFrame(drop);
+				applyDropFrame(drop, metrics);
 			}
 
 			state.rafId = window.requestAnimationFrame(tick);
@@ -174,7 +261,7 @@
 			state.height = window.innerHeight;
 		};
 
-		rebuildDrops(state.profile, state.lastTickAt);
+		buildDropPool(getRainMetrics(state.rainIntensity));
 		window.addEventListener("resize", handleResize, { passive: true });
 		state.rafId = window.requestAnimationFrame(tick);
 	})();

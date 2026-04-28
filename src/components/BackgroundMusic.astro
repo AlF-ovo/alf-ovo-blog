@@ -852,10 +852,19 @@ const systemPanels = [
 			audio.volume = currentVolume;
 			volumeInput.value = String(Math.round(currentVolume * 100));
 			volumeValue.textContent = formatPercent(currentVolume);
+			exposeWeatherState();
 
 			if (shouldPersist) {
 				setRememberedValue(volumeKey, String(currentVolume));
 			}
+		};
+		const exposeWeatherState = () => {
+			window.__alfMusicWeatherState = () => ({
+				playing: !audio.paused && !audio.ended && Boolean(audio.src),
+				volume: currentVolume,
+				intensity:
+					!audio.paused && !audio.ended && Boolean(audio.src) ? currentVolume : 0,
+			});
 		};
 
 		const applyMascotScale = (nextScale, shouldPersist = true) => {
@@ -1140,6 +1149,7 @@ const systemPanels = [
 		audio.addEventListener("play", () => {
 			updatePlaybackUi(true);
 			setStatusText("Playing");
+			exposeWeatherState();
 		});
 
 		audio.addEventListener("pause", () => {
@@ -1149,12 +1159,14 @@ const systemPanels = [
 
 			updatePlaybackUi(false);
 			setStatusText("Paused");
+			exposeWeatherState();
 		});
 
 		audio.addEventListener("ended", async () => {
 			if (!playlistLoop) {
 				updatePlaybackUi(false);
 				setStatusText("Ended");
+				exposeWeatherState();
 				return;
 			}
 
@@ -1172,9 +1184,11 @@ const systemPanels = [
 		audio.addEventListener("error", () => {
 			updatePlaybackUi(false);
 			status.textContent = "Audio failed to load";
+			exposeWeatherState();
 		});
 
 		const rememberedPlayState = getRememberedValue(playingKey);
+		exposeWeatherState();
 		if (shouldAutoplay || rememberedPlayState === "playing") {
 			void playCurrentTrack(shouldAutoplay);
 		}
