@@ -1973,6 +1973,32 @@
 				bird.facing *= -1;
 			}
 		};
+		const resolvePerchedCrowding = (bird, now) => {
+			const crowdedNeighbor = state.birds.find(
+				(otherBird) =>
+					otherBird !== bird &&
+					otherBird.state === "panel-perched" &&
+					otherBird.perch?.element === bird.perch?.element &&
+					Math.abs(otherBird.x - bird.x) < Math.min(bird.width, otherBird.width) * 0.42 &&
+					Math.abs(otherBird.y - bird.y) < 18,
+			);
+			if (!crowdedNeighbor) {
+				return false;
+			}
+			if (bird.id > crowdedNeighbor.id) {
+				return false;
+			}
+
+			const birdToMove = Math.random() < 0.5 ? bird : crowdedNeighbor;
+			birdToMove.nextPerchActionAt = now + randomBetween(2600, 5200);
+			const alternateLandingSpot = chooseLandingSpot({ excludeBird: birdToMove });
+			if (alternateLandingSpot) {
+				sendBirdToPanel(birdToMove, alternateLandingSpot, { doubleHop: true });
+				return true;
+			}
+			startEscape(birdToMove);
+			return true;
+		};
 
 		const sendBirdToPanel = (bird, landingSpot, options = {}) => {
 			const { doubleHop = false } = options;
@@ -2412,6 +2438,9 @@
 				-VIEWPORT_PADDING,
 				window.innerWidth - bird.width + VIEWPORT_PADDING,
 			);
+			if (resolvePerchedCrowding(bird, now)) {
+				return;
+			}
 			if (now >= bird.nextPerchActionAt) {
 				beginPerchAction(bird, now);
 			}
@@ -2427,10 +2456,14 @@
 					bird.perchAction = "idle";
 				} else if (bird.perchAction === "hop") {
 					bird.visualBob -= Math.round(Math.sin(progress * Math.PI) * 8);
-					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI) * 2);
+					bird.visualShiftX +=
+						Math.round(Math.sin(progress * Math.PI) * 2) +
+						Math.round(Math.sin(progress * Math.PI) * 6) * bird.facing;
 				} else if (bird.perchAction === "turn-hop") {
 					bird.visualBob -= Math.round(Math.sin(progress * Math.PI) * 10);
-					bird.visualShiftX += Math.round(Math.cos(progress * Math.PI) * 3);
+					bird.visualShiftX +=
+						Math.round(Math.cos(progress * Math.PI) * 3) +
+						Math.round(Math.sin(progress * Math.PI) * 4) * bird.facing;
 				} else if (bird.perchAction === "preen") {
 					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI * 3) * 3);
 					bird.visualBob += Math.round(Math.sin(progress * Math.PI * 2) * 2 - 2);
