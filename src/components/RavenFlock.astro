@@ -24,6 +24,7 @@
 		user-select: none;
 		will-change: transform;
 		filter: drop-shadow(0 0.65rem 1rem rgb(3 7 18 / 0.28));
+		transform-origin: 50% 88%;
 	}
 
 	.raven-bird__sprite,
@@ -35,8 +36,65 @@
 		image-rendering: pixelated;
 	}
 
+	.raven-bird__sprite {
+		transform: translate3d(
+			var(--bird-body-shift-x, 0px),
+			var(--bird-body-bob, 0px),
+			0
+		);
+		transform-origin: 50% 88%;
+		will-change: transform;
+	}
+
 	.raven-bird[data-state="perched"] {
 		filter: drop-shadow(0 0.45rem 0.8rem rgb(3 7 18 / 0.22));
+	}
+
+	.raven-heart {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 1rem;
+		height: 1rem;
+		pointer-events: none;
+		opacity: 0;
+		transform: translate3d(var(--heart-x, 0px), var(--heart-y, 0px), 0)
+			scale(var(--heart-scale, 1));
+		animation: raven-heart-pop 860ms steps(6, end) forwards;
+		animation-delay: var(--heart-delay, 0ms);
+	}
+
+	.raven-heart svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		image-rendering: pixelated;
+	}
+
+	@keyframes raven-heart-pop {
+		0% {
+			opacity: 0;
+			transform: translate3d(var(--heart-x, 0px), var(--heart-y, 0px), 0)
+				scale(calc(var(--heart-scale, 1) * 0.65));
+		}
+
+		18% {
+			opacity: 1;
+		}
+
+		72% {
+			opacity: 1;
+		}
+
+		100% {
+			opacity: 0;
+			transform: translate3d(
+					calc(var(--heart-x, 0px) + var(--heart-drift-x, 0px)),
+					calc(var(--heart-y, 0px) + var(--heart-rise, -28px)),
+					0
+				)
+				scale(calc(var(--heart-scale, 1) * 1.08));
+		}
 	}
 </style>
 
@@ -84,6 +142,8 @@
 		const TARGET_REACTION_GRACE_MS = 260;
 		const ESCAPE_ON_TARGET_CHANGE_PROBABILITY = 0.55;
 		const STABLE_RELOCATION_PROBABILITY = 0.3;
+		const CLICK_RELOCATE_PROBABILITY = 0.6;
+		const CLICK_ESCAPE_PROBABILITY = 0.3;
 		const PERCHED_FRAME_INDEX = 0;
 		const FLIGHT_SEQUENCE = [1, 2, 3, 4, 5, 4, 3, 2];
 
@@ -204,6 +264,8 @@
 		};
 
 		const spriteMarkup = frameDefinitions.map(buildSpriteMarkup);
+		const heartMarkup =
+			'<svg viewBox="0 0 8 7" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="0" width="2" height="2" fill="#ff84b7" /><rect x="5" y="0" width="2" height="2" fill="#ff84b7" /><rect x="0" y="1" width="3" height="2" fill="#ff84b7" /><rect x="5" y="1" width="3" height="2" fill="#ff84b7" /><rect x="1" y="3" width="6" height="2" fill="#ff6ea8" /><rect x="2" y="5" width="4" height="1" fill="#ff5b9a" /><rect x="3" y="6" width="2" height="1" fill="#ff5b9a" /></svg>';
 
 		const state = {
 			birds: [],
@@ -320,15 +382,25 @@
 		};
 
 		const chooseLandingSpotFromCandidates = (candidates, options = {}) => {
-			const { excludeBird = null } = options;
+			const { excludeBird = null, excludeElement = null } = options;
 			if (candidates.length === 0) {
 				return null;
 			}
 
+			const sourceCandidates =
+				excludeElement instanceof HTMLElement
+					? (() => {
+							const filtered = candidates.filter(
+								(candidate) => candidate.element !== excludeElement,
+							);
+							return filtered.length > 0 ? filtered : candidates;
+						})()
+					: candidates;
+
 			let bestSpot = null;
 			let bestScore = Number.NEGATIVE_INFINITY;
 
-			candidates.forEach((candidate) => {
+			sourceCandidates.forEach((candidate) => {
 				const minX = candidate.rect.left + 22;
 				const maxX = candidate.rect.right - 22;
 				if (maxX <= minX) {
@@ -364,7 +436,8 @@
 				return bestSpot;
 			}
 
-			const fallback = candidates[Math.floor(Math.random() * candidates.length)];
+			const fallback =
+				sourceCandidates[Math.floor(Math.random() * sourceCandidates.length)];
 			return {
 				element: fallback.element,
 				x: (fallback.rect.left + fallback.rect.right) / 2,
@@ -464,6 +537,11 @@
 			bird.element.style.zIndex = String(
 				Math.max(1, Math.round(bird.y + bird.footOffset)),
 			);
+			bird.element.style.setProperty(
+				"--bird-body-shift-x",
+				`${bird.visualShiftX}px`,
+			);
+			bird.element.style.setProperty("--bird-body-bob", `${bird.visualBob}px`);
 		};
 
 		const removeBird = (bird) => {
@@ -478,6 +556,8 @@
 			bird.element.dataset.state = "perched";
 			bird.x = bird.destination.x;
 			bird.y = bird.destination.y;
+			bird.visualShiftX = 0;
+			bird.visualBob = 0;
 			bird.leaveAt = performance.now() + randomBetween(MIN_DWELL_MS, MAX_DWELL_MS);
 			setBirdFrame(bird, PERCHED_FRAME_INDEX);
 			applyBirdFrame(bird);
@@ -538,6 +618,8 @@
 			bird.y =
 				lerp(bird.source.y, bird.destination.y, eased) -
 				Math.sin(progress * Math.PI) * bird.arcHeight;
+			bird.visualShiftX = 0;
+			bird.visualBob = 0;
 
 			updateFlightFrame(bird, now);
 			applyBirdFrame(bird);
@@ -593,6 +675,11 @@
 				bird.perch.x - bird.width / 2,
 				-VIEWPORT_PADDING,
 				window.innerWidth - bird.width + VIEWPORT_PADDING,
+			);
+			const swayPhase = now * 0.0018 + bird.idlePhase;
+			bird.visualShiftX = Math.round(Math.sin(swayPhase * 0.58) * 1);
+			bird.visualBob = Math.round(
+				Math.sin(swayPhase) * 1 + Math.sin(swayPhase * 0.47) * 0.4,
 			);
 			setBirdFrame(bird, PERCHED_FRAME_INDEX);
 			applyBirdFrame(bird);
@@ -673,6 +760,9 @@
 				nextFrameAt: performance.now(),
 				finalAction: "perch",
 				pendingLandingSpot: landingSpot,
+				visualShiftX: 0,
+				visualBob: 0,
+				idlePhase: randomBetween(0, Math.PI * 2),
 			};
 
 			setBirdFrame(bird, FLIGHT_SEQUENCE[bird.frameCursor]);
@@ -794,6 +884,42 @@
 			startEscape(bird);
 		};
 
+		const spawnHeartBurst = (bird) => {
+			const heartCount = 3 + Math.floor(Math.random() * 3);
+			const centerX = bird.x + bird.width * 0.52;
+			const centerY = bird.y + bird.height * 0.3;
+
+			for (let index = 0; index < heartCount; index += 1) {
+				const heart = document.createElement("div");
+				heart.className = "raven-heart";
+				heart.innerHTML = heartMarkup;
+				heart.style.setProperty("--heart-x", `${centerX + randomBetween(-8, 8)}px`);
+				heart.style.setProperty("--heart-y", `${centerY + randomBetween(-4, 10)}px`);
+				heart.style.setProperty(
+					"--heart-rise",
+					`${-randomBetween(20, 38).toFixed(1)}px`,
+				);
+				heart.style.setProperty(
+					"--heart-drift-x",
+					`${randomBetween(-12, 12).toFixed(1)}px`,
+				);
+				heart.style.setProperty(
+					"--heart-scale",
+					`${randomBetween(0.82, 1.18).toFixed(2)}`,
+				);
+				heart.style.setProperty("--heart-delay", `${index * 90}ms`);
+				root.appendChild(heart);
+				window.setTimeout(() => {
+					heart.remove();
+				}, 1200 + index * 90);
+			}
+		};
+
+		const vanishBirdWithHearts = (bird) => {
+			spawnHeartBurst(bird);
+			removeBird(bird);
+		};
+
 		const processClickDrivenTargetChange = (beforeTargets, token) => {
 			if (token !== state.targetReactionToken) {
 				return;
@@ -886,7 +1012,26 @@
 
 			event.preventDefault();
 			event.stopPropagation();
-			startEscape(bird);
+			const roll = Math.random();
+			const alternateLandingSpot = chooseLandingSpot({
+				excludeBird: bird,
+				excludeElement:
+					bird.perch?.element instanceof HTMLElement ? bird.perch.element : null,
+			});
+
+			if (roll < CLICK_RELOCATE_PROBABILITY && alternateLandingSpot) {
+				startRelocation(bird, alternateLandingSpot);
+				ensureAnimationLoop();
+				return;
+			}
+
+			if (roll < CLICK_RELOCATE_PROBABILITY + CLICK_ESCAPE_PROBABILITY) {
+				startEscape(bird);
+				ensureAnimationLoop();
+				return;
+			}
+
+			vanishBirdWithHearts(bird);
 			ensureAnimationLoop();
 		};
 
