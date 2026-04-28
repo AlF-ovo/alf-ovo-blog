@@ -1232,11 +1232,17 @@
 				},
 			}));
 
-		const getBirdLandingAnchor = (bird) => ({
-			x: bird.perch?.x ?? bird.destination.x + bird.width / 2,
-			y: bird.perch?.y ?? bird.destination.y + bird.footOffset,
-			element: bird.perch?.element ?? null,
-		});
+		const getBirdLandingAnchor = (bird) => {
+			const pendingLandingSpot =
+				bird.actionPayload?.landingSpot?.element instanceof HTMLElement
+					? bird.actionPayload.landingSpot
+					: null;
+			return {
+				x: bird.perch?.x ?? pendingLandingSpot?.x ?? bird.destination.x + bird.width / 2,
+				y: bird.perch?.y ?? pendingLandingSpot?.y ?? bird.destination.y + bird.footOffset,
+				element: bird.perch?.element ?? pendingLandingSpot?.element ?? null,
+			};
+		};
 
 		const rememberBirdPerchElement = (bird, element) => {
 			if (!(element instanceof HTMLElement)) {
@@ -1297,7 +1303,11 @@
 					dx < MIN_COLUMN_GAP ? (1 - dx / MIN_COLUMN_GAP) * 1.8 : 0;
 				const rowPenalty = dy < MIN_ROW_GAP ? (1 - dy / MIN_ROW_GAP) * 1.4 : 0;
 				const sameElementPenalty =
-					anchor.element === spot.element ? 0.75 : 0;
+					anchor.element === spot.element ? 1.15 : 0;
+				const collisionPenalty =
+					anchor.element === spot.element && dx < MIN_COLUMN_GAP * 0.92
+						? (1 - dx / (MIN_COLUMN_GAP * 0.92)) * 3.8
+						: 0;
 				const recentElementPenalty =
 					excludeBird && excludeBird.recentPerchElements.includes(spot.element)
 						? 1.35 - excludeBird.recentPerchElements.indexOf(spot.element) * 0.3
@@ -1312,6 +1322,7 @@
 					columnPenalty -
 					rowPenalty -
 					sameElementPenalty -
+					collisionPenalty -
 					recentElementPenalty
 				);
 			}, 0);
