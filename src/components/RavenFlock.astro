@@ -365,6 +365,8 @@
 		const FOOD_RESET_DELAY_MS = 520;
 		const FOOD_HOVER_SHIFT_MIN_MS = 420;
 		const FOOD_HOVER_SHIFT_MAX_MS = 1380;
+		const TOP_DROP_LEFT_EXCLUSION_MIN = 88;
+		const TOP_DROP_LEFT_EXCLUSION_RATIO = 0.16;
 		const FOOD_BOUNCE_GRAVITY = 0.48;
 		const FOOD_BOUNCE_DAMPING = 0.34;
 		const FOOD_VISUAL_DRAG = 0.78;
@@ -1479,18 +1481,26 @@
 			updateScrapFrame(item);
 			return item;
 		};
-		const spawnTopDroppedDrumstick = (pointerX = state.food.pendingPointerX) => {
+		const getTopDropSpawnX = (size) => {
+			const maxX = Math.max(0, window.innerWidth - size);
+			if (maxX <= 0) {
+				return 0;
+			}
+
+			// Keep click-dropped drumsticks away from the far-left home position when space allows.
+			const leftExclusion = Math.min(
+				maxX,
+				Math.max(TOP_DROP_LEFT_EXCLUSION_MIN, window.innerWidth * TOP_DROP_LEFT_EXCLUSION_RATIO),
+			);
+			return randomBetween(leftExclusion, maxX);
+		};
+		const spawnTopDroppedDrumstick = () => {
 			const scale = state.food.scale;
 			const size = FOOD_HOME_SIZE * scale;
-			const spawnX = clamp(
-				(pointerX || window.innerWidth * 0.5) - size * 0.5,
-				0,
-				window.innerWidth - size,
-			);
 			createDroppedFoodItem({
 				foodKind: "drumstick",
 				scale,
-				x: spawnX,
+				x: getTopDropSpawnX(size),
 				y: -size - randomBetween(12, 44),
 				vy: randomBetween(2.8, 4.2),
 				bitesTotal: calculateFoodBites(scale),
@@ -2481,7 +2491,7 @@
 			releaseFoodPointerCapture(event.pointerId);
 
 			if (state.food.mode === "holding") {
-				spawnTopDroppedDrumstick(event.clientX);
+				spawnTopDroppedDrumstick();
 				resetFoodToHome();
 				summonBirdsToFood();
 				ensureAnimationLoop();
