@@ -2,7 +2,9 @@
 
 ---
 
-<div id="raven-flock" class="raven-flock" aria-hidden="true"></div>
+<div id="raven-flock" class="raven-flock" aria-hidden="true">
+	<div id="raven-drumstick" class="raven-drumstick" data-mode="idle"></div>
+</div>
 
 <style is:global>
 	.raven-flock {
@@ -46,36 +48,151 @@
 		will-change: transform;
 	}
 
-	.raven-bird[data-state="perched"] {
+	.raven-bird[data-state="panel-perched"] {
 		filter: drop-shadow(0 0.45rem 0.8rem rgb(3 7 18 / 0.22));
 	}
 
-	.raven-heart {
+	.raven-drumstick {
 		position: absolute;
 		left: 0;
 		top: 0;
-		width: 1rem;
-		height: 1rem;
-		pointer-events: none;
-		opacity: 0;
-		transform: translate3d(var(--heart-x, 0px), var(--heart-y, 0px), 0)
-			scale(var(--heart-scale, 1));
-		animation: raven-heart-pop 860ms steps(6, end) forwards;
-		animation-delay: var(--heart-delay, 0ms);
+		width: 2.75rem;
+		height: 2.75rem;
+		pointer-events: auto;
+		cursor: grab;
+		will-change: transform;
+		touch-action: none;
+		transform-origin: 50% 50%;
+		filter: drop-shadow(0 0.5rem 0.75rem rgb(15 23 42 / 0.24));
 	}
 
-	.raven-heart svg {
+	.raven-drumstick[data-mode="holding"] {
+		cursor: grabbing;
+	}
+
+	.raven-drumstick[data-mode="dragging"],
+	.raven-drumstick[data-mode="falling"],
+	.raven-drumstick[data-mode="active"] {
+		filter: drop-shadow(0 0.7rem 1rem rgb(15 23 42 / 0.3));
+	}
+
+	.raven-drumstick[data-mode="resetting"] {
+		opacity: 0;
+	}
+
+	.raven-drumstick__sprite,
+	.raven-drumstick__sprite svg {
 		display: block;
 		width: 100%;
 		height: 100%;
 		image-rendering: pixelated;
 	}
 
+	.raven-drumstick__meter {
+		position: absolute;
+		left: 50%;
+		top: 100%;
+		display: flex;
+		gap: 0.15rem;
+		transform: translateX(-50%);
+		padding-top: 0.15rem;
+	}
+
+	.raven-drumstick__pip {
+		width: 0.28rem;
+		height: 0.28rem;
+		background: #f3d37f;
+		box-shadow: 0 0 0 1px rgb(58 40 19 / 0.9);
+	}
+
+	.raven-drumstick__pip.is-spent {
+		background: rgb(90 72 52 / 0.45);
+		box-shadow: 0 0 0 1px rgb(36 30 22 / 0.65);
+	}
+
+	.raven-scrap {
+		position: absolute;
+		left: 0;
+		top: 0;
+		width: 1.5rem;
+		height: 1.5rem;
+		pointer-events: none;
+		will-change: transform;
+		filter: drop-shadow(0 0.28rem 0.4rem rgb(15 23 42 / 0.18));
+	}
+
+	.raven-scrap__sprite,
+	.raven-scrap__sprite svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		image-rendering: pixelated;
+	}
+
+	.raven-emote {
+		position: absolute;
+		left: 0;
+		top: 0;
+		pointer-events: none;
+		opacity: 0;
+	}
+
+	.raven-emote svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		image-rendering: pixelated;
+	}
+
+	.raven-thought-line {
+		position: absolute;
+		left: 0;
+		top: 0;
+		pointer-events: none;
+		max-width: min(22rem, 42vw);
+		color: #fff;
+		font-size: 0.88rem;
+		line-height: 1.35;
+		font-weight: 600;
+		letter-spacing: 0.01em;
+		text-shadow:
+			0 1px 0 rgb(9 9 12 / 0.85),
+			0 2px 10px rgb(9 9 12 / 0.42);
+		opacity: 0;
+		transform: translate3d(var(--talk-x, 0px), var(--talk-y, 0px), 0);
+		animation: raven-thought-line-fade 4800ms ease forwards;
+	}
+
+	.raven-emote--heart {
+		width: 1rem;
+		height: 1rem;
+		transform: translate3d(var(--fx-x, 0px), var(--fx-y, 0px), 0)
+			scale(var(--fx-scale, 1));
+		animation: raven-heart-pop 860ms steps(6, end) forwards;
+		animation-delay: var(--fx-delay, 0ms);
+	}
+
+	.raven-emote--angry {
+		width: 1.25rem;
+		height: 1.25rem;
+		transform: translate3d(var(--fx-x, 0px), var(--fx-y, 0px), 0)
+			scale(var(--fx-scale, 1));
+		animation: raven-angry-pop 780ms steps(5, end) forwards;
+	}
+
+	.raven-emote--thought {
+		width: 2.2rem;
+		height: 1.7rem;
+		transform: translate3d(var(--fx-x, 0px), var(--fx-y, 0px), 0)
+			scale(var(--fx-scale, 1));
+		animation: raven-thought-float 2600ms steps(8, end) forwards;
+	}
+
 	@keyframes raven-heart-pop {
 		0% {
 			opacity: 0;
-			transform: translate3d(var(--heart-x, 0px), var(--heart-y, 0px), 0)
-				scale(calc(var(--heart-scale, 1) * 0.65));
+			transform: translate3d(var(--fx-x, 0px), var(--fx-y, 0px), 0)
+				scale(calc(var(--fx-scale, 1) * 0.65));
 		}
 
 		18% {
@@ -89,11 +206,70 @@
 		100% {
 			opacity: 0;
 			transform: translate3d(
-					calc(var(--heart-x, 0px) + var(--heart-drift-x, 0px)),
-					calc(var(--heart-y, 0px) + var(--heart-rise, -28px)),
+					calc(var(--fx-x, 0px) + var(--fx-drift-x, 0px)),
+					calc(var(--fx-y, 0px) + var(--fx-rise, -28px)),
 					0
 				)
-				scale(calc(var(--heart-scale, 1) * 1.08));
+				scale(calc(var(--fx-scale, 1) * 1.08));
+		}
+	}
+
+	@keyframes raven-angry-pop {
+		0% {
+			opacity: 0;
+			transform: translate3d(var(--fx-x, 0px), var(--fx-y, 0px), 0)
+				scale(calc(var(--fx-scale, 1) * 0.55));
+		}
+
+		15%,
+		75% {
+			opacity: 1;
+		}
+
+		100% {
+			opacity: 0;
+			transform: translate3d(
+					calc(var(--fx-x, 0px) + var(--fx-drift-x, 0px)),
+					calc(var(--fx-y, 0px) + var(--fx-rise, -22px)),
+					0
+				)
+				scale(calc(var(--fx-scale, 1) * 1.05));
+		}
+	}
+
+	@keyframes raven-thought-float {
+		0% {
+			opacity: 0;
+			transform: translate3d(var(--fx-x, 0px), calc(var(--fx-y, 0px) + 4px), 0)
+				scale(calc(var(--fx-scale, 1) * 0.88));
+		}
+
+		12%,
+		82% {
+			opacity: 1;
+		}
+
+		100% {
+			opacity: 0;
+			transform: translate3d(var(--fx-x, 0px), calc(var(--fx-y, 0px) - 10px), 0)
+				scale(var(--fx-scale, 1));
+		}
+	}
+
+	@keyframes raven-thought-line-fade {
+		0% {
+			opacity: 0;
+			transform: translate3d(var(--talk-x, 0px), calc(var(--talk-y, 0px) + 6px), 0);
+		}
+
+		8%,
+		78% {
+			opacity: 1;
+		}
+
+		100% {
+			opacity: 0;
+			transform: translate3d(var(--talk-x, 0px), calc(var(--talk-y, 0px) - 10px), 0);
 		}
 	}
 </style>
@@ -106,7 +282,8 @@
 		window.__alfRavenFlockSetup = true;
 
 		const root = document.getElementById("raven-flock");
-		if (!(root instanceof HTMLElement)) {
+		const drumstickElement = document.getElementById("raven-drumstick");
+		if (!(root instanceof HTMLElement) || !(drumstickElement instanceof HTMLElement)) {
 			return;
 		}
 
@@ -131,8 +308,8 @@
 		const SPAWN_HEARTBEAT_MS = 4000;
 		const MIN_TARGET_WIDTH = 112;
 		const MIN_TARGET_HEIGHT = 56;
-		const MIN_DWELL_MS = 20000;
-		const MAX_DWELL_MS = 34000;
+		const MIN_DWELL_MS = 22000;
+		const MAX_DWELL_MS = 36000;
 		const FLIGHT_FRAME_INTERVAL_MS = 92;
 		const MIN_ROW_GAP = 84;
 		const MIN_COLUMN_GAP = 132;
@@ -142,10 +319,57 @@
 		const TARGET_REACTION_GRACE_MS = 260;
 		const ESCAPE_ON_TARGET_CHANGE_PROBABILITY = 0.55;
 		const STABLE_RELOCATION_PROBABILITY = 0.3;
-		const CLICK_RELOCATE_PROBABILITY = 0.6;
-		const CLICK_ESCAPE_PROBABILITY = 0.3;
+		const CLICK_HEART_PROBABILITY = 0.05;
+		const CLICK_RELOCATE_PROBABILITY = 0.635;
+		const CLICK_ESCAPE_PROBABILITY = 0.315;
+		const HUNGER_BUBBLE_DELAY_MS = 18000;
+		const HUNGER_BUBBLE_REPEAT_MS = 22000;
+		const THOUGHT_INTERVAL_MIN_MS = 24000;
+		const THOUGHT_INTERVAL_MAX_MS = 41000;
+		const FOOD_HOME_SIZE = 44;
+		const FOOD_MIN_SCALE = 1;
+		const FOOD_MAX_SCALE = 1.58;
+		const FOOD_HOLD_TO_MAX_MS = 2200;
+		const FOOD_DRAG_ACTIVATION_DISTANCE = 18;
+		const FOOD_WAIT_GATHER_DELAY_MS = 140;
+		const FOOD_BITE_COOLDOWN_MS = 5000;
+		const FOOD_BASE_BITES = 5;
+		const FOOD_MAX_EXTRA_BITES = 4;
+		const FOOD_CONTEST_MIN_MS = 1150;
+		const FOOD_CONTEST_MAX_MS = 2100;
+		const FOOD_RESET_DELAY_MS = 520;
+		const FOOD_FALL_GRAVITY = 0.82;
+		const FOOD_FALL_TERMINAL_VELOCITY = 18;
+		const SCRAP_BASE_SIZE = 28;
+		const SCRAP_FALL_GRAVITY = 0.72;
+		const SCRAP_FALL_TERMINAL_VELOCITY = 15;
+		const SCRAP_DROP_SCROLL_VELOCITY = 9;
+		const FOOD_WAIT_OFFSETS = [
+			[-96, -42],
+			[26, -66],
+			[78, -10],
+			[-114, 20],
+			[-20, -112],
+			[38, 56],
+		];
 		const PERCHED_FRAME_INDEX = 0;
 		const FLIGHT_SEQUENCE = [1, 2, 3, 4, 5, 4, 3, 2];
+		const BLOG_THOUGHTS = [
+			"要不要看看友链页呢？说不定能捡到新的巢枝。",
+			"这篇文章像风里的线索，我要不要再啄两眼？",
+			"归档里总有旧羽毛一样的记录，要不要翻翻？",
+			"也许下一篇笔记，就藏在这个页面的角落里。",
+			"这只乌鸦觉得，博客最妙的地方是总能捡到意外的东西。",
+			"要不要看看最近更新？风向说那里有新消息。",
+		];
+		const RAVEN_PHILOSOPHY = [
+			"作为一只乌鸦，我相信盘旋也是一种阅读。",
+			"作为一只乌鸦，盯着远方的时候，也是在整理自己的羽毛。",
+			"作为一只乌鸦，能落脚的地方不一定最多话，但一定最稳。",
+			"作为一只乌鸦，我知道好奇心比风更会带路。",
+			"作为一只乌鸦，叼走一小段灵感，比叼走整片黄昏更值。",
+			"作为一只乌鸦，有时候先停一停，才能看清该飞向哪里。",
+		];
 
 		const palette = {
 			body: "#17181d",
@@ -264,18 +488,56 @@
 		};
 
 		const spriteMarkup = frameDefinitions.map(buildSpriteMarkup);
+		const drumstickMarkup =
+			'<div class="raven-drumstick__sprite"><svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="11" width="3" height="3" fill="#f4ecde" /><rect x="2" y="10" width="1" height="1" fill="#f4ecde" /><rect x="2" y="14" width="1" height="1" fill="#f4ecde" /><rect x="3" y="12" width="2" height="2" fill="#f4ecde" /><rect x="4" y="11" width="1" height="1" fill="#ceb892" /><rect x="5" y="8" width="3" height="7" fill="#c77d3b" /><rect x="8" y="5" width="5" height="10" fill="#d98c47" /><rect x="13" y="6" width="3" height="8" fill="#c77d3b" /><rect x="15" y="7" width="2" height="6" fill="#b46731" /><rect x="7" y="6" width="2" height="2" fill="#edb16c" /><rect x="10" y="4" width="2" height="2" fill="#edb16c" /><rect x="9" y="15" width="4" height="1" fill="#9d5525" /><rect x="6" y="15" width="3" height="1" fill="#9d5525" /></svg></div><div class="raven-drumstick__meter"></div>';
 		const heartMarkup =
 			'<svg viewBox="0 0 8 7" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="0" width="2" height="2" fill="#ff84b7" /><rect x="5" y="0" width="2" height="2" fill="#ff84b7" /><rect x="0" y="1" width="3" height="2" fill="#ff84b7" /><rect x="5" y="1" width="3" height="2" fill="#ff84b7" /><rect x="1" y="3" width="6" height="2" fill="#ff6ea8" /><rect x="2" y="5" width="4" height="1" fill="#ff5b9a" /><rect x="3" y="6" width="2" height="1" fill="#ff5b9a" /></svg>';
+		const angryMarkup =
+			'<svg viewBox="0 0 12 12" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="2" y="1" width="8" height="8" fill="#fff6ef" /><rect x="1" y="2" width="1" height="6" fill="#fff6ef" /><rect x="10" y="2" width="1" height="6" fill="#fff6ef" /><rect x="3" y="9" width="4" height="1" fill="#fff6ef" /><rect x="4" y="10" width="2" height="1" fill="#fff6ef" /><rect x="2" y="0" width="8" height="1" fill="#4a3126" /><rect x="1" y="1" width="1" height="1" fill="#4a3126" /><rect x="10" y="1" width="1" height="1" fill="#4a3126" /><rect x="0" y="2" width="1" height="6" fill="#4a3126" /><rect x="11" y="2" width="1" height="6" fill="#4a3126" /><rect x="1" y="8" width="1" height="1" fill="#4a3126" /><rect x="10" y="8" width="1" height="1" fill="#4a3126" /><rect x="2" y="9" width="1" height="1" fill="#4a3126" /><rect x="7" y="9" width="3" height="1" fill="#4a3126" /><rect x="4" y="10" width="2" height="1" fill="#4a3126" /><rect x="3" y="2" width="1" height="6" fill="#d04a43" /><rect x="7" y="2" width="1" height="6" fill="#d04a43" /><rect x="2" y="4" width="7" height="1" fill="#d04a43" /><rect x="2" y="6" width="7" height="1" fill="#d04a43" /></svg>';
+		const thoughtMarkup =
+			'<svg viewBox="0 0 22 16" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="4" y="2" width="13" height="9" fill="#fff7ee" /><rect x="2" y="4" width="2" height="5" fill="#fff7ee" /><rect x="17" y="4" width="2" height="5" fill="#fff7ee" /><rect x="6" y="1" width="9" height="1" fill="#fff7ee" /><rect x="7" y="11" width="8" height="1" fill="#fff7ee" /><rect x="8" y="12" width="3" height="1" fill="#fff7ee" /><rect x="3" y="13" width="2" height="2" fill="#fff7ee" /><rect x="1" y="15" width="1" height="1" fill="#fff7ee" /><rect x="4" y="1" width="2" height="1" fill="#50352a" /><rect x="15" y="1" width="2" height="1" fill="#50352a" /><rect x="2" y="3" width="2" height="1" fill="#50352a" /><rect x="17" y="3" width="2" height="1" fill="#50352a" /><rect x="1" y="4" width="1" height="5" fill="#50352a" /><rect x="19" y="4" width="1" height="5" fill="#50352a" /><rect x="2" y="9" width="2" height="1" fill="#50352a" /><rect x="17" y="9" width="2" height="1" fill="#50352a" /><rect x="4" y="11" width="3" height="1" fill="#50352a" /><rect x="15" y="11" width="2" height="1" fill="#50352a" /><rect x="8" y="12" width="3" height="1" fill="#50352a" /><rect x="3" y="13" width="2" height="1" fill="#50352a" /><rect x="2" y="14" width="1" height="1" fill="#50352a" /><rect x="1" y="15" width="1" height="1" fill="#50352a" /><rect x="8" y="5" width="2" height="4" fill="#c77d3b" /><rect x="10" y="4" width="4" height="5" fill="#d98c47" /><rect x="14" y="5" width="2" height="4" fill="#c77d3b" /><rect x="7" y="7" width="1" height="2" fill="#f4ecde" /><rect x="7" y="6" width="1" height="1" fill="#f4ecde" /><rect x="8" y="8" width="1" height="1" fill="#f4ecde" /></svg>';
+		const scrapMarkup =
+			'<div class="raven-scrap__sprite"><svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="2" y="11" width="2" height="2" fill="#f4ecde" /><rect x="3" y="10" width="1" height="1" fill="#f4ecde" /><rect x="4" y="11" width="1" height="1" fill="#ceb892" /><rect x="5" y="9" width="2" height="5" fill="#c77d3b" /><rect x="7" y="7" width="4" height="7" fill="#d98c47" /><rect x="11" y="8" width="2" height="5" fill="#c77d3b" /><rect x="6" y="7" width="2" height="1" fill="#edb16c" /><rect x="8" y="14" width="3" height="1" fill="#9d5525" /></svg></div>';
 
 		const state = {
 			birds: [],
+			scraps: [],
 			rafId: 0,
 			spawnHeartbeatId: 0,
 			initialSpawnDone: false,
 			nextSpawnAt: 0,
+			nextBirdId: 1,
+			nextScrapId: 1,
+			nextThoughtAt: 0,
 			targetReactionToken: 0,
 			targetChangeGraceUntil: 0,
+			food: {
+				mode: "idle",
+				x: 0,
+				y: 0,
+				homeX: 0,
+				homeY: 0,
+				scale: FOOD_MIN_SCALE,
+				heldScale: FOOD_MIN_SCALE,
+				bitesTotal: FOOD_BASE_BITES,
+				bitesRemaining: FOOD_BASE_BITES,
+				lastBiteAt: -FOOD_BITE_COOLDOWN_MS,
+				nextContestAt: 0,
+				holdStartedAt: 0,
+				dragPointerId: null,
+				pointerStartX: 0,
+				pointerStartY: 0,
+				dragOffsetX: 0,
+				dragOffsetY: 0,
+				pendingPointerX: 0,
+				pendingPointerY: 0,
+				vy: 0,
+				resetAt: 0,
+			},
 		};
+
+		drumstickElement.innerHTML = drumstickMarkup;
+		const drumstickMeter = drumstickElement.querySelector(".raven-drumstick__meter");
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
 		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -284,6 +546,113 @@
 		const easeInCubic = (progress) => progress ** 3;
 		const easeInOutSine = (progress) =>
 			-(Math.cos(Math.PI * progress) - 1) / 2;
+		const shuffle = (items) => [...items].sort(() => Math.random() - 0.5);
+		const getMainFoodSize = () => FOOD_HOME_SIZE * state.food.scale;
+		const getScrapSize = (scrap) => SCRAP_BASE_SIZE * scrap.scale;
+		const getFoodSize = () => getMainFoodSize();
+		const getFoodBottomY = () => window.innerHeight - getMainFoodSize() - 10;
+		const isMainFoodDetected = () =>
+			["dragging", "falling", "active"].includes(state.food.mode) &&
+			state.food.bitesRemaining > 0;
+		const getActiveScraps = () =>
+			state.scraps.filter((scrap) => scrap.mode === "active");
+		const getCurrentFoodSource = () => {
+			if (isMainFoodDetected()) {
+				return {
+					kind: "main",
+					id: "main",
+					x: state.food.x,
+					y: state.food.y,
+					size: getMainFoodSize(),
+					scale: state.food.scale,
+					mode: state.food.mode,
+					bitesRemaining: state.food.bitesRemaining,
+				};
+			}
+
+			const activeScrap = getActiveScraps()[0];
+			if (!activeScrap) {
+				return null;
+			}
+
+			return {
+				kind: "scrap",
+				id: activeScrap.id,
+				x: activeScrap.x,
+				y: activeScrap.y,
+				size: getScrapSize(activeScrap),
+				scale: activeScrap.scale,
+				mode: activeScrap.mode,
+				bitesRemaining: activeScrap.bitesRemaining,
+			};
+		};
+		const isFoodDetected = () => getCurrentFoodSource() !== null;
+		const updateDrumstickVisibility = () => {
+			const shouldShow = state.birds.length > 0 || state.food.mode !== "idle";
+			drumstickElement.style.display = shouldShow ? "block" : "none";
+			drumstickElement.style.pointerEvents = shouldShow ? "auto" : "none";
+		};
+
+		const calculateFoodScaleFromHold = (elapsedMs) =>
+			FOOD_MIN_SCALE +
+			clamp(elapsedMs / FOOD_HOLD_TO_MAX_MS, 0, 1) *
+				(FOOD_MAX_SCALE - FOOD_MIN_SCALE);
+		const calculateFoodBites = (scale) =>
+			FOOD_BASE_BITES +
+			Math.round(
+				((scale - FOOD_MIN_SCALE) / (FOOD_MAX_SCALE - FOOD_MIN_SCALE)) *
+					FOOD_MAX_EXTRA_BITES,
+			);
+
+		const renderFoodMeter = () => {
+			if (!(drumstickMeter instanceof HTMLElement)) {
+				return;
+			}
+
+			drumstickMeter.innerHTML = "";
+			for (let index = 0; index < state.food.bitesTotal; index += 1) {
+				const pip = document.createElement("span");
+				pip.className = "raven-drumstick__pip";
+				if (index >= state.food.bitesRemaining) {
+					pip.classList.add("is-spent");
+				}
+				drumstickMeter.appendChild(pip);
+			}
+		};
+
+		const applyFoodFrame = () => {
+			drumstickElement.dataset.mode = state.food.mode;
+			drumstickElement.style.transform = `translate3d(${state.food.x}px, ${state.food.y}px, 0) scale(${state.food.scale})`;
+			renderFoodMeter();
+			updateDrumstickVisibility();
+		};
+
+		const syncFoodHomePosition = () => {
+			const margin = 16;
+			state.food.homeX = margin;
+			state.food.homeY = window.innerHeight - FOOD_HOME_SIZE - margin;
+			if (state.food.mode === "idle" || state.food.mode === "holding") {
+				state.food.x = state.food.homeX;
+				state.food.y = state.food.homeY;
+				applyFoodFrame();
+			}
+		};
+
+		const resetFoodToHome = () => {
+			state.food.mode = "idle";
+			state.food.scale = FOOD_MIN_SCALE;
+			state.food.heldScale = FOOD_MIN_SCALE;
+			state.food.bitesTotal = FOOD_BASE_BITES;
+			state.food.bitesRemaining = FOOD_BASE_BITES;
+			state.food.lastBiteAt = -FOOD_BITE_COOLDOWN_MS;
+			state.food.nextContestAt = 0;
+			state.food.vy = 0;
+			state.food.resetAt = 0;
+			state.food.dragPointerId = null;
+			state.food.x = state.food.homeX;
+			state.food.y = state.food.homeY;
+			applyFoodFrame();
+		};
 
 		const isVisibleTarget = (element) => {
 			if (!(element instanceof HTMLElement) || !element.isConnected) {
@@ -355,6 +724,33 @@
 			element: bird.perch?.element ?? null,
 		});
 
+		const rememberBirdPerchElement = (bird, element) => {
+			if (!(element instanceof HTMLElement)) {
+				return;
+			}
+
+			bird.recentPerchElements = [
+				element,
+				...bird.recentPerchElements.filter((item) => item !== element),
+			].slice(0, 3);
+		};
+
+		const updateBirdDimensions = (bird) => {
+			const previousWidth = bird.width;
+			const previousFootOffset = bird.footOffset;
+			const centerX = bird.x + previousWidth / 2;
+			const footY = bird.y + previousFootOffset;
+			const compositeScale = bird.baseScale * bird.growthScale;
+
+			bird.width = BASE_BIRD_WIDTH * compositeScale;
+			bird.height = BASE_BIRD_HEIGHT * compositeScale;
+			bird.footOffset = BASE_FOOT_OFFSET_Y * compositeScale;
+			bird.element.style.width = `${bird.width}px`;
+			bird.element.style.height = `${bird.height}px`;
+			bird.x = centerX - bird.width / 2;
+			bird.y = footY - bird.footOffset;
+		};
+
 		const scoreLandingSpot = (spot, options = {}) => {
 			const { excludeBird = null } = options;
 			const occupiedBirds = state.birds.filter(
@@ -373,11 +769,22 @@
 				const rowPenalty = dy < MIN_ROW_GAP ? (1 - dy / MIN_ROW_GAP) * 1.4 : 0;
 				const sameElementPenalty =
 					anchor.element === spot.element ? 0.75 : 0;
+				const recentElementPenalty =
+					excludeBird && excludeBird.recentPerchElements.includes(spot.element)
+						? 1.35 - excludeBird.recentPerchElements.indexOf(spot.element) * 0.3
+						: 0;
 				const spreadScore =
 					Math.min(dx / MIN_COLUMN_GAP, 1.4) +
 					Math.min(dy / MIN_ROW_GAP, 1.2);
 
-				return score + spreadScore - columnPenalty - rowPenalty - sameElementPenalty;
+				return (
+					score +
+					spreadScore -
+					columnPenalty -
+					rowPenalty -
+					sameElementPenalty -
+					recentElementPenalty
+				);
 			}, 0);
 		};
 
@@ -466,7 +873,7 @@
 			};
 		};
 
-		const getPerchDestination = (landingSpot, bird) => ({
+		const getPanelDestination = (landingSpot, bird) => ({
 			x: clamp(
 				landingSpot.x - bird.width / 2,
 				-VIEWPORT_PADDING,
@@ -475,43 +882,40 @@
 			y: landingSpot.y - bird.footOffset,
 		});
 
-		const getRelayWaypoint = (bird, landingSpot) => {
-			const landingDestination = getPerchDestination(landingSpot, bird);
-			const midpointX = (bird.x + landingDestination.x) / 2;
+		const getFoodWaitPoint = (bird, source = getCurrentFoodSource()) => {
+			if (!source) {
+				return { x: bird.x, y: bird.y };
+			}
+
+			const centerX = source.x + source.size * 0.5;
+			const centerY = source.y + source.size * 0.5;
+			const [offsetX, offsetY] =
+				FOOD_WAIT_OFFSETS[bird.foodSlotIndex % FOOD_WAIT_OFFSETS.length];
+			const scaleFactor = 0.7 + source.scale * 0.36;
 			return {
-				x: clamp(
-					midpointX + randomBetween(-60, 60),
-					-bird.width * 0.4,
-					window.innerWidth - bird.width * 0.6,
-				),
-				y: Math.max(
-					-bird.height * 2.2,
-					Math.min(bird.y, landingDestination.y) - randomBetween(110, 180),
-				),
+				x: centerX + offsetX * scaleFactor - bird.width / 2,
+				y: centerY + offsetY * scaleFactor - bird.height / 2,
 			};
 		};
 
-		const beginFlightSegment = (bird, options) => {
-			const {
-				state: nextState,
-				destination,
-				duration,
-				arcHeight,
-				finalAction,
-				landingSpot = null,
-			} = options;
+		const getFoodBitePoint = (index = 0, source = getCurrentFoodSource()) => {
+			if (!source) {
+				return { x: 0, y: 0 };
+			}
 
-			bird.state = nextState;
-			bird.element.dataset.state = nextState;
-			bird.source = { x: bird.x, y: bird.y };
-			bird.destination = destination;
-			bird.startedAt = performance.now();
-			bird.duration = duration;
-			bird.arcHeight = arcHeight;
-			bird.facing = destination.x >= bird.x ? 1 : -1;
-			bird.nextFrameAt = bird.startedAt;
-			bird.finalAction = finalAction;
-			bird.pendingLandingSpot = landingSpot;
+			const size = source.size;
+			const centerX = source.x + size * 0.52;
+			const centerY = source.y + size * 0.48;
+			const offsets = [
+				[-8, -6],
+				[6, -2],
+				[-2, 6],
+			];
+			const [offsetX, offsetY] = offsets[index % offsets.length];
+			return {
+				x: centerX + offsetX * source.scale,
+				y: centerY + offsetY * source.scale,
+			};
 		};
 
 		const setBirdFrame = (bird, frameIndex) => {
@@ -549,48 +953,438 @@
 				bird.element.remove();
 			}
 			state.birds = state.birds.filter((item) => item !== bird);
+			assignFoodSlots();
+			updateDrumstickVisibility();
 		};
 
-		const setBirdPerched = (bird) => {
-			bird.state = "perched";
-			bird.element.dataset.state = "perched";
+		const beginFlightSegment = (bird, options) => {
+			const {
+				state: nextState,
+				destination,
+				duration,
+				arcHeight,
+				finalAction,
+				payload = null,
+			} = options;
+
+			bird.state = nextState;
+			bird.element.dataset.state = nextState;
+			bird.source = { x: bird.x, y: bird.y };
+			bird.destination = destination;
+			bird.startedAt = performance.now();
+			bird.duration = duration;
+			bird.arcHeight = arcHeight;
+			bird.facing = destination.x >= bird.x ? 1 : -1;
+			bird.nextFrameAt = bird.startedAt;
+			bird.finalAction = finalAction;
+			bird.actionPayload = payload;
+		};
+
+		const spawnEmote = (markup, className, options) => {
+			const emote = document.createElement("div");
+			emote.className = `raven-emote ${className}`;
+			emote.innerHTML = markup;
+			emote.style.setProperty("--fx-x", `${options.x}px`);
+			emote.style.setProperty("--fx-y", `${options.y}px`);
+			emote.style.setProperty(
+				"--fx-rise",
+				`${(options.rise ?? -24).toFixed(1)}px`,
+			);
+			emote.style.setProperty(
+				"--fx-drift-x",
+				`${(options.driftX ?? 0).toFixed(1)}px`,
+			);
+			emote.style.setProperty(
+				"--fx-scale",
+				`${(options.scale ?? 1).toFixed(2)}`,
+			);
+			if (typeof options.delay === "number") {
+				emote.style.setProperty("--fx-delay", `${options.delay}ms`);
+			}
+			root.appendChild(emote);
+			window.setTimeout(() => {
+				emote.remove();
+			}, options.lifetime ?? 2400);
+		};
+
+		const spawnHeartBurst = (bird) => {
+			const heartCount = 3 + Math.floor(Math.random() * 3);
+			const centerX = bird.x + bird.width * 0.52;
+			const centerY = bird.y + bird.height * 0.3;
+
+			for (let index = 0; index < heartCount; index += 1) {
+				spawnEmote(heartMarkup, "raven-emote--heart", {
+					x: centerX + randomBetween(-8, 8),
+					y: centerY + randomBetween(-4, 10),
+					rise: -randomBetween(20, 38),
+					driftX: randomBetween(-12, 12),
+					scale: randomBetween(0.82, 1.18),
+					delay: index * 90,
+					lifetime: 1280 + index * 90,
+				});
+			}
+		};
+
+		const spawnAngryBurst = (bird) => {
+			spawnEmote(angryMarkup, "raven-emote--angry", {
+				x: bird.x + bird.width * 0.42,
+				y: bird.y + bird.height * 0.08,
+				rise: -18,
+				driftX: randomBetween(-4, 4),
+				scale: randomBetween(0.92, 1.08),
+				lifetime: 960,
+			});
+		};
+
+		const spawnHungerThought = (bird) => {
+			spawnEmote(thoughtMarkup, "raven-emote--thought", {
+				x: bird.x + bird.width * 0.32,
+				y: bird.y - 28,
+				scale: 1,
+				lifetime: 2800,
+			});
+		};
+
+		const scheduleNextThought = (now = performance.now()) => {
+			state.nextThoughtAt =
+				now + randomBetween(THOUGHT_INTERVAL_MIN_MS, THOUGHT_INTERVAL_MAX_MS);
+		};
+
+		const getThoughtText = () => {
+			const pool = Math.random() < 0.58 ? BLOG_THOUGHTS : RAVEN_PHILOSOPHY;
+			return pool[Math.floor(Math.random() * pool.length)];
+		};
+
+		const spawnThoughtLine = (bird, text) => {
+			const line = document.createElement("div");
+			line.className = "raven-thought-line";
+			line.textContent = text;
+			const aheadX = bird.x + bird.width * (bird.facing > 0 ? 0.72 : -0.08);
+			const offsetX = bird.facing > 0 ? 12 : -12;
+			const y = bird.y - 16;
+			line.style.setProperty("--talk-x", `${aheadX + offsetX}px`);
+			line.style.setProperty("--talk-y", `${y}px`);
+			root.appendChild(line);
+			window.setTimeout(() => {
+				line.remove();
+			}, 5000);
+		};
+
+		const maybeTriggerSharedThought = (now) => {
+			if (state.nextThoughtAt === 0) {
+				scheduleNextThought(now);
+				return;
+			}
+
+			if (now < state.nextThoughtAt) {
+				return;
+			}
+
+			const candidates = state.birds.filter(
+				(bird) => bird.state === "panel-perched" || bird.state === "food-hover",
+			);
+			if (candidates.length > 0) {
+				const totalWeight = candidates.reduce(
+					(sum, bird) => sum + clamp(bird.growthScale ** 2, 1, 3.2),
+					0,
+				);
+				let roll = Math.random() * totalWeight;
+				let bird = candidates[candidates.length - 1];
+				for (const candidate of candidates) {
+					roll -= clamp(candidate.growthScale ** 2, 1, 3.2);
+					if (roll <= 0) {
+						bird = candidate;
+						break;
+					}
+				}
+				spawnThoughtLine(bird, getThoughtText());
+			}
+			scheduleNextThought(now);
+		};
+
+		const getClickInteractionProbabilities = (bird) => {
+			const eatenBonus = clamp(bird.foodEatenCount * 0.045, 0, 0.16);
+			const relocateProbability = Math.min(
+				0.9,
+				CLICK_RELOCATE_PROBABILITY + eatenBonus,
+			);
+			const heartProbability = CLICK_HEART_PROBABILITY;
+			const escapeProbability = Math.max(
+				0.05,
+				CLICK_ESCAPE_PROBABILITY - eatenBonus,
+			);
+			return {
+				relocateProbability,
+				escapeProbability,
+				heartProbability,
+			};
+		};
+
+		const createScrapFromBird = (bird) => {
+			const element = document.createElement("div");
+			element.className = "raven-scrap";
+			element.innerHTML = scrapMarkup;
+
+			const scale = clamp(
+				0.76 + bird.foodEatenCount * 0.12 + (bird.baseScale - 1) * 0.7,
+				0.72,
+				1.55,
+			);
+			const x = bird.x + bird.width * 0.46 - (SCRAP_BASE_SIZE * scale) / 2;
+			const y = bird.y + bird.height * 0.18;
+			const scrap = {
+				id: state.nextScrapId++,
+				element,
+				scale,
+				x,
+				y,
+				vy: 2.4,
+				mode: "falling",
+				bitesTotal: Math.max(
+					1,
+					Math.round(1 + bird.foodEatenCount * 0.6 + (scale - 0.72) * 1.8),
+				),
+				bitesRemaining: 0,
+			};
+
+			scrap.bitesRemaining = scrap.bitesTotal;
+			state.scraps.push(scrap);
+			root.appendChild(scrap.element);
+			scrap.element.style.transform = `translate3d(${scrap.x}px, ${scrap.y}px, 0) scale(${scrap.scale})`;
+			return scrap;
+		};
+
+		const updateScrapFrame = (scrap) => {
+			scrap.element.style.transform = `translate3d(${scrap.x}px, ${scrap.y}px, 0) scale(${scrap.scale})`;
+		};
+
+		const removeScrap = (scrap) => {
+			if (scrap.element.isConnected) {
+				scrap.element.remove();
+			}
+			state.scraps = state.scraps.filter((item) => item.id !== scrap.id);
+		};
+
+		const dropAllScrapsOffscreen = () => {
+			state.scraps.forEach((scrap) => {
+				scrap.mode = "dropping";
+				scrap.vy = Math.max(scrap.vy, SCRAP_DROP_SCROLL_VELOCITY);
+			});
+			if (state.scraps.length > 0) {
+				ensureAnimationLoop();
+			}
+		};
+
+		const setBirdPanelPerched = (bird) => {
+			bird.state = "panel-perched";
+			bird.element.dataset.state = "panel-perched";
 			bird.x = bird.destination.x;
 			bird.y = bird.destination.y;
 			bird.visualShiftX = 0;
 			bird.visualBob = 0;
 			bird.leaveAt = performance.now() + randomBetween(MIN_DWELL_MS, MAX_DWELL_MS);
+			bird.perchedAt = performance.now();
+			bird.lastHungerBubbleAt = bird.lastHungerBubbleAt || 0;
+			rememberBirdPerchElement(bird, bird.perch?.element ?? null);
 			setBirdFrame(bird, PERCHED_FRAME_INDEX);
 			applyBirdFrame(bird);
 		};
 
-		const startRelocation = (bird, landingSpot, options = {}) => {
+		const sendBirdToPanel = (bird, landingSpot, options = {}) => {
 			const { doubleHop = false } = options;
 			if (!landingSpot) {
 				startEscape(bird);
 				return;
 			}
 
+			const destination = getPanelDestination(landingSpot, bird);
 			if (doubleHop) {
-				const relayWaypoint = getRelayWaypoint(bird, landingSpot);
+				const relay = {
+					x: clamp(
+						(bird.x + destination.x) / 2 + randomBetween(-60, 60),
+						-bird.width * 0.4,
+						window.innerWidth - bird.width * 0.6,
+					),
+					y: Math.max(
+						-bird.height * 2,
+						Math.min(bird.y, destination.y) - randomBetween(110, 170),
+					),
+				};
 				beginFlightSegment(bird, {
 					state: "relocating",
-					destination: relayWaypoint,
+					destination: relay,
 					duration: randomBetween(420, 620),
-					arcHeight: randomBetween(26, 54),
-					finalAction: "relay",
-					landingSpot,
+					arcHeight: randomBetween(24, 52),
+					finalAction: "relayToPanel",
+					payload: { landingSpot },
 				});
 				return;
 			}
 
 			beginFlightSegment(bird, {
-				state: "relocating",
-				destination: getPerchDestination(landingSpot, bird),
-				duration: randomBetween(760, 1120),
+				state: "approaching",
+				destination,
+				duration: randomBetween(760, 1180),
 				arcHeight: randomBetween(24, 52),
-				finalAction: "perch",
-				landingSpot,
+				finalAction: "panelPerch",
+				payload: { landingSpot },
 			});
+		};
+
+		const releaseBirdFromFood = (bird) => {
+			const landingSpot = chooseLandingSpot({
+				excludeBird: bird,
+			});
+			if (landingSpot) {
+				sendBirdToPanel(bird, landingSpot);
+				return;
+			}
+			startEscape(bird);
+		};
+
+		const assignFoodSlots = () => {
+			const foodBirds = state.birds
+				.filter((bird) => bird.state !== "escaping")
+				.sort((left, right) => left.id - right.id);
+			foodBirds.forEach((bird, index) => {
+				bird.foodSlotIndex = index;
+			});
+		};
+
+		const startFoodHover = (bird, options = {}) => {
+			const source = getCurrentFoodSource();
+			if (!source) {
+				releaseBirdFromFood(bird);
+				return;
+			}
+
+			assignFoodSlots();
+			const waitPoint = getFoodWaitPoint(bird, source);
+			if (options.direct) {
+				bird.state = "food-hover";
+				bird.element.dataset.state = "food-hover";
+				bird.x = waitPoint.x;
+				bird.y = waitPoint.y;
+				bird.visualShiftX = 0;
+				bird.visualBob = 0;
+				applyBirdFrame(bird);
+				return;
+			}
+
+			beginFlightSegment(bird, {
+				state: "food-approaching",
+				destination: waitPoint,
+				duration: randomBetween(640, 980),
+				arcHeight: randomBetween(18, 38),
+				finalAction: "foodHover",
+				payload: { source },
+			});
+		};
+
+		const summonBirdsToFood = () => {
+			if (!isFoodDetected()) {
+				return;
+			}
+
+			assignFoodSlots();
+			state.birds.forEach((bird) => {
+				if (bird.state === "escaping") {
+					return;
+				}
+				startFoodHover(bird);
+			});
+			ensureAnimationLoop();
+		};
+
+		const startFoodDash = (bird, options) => {
+			const bitePoint = getFoodBitePoint(options.index, options.source);
+			const destination = {
+				x: bitePoint.x - bird.width * 0.42 + randomBetween(-10, 10),
+				y: bitePoint.y - bird.height * 0.38 + randomBetween(-8, 8),
+			};
+			beginFlightSegment(bird, {
+				state: "food-dash",
+				destination,
+				duration: randomBetween(340, 560),
+				arcHeight: randomBetween(10, 26),
+				finalAction: options.success ? "foodBiteSuccess" : "foodBiteFail",
+				payload: { source: options.source, success: options.success },
+			});
+		};
+
+		const completeFoodBite = (bird) => {
+			const source = bird.actionPayload?.source ?? getCurrentFoodSource();
+			if (!source) {
+				releaseBirdFromFood(bird);
+				return;
+			}
+
+			if (source.kind === "main") {
+				state.food.bitesRemaining = Math.max(0, state.food.bitesRemaining - 1);
+			} else {
+				const scrap = state.scraps.find((item) => item.id === source.id);
+				if (!scrap) {
+					releaseBirdFromFood(bird);
+					return;
+				}
+				scrap.bitesRemaining = Math.max(0, scrap.bitesRemaining - 1);
+			}
+
+			bird.hasEatenFood = true;
+			bird.foodEatenCount += 1;
+			bird.growthScale = clamp(1 + bird.foodEatenCount * 0.065, 1, 1.28);
+			updateBirdDimensions(bird);
+			spawnHeartBurst(bird);
+			applyFoodFrame();
+
+			if (source.kind === "main" && state.food.bitesRemaining === 0) {
+				state.food.mode = "resetting";
+				state.food.resetAt = performance.now() + FOOD_RESET_DELAY_MS;
+				applyFoodFrame();
+				state.birds.forEach((otherBird) => {
+					if (otherBird !== bird && otherBird.state.startsWith("food")) {
+						releaseBirdFromFood(otherBird);
+					}
+				});
+				releaseBirdFromFood(bird);
+				return;
+			}
+
+			if (source.kind === "scrap") {
+				const scrap = state.scraps.find((item) => item.id === source.id);
+				if (!scrap || scrap.bitesRemaining === 0) {
+					if (scrap?.element.isConnected) {
+						scrap.element.remove();
+					}
+					state.scraps = state.scraps.filter((item) => item.id !== source.id);
+					if (!isFoodDetected()) {
+						releaseBirdFromFood(bird);
+						return;
+					}
+				}
+			}
+
+			startFoodHover(bird);
+		};
+
+		const handleFailedFoodDash = (bird) => {
+			if (!bird.hasEatenFood) {
+				spawnAngryBurst(bird);
+			}
+
+			if (isFoodDetected()) {
+				startFoodHover(bird);
+				return;
+			}
+
+			releaseBirdFromFood(bird);
+		};
+
+		const vanishBirdWithHearts = (bird) => {
+			spawnHeartBurst(bird);
+			createScrapFromBird(bird);
+			removeBird(bird);
+			ensureAnimationLoop();
 		};
 
 		const startEscape = (bird) => {
@@ -609,7 +1403,49 @@
 			bird.facing = exitPoint.direction;
 		};
 
-		const updateFlyingBird = (bird, now) => {
+		const handleCompletedFlightAction = (bird) => {
+			if (bird.finalAction === "remove") {
+				removeBird(bird);
+				return;
+			}
+
+			if (bird.finalAction === "panelPerch") {
+				bird.perch = bird.actionPayload?.landingSpot ?? null;
+				if (!bird.perch) {
+					startEscape(bird);
+					return;
+				}
+				setBirdPanelPerched(bird);
+				return;
+			}
+
+			if (bird.finalAction === "relayToPanel") {
+				const landingSpot = bird.actionPayload?.landingSpot ?? null;
+				if (!landingSpot) {
+					startEscape(bird);
+					return;
+				}
+				sendBirdToPanel(bird, landingSpot);
+				return;
+			}
+
+			if (bird.finalAction === "foodHover") {
+				bird.state = "food-hover";
+				bird.element.dataset.state = "food-hover";
+				return;
+			}
+
+			if (bird.finalAction === "foodBiteSuccess") {
+				completeFoodBite(bird);
+				return;
+			}
+
+			if (bird.finalAction === "foodBiteFail") {
+				handleFailedFoodDash(bird);
+			}
+		};
+
+		const updateMovingBird = (bird, now) => {
 			const progress = clamp((now - bird.startedAt) / bird.duration, 0, 1);
 			const eased =
 				bird.state === "escaping" ? easeInCubic(progress) : easeOutCubic(progress);
@@ -625,35 +1461,11 @@
 			applyBirdFrame(bird);
 
 			if (progress >= 1) {
-				if (bird.finalAction === "remove") {
-					removeBird(bird);
-					return;
-				}
-
-				if (bird.finalAction === "relay") {
-					const nextLandingSpot = bird.pendingLandingSpot;
-					if (!nextLandingSpot) {
-						startEscape(bird);
-						return;
-					}
-
-					beginFlightSegment(bird, {
-						state: "relocating",
-						destination: getPerchDestination(nextLandingSpot, bird),
-						duration: randomBetween(720, 1080),
-						arcHeight: randomBetween(24, 50),
-						finalAction: "perch",
-						landingSpot: nextLandingSpot,
-					});
-					return;
-				}
-
-				bird.perch = bird.pendingLandingSpot;
-				setBirdPerched(bird);
+				handleCompletedFlightAction(bird);
 			}
 		};
 
-		const updatePerchedBird = (bird, now) => {
+		const updatePanelPerchedBird = (bird, now) => {
 			if (
 				!isVisibleTarget(bird.perch.element) &&
 				now < state.targetChangeGraceUntil
@@ -665,6 +1477,11 @@
 
 			if (!isVisibleTarget(bird.perch.element) || now >= bird.leaveAt) {
 				startEscape(bird);
+				return;
+			}
+
+			if (isFoodDetected()) {
+				startFoodHover(bird);
 				return;
 			}
 
@@ -681,90 +1498,89 @@
 			bird.visualBob = Math.round(
 				Math.sin(swayPhase) * 1 + Math.sin(swayPhase * 0.47) * 0.4,
 			);
+
+			if (
+				now - bird.perchedAt >= HUNGER_BUBBLE_DELAY_MS &&
+				now - bird.lastHungerBubbleAt >= HUNGER_BUBBLE_REPEAT_MS
+			) {
+				bird.lastHungerBubbleAt = now;
+				spawnHungerThought(bird);
+			}
+
 			setBirdFrame(bird, PERCHED_FRAME_INDEX);
 			applyBirdFrame(bird);
 		};
 
-		const tick = (now) => {
-			state.birds.slice().forEach((bird) => {
-				if (
-					bird.state === "approaching" ||
-					bird.state === "relocating" ||
-					bird.state === "escaping"
-				) {
-					updateFlyingBird(bird, now);
-					return;
-				}
-
-				if (bird.state === "perched") {
-					updatePerchedBird(bird, now);
-				}
-			});
-
-			if (state.birds.length === 0) {
-				state.rafId = 0;
+		const updateFoodHoverBird = (bird, now) => {
+			const source = getCurrentFoodSource();
+			if (!source) {
+				releaseBirdFromFood(bird);
 				return;
 			}
 
-			state.rafId = window.requestAnimationFrame(tick);
+			assignFoodSlots();
+			const waitPoint = getFoodWaitPoint(bird, source);
+			const orbitPhase = now * 0.0032 + bird.idlePhase;
+			const targetX = waitPoint.x + Math.round(Math.cos(orbitPhase) * 2);
+			const targetY = waitPoint.y + Math.round(Math.sin(orbitPhase * 1.2) * 3);
+			bird.facing = targetX >= bird.x ? 1 : -1;
+			bird.x = lerp(bird.x, targetX, 0.12);
+			bird.y = lerp(bird.y, targetY, 0.12);
+			bird.visualShiftX = 0;
+			bird.visualBob = 0;
+			updateFlightFrame(bird, now);
+			applyBirdFrame(bird);
 		};
 
-		const ensureAnimationLoop = () => {
-			if (state.rafId !== 0) {
-				return;
-			}
-			state.rafId = window.requestAnimationFrame(tick);
-		};
-
-		const createBird = (landingSpot) => {
+		const createBird = () => {
 			const element = document.createElement("div");
 			element.className = "raven-bird";
-			element.dataset.state = "approaching";
 
 			const sprite = document.createElement("div");
 			sprite.className = "raven-bird__sprite";
 			element.appendChild(sprite);
 
 			const sizeScale = randomBetween(0.92, 1.12);
-			const width = BASE_BIRD_WIDTH * sizeScale;
-			const height = BASE_BIRD_HEIGHT * sizeScale;
-			const footOffset = BASE_FOOT_OFFSET_Y * sizeScale;
-			element.style.width = `${width}px`;
-			element.style.height = `${height}px`;
-
-			const source = getSkyEntryPoint(width);
-			const destination = getPerchDestination(landingSpot, {
-				width,
-				footOffset,
-			});
+			const initialWidth = BASE_BIRD_WIDTH * sizeScale;
+			const source = getSkyEntryPoint(initialWidth);
 
 			const bird = {
+				id: state.nextBirdId++,
 				element,
 				sprite,
-				state: "approaching",
+				state: "spawning",
 				source,
-				destination,
-				perch: landingSpot,
+				destination: source,
+				perch: null,
 				x: source.x,
 				y: source.y,
-				width,
-				height,
-				footOffset,
-				facing: destination.x >= source.x ? 1 : -1,
+				width: BASE_BIRD_WIDTH * sizeScale,
+				height: BASE_BIRD_HEIGHT * sizeScale,
+				footOffset: BASE_FOOT_OFFSET_Y * sizeScale,
+				facing: 1,
 				startedAt: performance.now(),
-				duration: randomBetween(1500, 2300),
-				arcHeight: randomBetween(20, 54),
+				duration: 0,
+				arcHeight: 0,
 				leaveAt: 0,
+				perchedAt: 0,
 				frameIndex: -1,
 				frameCursor: Math.floor(Math.random() * FLIGHT_SEQUENCE.length),
 				nextFrameAt: performance.now(),
-				finalAction: "perch",
-				pendingLandingSpot: landingSpot,
+				finalAction: "remove",
+				actionPayload: null,
 				visualShiftX: 0,
 				visualBob: 0,
 				idlePhase: randomBetween(0, Math.PI * 2),
+				foodSlotIndex: 0,
+				hasEatenFood: false,
+				foodEatenCount: 0,
+				lastHungerBubbleAt: 0,
+				baseScale: sizeScale,
+				growthScale: 1,
+				recentPerchElements: [],
 			};
 
+			updateBirdDimensions(bird);
 			setBirdFrame(bird, FLIGHT_SEQUENCE[bird.frameCursor]);
 			applyBirdFrame(bird);
 			return bird;
@@ -775,19 +1591,32 @@
 				return;
 			}
 
-			const landingSpot = chooseLandingSpot();
-			if (!landingSpot) {
+			if (!isFoodDetected()) {
+				const landingSpot = chooseLandingSpot();
+				if (!landingSpot) {
+					return;
+				}
+
+				const bird = createBird();
+				state.birds.push(bird);
+				root.appendChild(bird.element);
+				updateDrumstickVisibility();
+				if (instantPerch) {
+					bird.perch = landingSpot;
+					bird.destination = getPanelDestination(landingSpot, bird);
+					setBirdPanelPerched(bird);
+				} else {
+					sendBirdToPanel(bird, landingSpot);
+				}
+				ensureAnimationLoop();
 				return;
 			}
 
-			const bird = createBird(landingSpot);
+			const bird = createBird();
 			state.birds.push(bird);
 			root.appendChild(bird.element);
-
-			if (instantPerch) {
-				setBirdPerched(bird);
-			}
-
+			updateDrumstickVisibility();
+			startFoodHover(bird);
 			ensureAnimationLoop();
 		};
 
@@ -863,61 +1692,24 @@
 				ESCAPE_ON_TARGET_CHANGE_PROBABILITY + STABLE_RELOCATION_PROBABILITY
 			) {
 				if (stableLandingSpot) {
-					startRelocation(bird, stableLandingSpot);
+					sendBirdToPanel(bird, stableLandingSpot);
 					return;
 				}
-
 				startEscape(bird);
 				return;
 			}
 
 			if (freshLandingSpot) {
-				startRelocation(bird, freshLandingSpot, { doubleHop: true });
+				sendBirdToPanel(bird, freshLandingSpot, { doubleHop: true });
 				return;
 			}
 
 			if (stableLandingSpot) {
-				startRelocation(bird, stableLandingSpot);
+				sendBirdToPanel(bird, stableLandingSpot);
 				return;
 			}
 
 			startEscape(bird);
-		};
-
-		const spawnHeartBurst = (bird) => {
-			const heartCount = 3 + Math.floor(Math.random() * 3);
-			const centerX = bird.x + bird.width * 0.52;
-			const centerY = bird.y + bird.height * 0.3;
-
-			for (let index = 0; index < heartCount; index += 1) {
-				const heart = document.createElement("div");
-				heart.className = "raven-heart";
-				heart.innerHTML = heartMarkup;
-				heart.style.setProperty("--heart-x", `${centerX + randomBetween(-8, 8)}px`);
-				heart.style.setProperty("--heart-y", `${centerY + randomBetween(-4, 10)}px`);
-				heart.style.setProperty(
-					"--heart-rise",
-					`${-randomBetween(20, 38).toFixed(1)}px`,
-				);
-				heart.style.setProperty(
-					"--heart-drift-x",
-					`${randomBetween(-12, 12).toFixed(1)}px`,
-				);
-				heart.style.setProperty(
-					"--heart-scale",
-					`${randomBetween(0.82, 1.18).toFixed(2)}`,
-				);
-				heart.style.setProperty("--heart-delay", `${index * 90}ms`);
-				root.appendChild(heart);
-				window.setTimeout(() => {
-					heart.remove();
-				}, 1200 + index * 90);
-			}
-		};
-
-		const vanishBirdWithHearts = (bird) => {
-			spawnHeartBurst(bird);
-			removeBird(bird);
 		};
 
 		const processClickDrivenTargetChange = (beforeTargets, token) => {
@@ -946,7 +1738,7 @@
 			}
 
 			state.birds.slice().forEach((bird) => {
-				if (bird.state !== "perched" || !(bird.perch?.element instanceof HTMLElement)) {
+				if (bird.state !== "panel-perched" || !(bird.perch?.element instanceof HTMLElement)) {
 					return;
 				}
 
@@ -979,17 +1771,235 @@
 			}, TARGET_REACTION_DELAY_MS);
 		};
 
+		const activateFoodDrag = () => {
+			state.food.mode = "dragging";
+			state.food.scale = state.food.heldScale;
+			state.food.bitesTotal = calculateFoodBites(state.food.scale);
+			state.food.bitesRemaining = state.food.bitesTotal;
+			state.food.lastBiteAt = -FOOD_BITE_COOLDOWN_MS;
+			state.food.nextContestAt =
+				performance.now() + randomBetween(FOOD_WAIT_GATHER_DELAY_MS, 320);
+			applyFoodFrame();
+			summonBirdsToFood();
+		};
+
+		const handleDrumstickPointerDown = (event) => {
+			if (state.food.mode !== "idle") {
+				return;
+			}
+
+			event.preventDefault();
+			state.food.mode = "holding";
+			state.food.dragPointerId = event.pointerId;
+			state.food.pointerStartX = event.clientX;
+			state.food.pointerStartY = event.clientY;
+			state.food.pendingPointerX = event.clientX;
+			state.food.pendingPointerY = event.clientY;
+			state.food.dragOffsetX = event.clientX - state.food.x;
+			state.food.dragOffsetY = event.clientY - state.food.y;
+			state.food.holdStartedAt = performance.now();
+			state.food.heldScale = FOOD_MIN_SCALE;
+			state.food.scale = FOOD_MIN_SCALE;
+			state.food.bitesTotal = FOOD_BASE_BITES;
+			state.food.bitesRemaining = FOOD_BASE_BITES;
+			applyFoodFrame();
+			ensureAnimationLoop();
+		};
+
+		const handlePointerMove = (event) => {
+			if (event.pointerId !== state.food.dragPointerId) {
+				return;
+			}
+
+			state.food.pendingPointerX = event.clientX;
+			state.food.pendingPointerY = event.clientY;
+			if (state.food.mode === "holding") {
+				const distance = Math.hypot(
+					event.clientX - state.food.pointerStartX,
+					event.clientY - state.food.pointerStartY,
+				);
+				if (distance >= FOOD_DRAG_ACTIVATION_DISTANCE) {
+					activateFoodDrag();
+				}
+				return;
+			}
+
+			if (state.food.mode === "dragging") {
+				state.food.x = clamp(
+					event.clientX - state.food.dragOffsetX,
+					0,
+					window.innerWidth - getFoodSize(),
+				);
+				state.food.y = clamp(
+					event.clientY - state.food.dragOffsetY,
+					0,
+					window.innerHeight - getFoodSize(),
+				);
+				applyFoodFrame();
+			}
+		};
+
+		const handlePointerUp = (event) => {
+			if (event.pointerId !== state.food.dragPointerId) {
+				return;
+			}
+
+			if (state.food.mode === "holding") {
+				resetFoodToHome();
+				return;
+			}
+
+			if (state.food.mode !== "dragging") {
+				state.food.dragPointerId = null;
+				return;
+			}
+
+			state.food.dragPointerId = null;
+			state.food.mode = "falling";
+			state.food.vy = 2.2;
+			applyFoodFrame();
+			ensureAnimationLoop();
+		};
+
+		const updateFood = (now) => {
+			if (state.food.mode === "idle") {
+				return;
+			}
+
+			if (state.food.mode === "holding") {
+				state.food.heldScale = calculateFoodScaleFromHold(
+					now - state.food.holdStartedAt,
+				);
+				state.food.scale = state.food.heldScale;
+				state.food.bitesTotal = calculateFoodBites(state.food.scale);
+				state.food.bitesRemaining = state.food.bitesTotal;
+				state.food.x = state.food.homeX;
+				state.food.y = state.food.homeY;
+				applyFoodFrame();
+				return;
+			}
+
+			if (state.food.mode === "falling") {
+				state.food.y = Math.min(getFoodBottomY(), state.food.y + state.food.vy);
+				state.food.vy = Math.min(
+					FOOD_FALL_TERMINAL_VELOCITY,
+					state.food.vy + FOOD_FALL_GRAVITY,
+				);
+				if (state.food.y >= getFoodBottomY()) {
+					state.food.y = getFoodBottomY();
+					state.food.mode = "active";
+					state.food.nextContestAt = now + randomBetween(320, 620);
+				}
+				applyFoodFrame();
+				return;
+			}
+
+			if (state.food.mode === "resetting") {
+				if (now >= state.food.resetAt) {
+					resetFoodToHome();
+				}
+				return;
+			}
+
+			if (state.food.mode === "active" || state.food.mode === "dragging") {
+				applyFoodFrame();
+			}
+		};
+
+		const updateScraps = () => {
+			state.scraps.slice().forEach((scrap) => {
+				if (scrap.mode === "falling") {
+					const bottomY = window.innerHeight - getScrapSize(scrap) - 8;
+					scrap.y = Math.min(bottomY, scrap.y + scrap.vy);
+					scrap.vy = Math.min(
+						SCRAP_FALL_TERMINAL_VELOCITY,
+						scrap.vy + SCRAP_FALL_GRAVITY,
+					);
+					if (scrap.y >= bottomY) {
+						scrap.y = bottomY;
+						scrap.mode = "active";
+						if (!isMainFoodDetected()) {
+							state.food.nextContestAt =
+								performance.now() + randomBetween(280, 560);
+						}
+					}
+					updateScrapFrame(scrap);
+					return;
+				}
+
+				if (scrap.mode === "dropping") {
+					scrap.y += scrap.vy;
+					scrap.vy = Math.min(
+						SCRAP_FALL_TERMINAL_VELOCITY + 4,
+						scrap.vy + SCRAP_FALL_GRAVITY,
+					);
+					if (scrap.y > window.innerHeight + getScrapSize(scrap) + 12) {
+						removeScrap(scrap);
+						return;
+					}
+					updateScrapFrame(scrap);
+					return;
+				}
+
+				if (scrap.mode === "active") {
+					updateScrapFrame(scrap);
+				}
+			});
+		};
+
+		const maybeRunFoodContest = (now) => {
+			const source = getCurrentFoodSource();
+			if (!source || now < state.food.nextContestAt) {
+				return;
+			}
+
+			const candidates = shuffle(
+				state.birds.filter(
+					(bird) => bird.state === "food-hover" || bird.state === "food-approaching",
+				),
+			);
+			if (candidates.length === 0) {
+				state.food.nextContestAt = now + randomBetween(420, 920);
+				return;
+			}
+
+			const participants = candidates.slice(0, Math.min(3, candidates.length));
+			const canBite =
+				now - state.food.lastBiteAt >= FOOD_BITE_COOLDOWN_MS &&
+				state.food.bitesRemaining > 0;
+			const winner = canBite ? participants[0] : null;
+
+			participants.forEach((bird, index) => {
+				startFoodDash(bird, {
+					source,
+					success: bird === winner,
+					index,
+				});
+			});
+
+			if (winner) {
+				state.food.lastBiteAt = now;
+			}
+
+			state.food.nextContestAt =
+				now + randomBetween(FOOD_CONTEST_MIN_MS, FOOD_CONTEST_MAX_MS);
+		};
+
 		const reconcileBirdTargets = () => {
 			state.birds.forEach((bird) => {
 				if (
-					bird.state === "perched" &&
+					bird.state === "panel-perched" &&
 					!isVisibleTarget(bird.perch.element) &&
 					performance.now() >= state.targetChangeGraceUntil
 				) {
 					startEscape(bird);
 				}
 			});
-			if (state.birds.length > 0) {
+			if (
+				state.birds.length > 0 ||
+				state.food.mode !== "idle" ||
+				state.scraps.length > 0
+			) {
 				ensureAnimationLoop();
 			}
 		};
@@ -1013,19 +2023,23 @@
 			event.preventDefault();
 			event.stopPropagation();
 			const roll = Math.random();
+			const probabilities = getClickInteractionProbabilities(bird);
 			const alternateLandingSpot = chooseLandingSpot({
 				excludeBird: bird,
 				excludeElement:
 					bird.perch?.element instanceof HTMLElement ? bird.perch.element : null,
 			});
 
-			if (roll < CLICK_RELOCATE_PROBABILITY && alternateLandingSpot) {
-				startRelocation(bird, alternateLandingSpot);
+			if (roll < probabilities.relocateProbability && alternateLandingSpot) {
+				sendBirdToPanel(bird, alternateLandingSpot);
 				ensureAnimationLoop();
 				return;
 			}
 
-			if (roll < CLICK_RELOCATE_PROBABILITY + CLICK_ESCAPE_PROBABILITY) {
+			if (
+				roll <
+				probabilities.relocateProbability + probabilities.escapeProbability
+			) {
 				startEscape(bird);
 				ensureAnimationLoop();
 				return;
@@ -1033,6 +2047,56 @@
 
 			vanishBirdWithHearts(bird);
 			ensureAnimationLoop();
+		};
+
+		const tick = (now) => {
+			updateFood(now);
+			updateScraps();
+			maybeTriggerSharedThought(now);
+			if (isFoodDetected()) {
+				assignFoodSlots();
+				maybeRunFoodContest(now);
+			}
+
+			state.birds.slice().forEach((bird) => {
+				if (
+					bird.state === "approaching" ||
+					bird.state === "relocating" ||
+					bird.state === "escaping" ||
+					bird.state === "food-approaching" ||
+					bird.state === "food-dash"
+				) {
+					updateMovingBird(bird, now);
+					return;
+				}
+
+				if (bird.state === "panel-perched") {
+					updatePanelPerchedBird(bird, now);
+					return;
+				}
+
+				if (bird.state === "food-hover") {
+					updateFoodHoverBird(bird, now);
+				}
+			});
+
+			if (
+				state.birds.length === 0 &&
+				state.food.mode === "idle" &&
+				state.scraps.length === 0
+			) {
+				state.rafId = 0;
+				return;
+			}
+
+			state.rafId = window.requestAnimationFrame(tick);
+		};
+
+		const ensureAnimationLoop = () => {
+			if (state.rafId !== 0) {
+				return;
+			}
+			state.rafId = window.requestAnimationFrame(tick);
 		};
 
 		let scrollTriggerArmed = true;
@@ -1045,6 +2109,7 @@
 
 				scrollTriggerArmed = false;
 				escapeAllBirds();
+				dropAllScrapsOffscreen();
 				window.setTimeout(() => {
 					scrollTriggerArmed = true;
 				}, 120);
@@ -1052,8 +2117,22 @@
 			{ passive: true },
 		);
 
+		drumstickElement.addEventListener("pointerdown", handleDrumstickPointerDown);
+		window.addEventListener("pointermove", handlePointerMove, { passive: true });
+		window.addEventListener("pointerup", handlePointerUp, { passive: true });
+		window.addEventListener("pointercancel", handlePointerUp, { passive: true });
 		document.addEventListener("click", scheduleClickDrivenTargetChangeCheck, true);
-		window.addEventListener("resize", reconcileBirdTargets);
+		window.addEventListener("resize", () => {
+			syncFoodHomePosition();
+			if (
+				["dragging", "falling", "active"].includes(state.food.mode)
+			) {
+				state.food.x = clamp(state.food.x, 0, window.innerWidth - getFoodSize());
+				state.food.y = clamp(state.food.y, 0, getFoodBottomY());
+				applyFoodFrame();
+			}
+			reconcileBirdTargets();
+		});
 		document.addEventListener("astro:page-load", () => {
 			reconcileBirdTargets();
 			processScheduledSpawns();
@@ -1069,6 +2148,9 @@
 		});
 		root.addEventListener("click", handleBirdClick);
 
+		syncFoodHomePosition();
+		resetFoodToHome();
+		scheduleNextThought();
 		spawnInitialBird();
 		state.spawnHeartbeatId = window.setInterval(() => {
 			processScheduledSpawns();
