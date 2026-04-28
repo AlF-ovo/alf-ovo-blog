@@ -221,22 +221,26 @@
 		position: absolute;
 		left: 0;
 		top: 0;
-		width: 4.7rem;
-		height: 5.2rem;
+		width: 75px;
+		height: 83px;
 		pointer-events: none;
 		will-change: transform;
-		transform-origin: 18% 92%;
+		transform-origin: 50% 100%;
 		filter: drop-shadow(0 0.5rem 0.8rem rgb(15 23 42 / 0.24));
+		opacity: 0;
 		transition:
-			filter 180ms ease,
-			opacity 180ms ease;
+			transform 760ms cubic-bezier(0.22, 1, 0.36, 1),
+			filter 220ms ease,
+			opacity 240ms ease;
 	}
 
 	.raven-scarecrow[data-raised="false"] {
+		opacity: 0;
 		filter: drop-shadow(0 0.32rem 0.54rem rgb(15 23 42 / 0.18));
 	}
 
 	.raven-scarecrow[data-raised="true"] {
+		opacity: 1;
 		filter: drop-shadow(0 0.58rem 0.94rem rgb(15 23 42 / 0.3));
 	}
 
@@ -248,17 +252,12 @@
 		image-rendering: pixelated;
 	}
 
-	.raven-scarecrow[data-raised="true"] .raven-scarecrow__sprite {
-		animation: raven-scarecrow-sway 2.8s ease-in-out infinite;
-		transform-origin: 18% 92%;
-	}
-
 	.raven-scarecrow-button {
 		position: absolute;
 		left: 0;
 		top: 0;
-		width: 2.1rem;
-		height: 1.8rem;
+		width: 46px;
+		height: 46px;
 		padding: 0;
 		border: 0;
 		background: transparent;
@@ -574,24 +573,6 @@
 		}
 	}
 
-	@keyframes raven-scarecrow-sway {
-		0%,
-		100% {
-			transform: rotate(0deg);
-		}
-
-		25% {
-			transform: rotate(-2.2deg);
-		}
-
-		58% {
-			transform: rotate(1.4deg);
-		}
-
-		82% {
-			transform: rotate(-1.1deg);
-		}
-	}
 </style>
 
 <script is:inline>
@@ -691,11 +672,13 @@
 		const FRIES_LOOSE_BITE_COUNT = 2;
 		const FRIES_SPILL_MIN = 1;
 		const FRIES_SPILL_MAX = 3;
-		const SCARECROW_GAP = 8;
-		const SCARECROW_BUTTON_GAP = 6;
-		const SCARECROW_REST_ROTATION = -82;
-		const SCARECROW_RAISE_DURATION_MS = 760;
-		const SCARECROW_LOWER_DURATION_MS = 620;
+		const SCARECROW_GAP = 18;
+		const SCARECROW_BUTTON_GAP = 10;
+		const SCARECROW_BODY_HEIGHT = 83;
+		const SCARECROW_BUTTON_SIZE = 46;
+		const SCARECROW_HIDE_OFFSET = 18;
+		const SCARECROW_RAISE_DURATION_MS = 820;
+		const SCARECROW_LOWER_DURATION_MS = 700;
 		const FRIES_BUTTON_GAP = 14;
 		const NAMEPLATE_BUTTON_GAP = 10;
 		const NAMEPLATE_BUTTON_WIDTH = 52;
@@ -993,9 +976,9 @@
 				raised: false,
 				x: 0,
 				y: 0,
+				hiddenY: 0,
 				buttonX: 0,
 				buttonY: 0,
-				rotation: SCARECROW_REST_ROTATION,
 			},
 			selection: {
 				mode: "idle",
@@ -1617,32 +1600,34 @@
 			};
 		};
 		const getScarecrowHome = () => {
-			const nameplateHome = getNameplateButtonHome();
+			const visibleY = state.food.homeY + FOOD_HOME_SIZE - SCARECROW_BODY_HEIGHT;
 			return {
-				x: nameplateHome.x - 12,
-				y: nameplateHome.y - 72 - SCARECROW_GAP,
+				x: state.food.homeX + FOOD_HOME_SIZE + SCARECROW_GAP,
+				y: visibleY,
+				hiddenY: visibleY + SCARECROW_BODY_HEIGHT + SCARECROW_HIDE_OFFSET,
 			};
 		};
 		const getScarecrowToggleButtonHome = () => {
-			const scarecrowHome = getScarecrowHome();
+			const friesHome = getFriesButtonHome();
+			const nameplateHome = getNameplateButtonHome();
 			return {
-				x: scarecrowHome.x + 54,
-				y: scarecrowHome.y + 48 + SCARECROW_BUTTON_GAP,
+				x: friesHome.x,
+				y: nameplateHome.y - SCARECROW_BUTTON_SIZE - SCARECROW_BUTTON_GAP,
 			};
 		};
 		const updateScarecrowButtonFrame = (options = {}) => {
-			const nextRotation = isScarecrowRaised() ? 0 : SCARECROW_REST_ROTATION;
+			const targetY = isScarecrowRaised() ? state.scarecrow.y : state.scarecrow.hiddenY;
 			if (options.animate === true) {
 				scarecrowElement.style.transition =
 					`transform ${isScarecrowRaised() ? SCARECROW_RAISE_DURATION_MS : SCARECROW_LOWER_DURATION_MS}ms ${
 						isScarecrowRaised()
-							? "cubic-bezier(0.18, 0.84, 0.24, 1.16)"
-							: "cubic-bezier(0.58, 0, 0.82, 0.5)"
-					}, filter 180ms ease, opacity 180ms ease`;
+							? "cubic-bezier(0.16, 1, 0.3, 1)"
+							: "cubic-bezier(0.65, 0, 0.35, 1)"
+					}, filter 220ms ease, opacity 240ms ease`;
 			} else {
-				scarecrowElement.style.transition = "filter 180ms ease, opacity 180ms ease";
+				scarecrowElement.style.transition =
+					"filter 220ms ease, opacity 240ms ease";
 			}
-			state.scarecrow.rotation = nextRotation;
 			scarecrowElement.dataset.raised = isScarecrowRaised() ? "true" : "false";
 			scarecrowButtonElement.dataset.raised = isScarecrowRaised() ? "true" : "false";
 			if (scarecrowButtonSpriteHost instanceof HTMLElement) {
@@ -1650,7 +1635,7 @@
 					isScarecrowRaised(),
 				);
 			}
-			scarecrowElement.style.transform = `translate3d(${state.scarecrow.x}px, ${state.scarecrow.y}px, 0) rotate(${nextRotation}deg)`;
+			scarecrowElement.style.transform = `translate3d(${state.scarecrow.x}px, ${targetY}px, 0)`;
 			scarecrowButtonElement.style.transform = `translate3d(${state.scarecrow.buttonX}px, ${state.scarecrow.buttonY}px, 0)`;
 		};
 		const clearNameplateHover = () => {
@@ -1699,6 +1684,7 @@
 			state.selection.homeY = nameplateHome.y;
 			state.scarecrow.x = scarecrowHome.x;
 			state.scarecrow.y = scarecrowHome.y;
+			state.scarecrow.hiddenY = scarecrowHome.hiddenY;
 			state.scarecrow.buttonX = scarecrowButtonHome.x;
 			state.scarecrow.buttonY = scarecrowButtonHome.y;
 			friesButtonElement.style.transform = `translate3d(${friesHome.x}px, ${friesHome.y}px, 0)`;
