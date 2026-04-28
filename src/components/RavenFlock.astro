@@ -52,6 +52,23 @@
 		will-change: transform;
 	}
 
+	.raven-bird__carry {
+		position: absolute;
+		left: 58%;
+		top: 52%;
+		width: 2rem;
+		height: 2rem;
+		pointer-events: none;
+		opacity: 0;
+		transform: translate3d(-50%, -50%, 0) rotate(-18deg);
+		transform-origin: 50% 50%;
+		filter: drop-shadow(0 0.3rem 0.45rem rgb(15 23 42 / 0.22));
+	}
+
+	.raven-bird__carry[data-visible="true"] {
+		opacity: 1;
+	}
+
 	.raven-bird[data-state="panel-perched"] {
 		filter:
 			drop-shadow(0 0.45rem 0.8rem rgb(3 7 18 / 0.22))
@@ -92,6 +109,16 @@
 
 	.raven-drumstick[data-mode="resetting"] {
 		opacity: 0;
+	}
+
+	.raven-drumstick--ghost {
+		pointer-events: none;
+		opacity: 0;
+		filter: drop-shadow(0 0.4rem 0.65rem rgb(15 23 42 / 0.15));
+	}
+
+	.raven-drumstick--ghost[data-visible="true"] {
+		opacity: 0.92;
 	}
 
 	.raven-drumstick__sprite,
@@ -347,10 +374,10 @@
 		const CLICK_HEART_PROBABILITY = 0.05;
 		const CLICK_RELOCATE_PROBABILITY = 0.635;
 		const CLICK_ESCAPE_PROBABILITY = 0.315;
-		const HUNGER_BUBBLE_DELAY_MS = 18000;
-		const HUNGER_BUBBLE_REPEAT_MS = 22000;
-		const THOUGHT_INTERVAL_MIN_MS = 24000;
-		const THOUGHT_INTERVAL_MAX_MS = 41000;
+		const HUNGER_BUBBLE_DELAY_MS = 9000;
+		const HUNGER_BUBBLE_REPEAT_MS = 12000;
+		const THOUGHT_INTERVAL_MIN_MS = 12000;
+		const THOUGHT_INTERVAL_MAX_MS = 22000;
 		const FOOD_HOME_SIZE = 44;
 		const FOOD_MIN_SCALE = 1;
 		const FOOD_MAX_SCALE = 1.58;
@@ -365,17 +392,34 @@
 		const FOOD_RESET_DELAY_MS = 520;
 		const FOOD_HOVER_SHIFT_MIN_MS = 420;
 		const FOOD_HOVER_SHIFT_MAX_MS = 1380;
-		const TOP_DROP_LEFT_EXCLUSION_MIN = 88;
-		const TOP_DROP_LEFT_EXCLUSION_RATIO = 0.16;
-		const FOOD_BOUNCE_GRAVITY = 0.48;
-		const FOOD_BOUNCE_DAMPING = 0.34;
+		const SATIATED_CIRCLE_MIN_MS = 5000;
+		const SATIATED_CIRCLE_MAX_MS = 6000;
+		const SATIATED_PERCH_MS = 15000;
+		const PERCH_ACTION_MIN_MS = 2200;
+		const PERCH_ACTION_MAX_MS = 5600;
+		const FOOD_BOUNCE_GRAVITY = 0.74;
+		const FOOD_BOUNCE_DAMPING = 0.52;
 		const FOOD_VISUAL_DRAG = 0.78;
 		const FOOD_ROTATION_DRAG = 0.84;
 		const FOOD_ROTATION_RETURN = 0.11;
 		const SCRAP_BASE_SIZE = 28;
-		const SCRAP_FALL_GRAVITY = 0.72;
-		const SCRAP_FALL_TERMINAL_VELOCITY = 15;
+		const SCRAP_FALL_GRAVITY = 0.92;
+		const SCRAP_FALL_TERMINAL_VELOCITY = 20;
+		const SCRAP_HORIZONTAL_DRAG = 0.996;
+		const SCRAP_FLOOR_BOUNCE_DAMPING = 0.76;
+		const SCRAP_SIDE_BOUNCE_DAMPING = 0.82;
+		const SCRAP_SETTLE_VELOCITY = 2.7;
+		const SCRAP_SETTLE_DRIFT = 1.35;
+		const SCRAP_BOTTOM_EXIT_EDGE_MIN = 96;
+		const SCRAP_BOTTOM_EXIT_EDGE_MAX = 176;
+		const SCRAP_BOTTOM_EXIT_EDGE_RATIO = 0.14;
 		const SCRAP_DROP_SCROLL_VELOCITY = 9;
+		const RANDOM_DROP_TOP_SPEED_MIN = 5.6;
+		const RANDOM_DROP_TOP_SPEED_MAX = 8.4;
+		const RANDOM_DROP_SIDE_SPEED_MIN = 5.8;
+		const RANDOM_DROP_SIDE_SPEED_MAX = 8.4;
+		const RANDOM_DROP_SIDE_ENTRY_MIN = 20;
+		const RANDOM_DROP_SIDE_ENTRY_MAX = 72;
 		const FOOD_WAIT_OFFSETS = [
 			[-96, -42],
 			[26, -66],
@@ -385,12 +429,12 @@
 			[38, 56],
 		];
 		const GROUND_FOOD_WAIT_OFFSETS = [
-			[-108, 10],
-			[-72, -2],
-			[-36, 12],
-			[30, 8],
-			[68, -4],
-			[104, 10],
+			[-112, 8],
+			[104, 8],
+			[-54, -18],
+			[44, -22],
+			[-10, -38],
+			[10, -44],
 		];
 		const PERCHED_FRAME_INDEX = 0;
 		const FLIGHT_SEQUENCE = [1, 2, 3, 4, 5, 4, 3, 2];
@@ -553,6 +597,8 @@
 			nextThoughtAt: 0,
 			targetReactionToken: 0,
 			targetChangeGraceUntil: 0,
+			lastHadChickenLegs: false,
+			foodlessRetainTarget: 0,
 			food: {
 				mode: "idle",
 				x: 0,
@@ -584,6 +630,7 @@
 				bounceVelocityY: 0,
 				resetAt: 0,
 				foodKind: "drumstick",
+				dragSourceScrapId: null,
 			},
 		};
 		window.__alfRavenHeadHitboxes = () =>
@@ -598,6 +645,12 @@
 
 		drumstickElement.innerHTML = drumstickMarkup;
 		const drumstickMeter = drumstickElement.querySelector(".raven-drumstick__meter");
+		const drumstickGhostElement = document.createElement("div");
+		drumstickGhostElement.className = "raven-drumstick raven-drumstick--ghost";
+		drumstickGhostElement.innerHTML = drumstickSpriteMarkup;
+		drumstickGhostElement.dataset.mode = "idle";
+		drumstickGhostElement.dataset.visible = "false";
+		root.appendChild(drumstickGhostElement);
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
 		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -675,6 +728,7 @@
 		const getFoodSourceByTargetKey = (targetKey, sources = getFoodSources()) =>
 			sources.find((source) => source.targetKey === targetKey) ?? null;
 		const isFoodDetected = () => getFoodSources().length > 0;
+		const isBirdHungry = (bird) => bird.appetite !== "sated";
 		const isFoodContestable = (source = getCurrentFoodSource()) =>
 			source?.mode === "active";
 		const getSpawnIntervalMs = () => {
@@ -682,12 +736,32 @@
 			if (drumstickCount === 0) {
 				return SPAWN_INTERVAL_MS;
 			}
-			return Math.max(5200, FOOD_SPAWN_INTERVAL_MS - (drumstickCount - 1) * 1800);
+			return Math.max(2800, FOOD_SPAWN_INTERVAL_MS - 2800 - (drumstickCount - 1) * 2000);
 		};
 		const updateDrumstickVisibility = () => {
 			const shouldShow = state.birds.length > 0 || state.food.mode !== "idle";
 			drumstickElement.dataset.visible = shouldShow ? "true" : "false";
 			drumstickElement.style.pointerEvents = shouldShow ? "auto" : "none";
+		};
+		const updateDrumstickGhostVisibility = () => {
+			const shouldShow =
+				state.food.mode === "dragging" && state.food.dragSourceScrapId !== null;
+			drumstickGhostElement.dataset.visible = shouldShow ? "true" : "false";
+			drumstickGhostElement.style.transform = `translate3d(${state.food.homeX}px, ${state.food.homeY}px, 0) scale(${FOOD_MIN_SCALE})`;
+		};
+		const getSpawnBurstCount = () => {
+			if (!hasChickenLegs()) {
+				return 1;
+			}
+			const densityBonus = Math.min(2, Math.max(0, getChickenLegCount() - 1));
+			const roll = Math.random();
+			if (roll < 0.28 + densityBonus * 0.08) {
+				return 3;
+			}
+			if (roll < 0.74 + densityBonus * 0.1) {
+				return 2;
+			}
+			return 1;
 		};
 
 		const calculateFoodScaleFromHold = (elapsedMs) =>
@@ -832,7 +906,7 @@
 			if (source.mode === "active") {
 				foodLike.bounceVelocityY = Math.min(
 					foodLike.bounceVelocityY,
-					(success ? -2.8 : -1.55) * clamp(sourceScale, 0.82, 1.28),
+					(success ? -4.2 : -2.35) * clamp(sourceScale, 0.82, 1.28),
 				);
 			}
 			ensureAnimationLoop();
@@ -875,6 +949,7 @@
 			drumstickElement.style.transform = `translate3d(${state.food.x + state.food.visualOffsetX}px, ${state.food.y + state.food.visualOffsetY + state.food.bounceOffsetY}px, 0) rotate(${state.food.visualRotation}deg) scale(${state.food.scale})`;
 			renderFoodMeter();
 			updateDrumstickVisibility();
+			updateDrumstickGhostVisibility();
 		};
 
 		const syncFoodHomePosition = () => {
@@ -885,7 +960,9 @@
 				state.food.x = state.food.homeX;
 				state.food.y = state.food.homeY;
 				applyFoodFrame();
+				return;
 			}
+			updateDrumstickGhostVisibility();
 		};
 
 		const resetFoodToHome = () => {
@@ -901,6 +978,7 @@
 			resetFoodMotionState(state.food);
 			state.food.resetAt = 0;
 			state.food.dragPointerId = null;
+			state.food.dragSourceScrapId = null;
 			state.food.x = state.food.homeX;
 			state.food.y = state.food.homeY;
 			applyFoodFrame();
@@ -1224,6 +1302,7 @@
 		};
 
 		const removeBird = (bird) => {
+			clearBirdCarry(bird);
 			if (bird.element.isConnected) {
 				bird.element.remove();
 			}
@@ -1253,6 +1332,162 @@
 			bird.nextFrameAt = bird.startedAt;
 			bird.finalAction = finalAction;
 			bird.actionPayload = payload;
+		};
+		const clearBirdCarry = (bird) => {
+			bird.carryingFoodKind = null;
+			bird.carryElement.innerHTML = "";
+			bird.carryElement.dataset.visible = "false";
+		};
+		const attachBirdCarry = (bird, foodKind) => {
+			bird.carryingFoodKind = foodKind;
+			bird.carryElement.innerHTML =
+				foodKind === "drumstick" ? drumstickSpriteMarkup : scrapMarkup;
+			bird.carryElement.dataset.visible = "true";
+		};
+		const wakeBirdHunger = (bird) => {
+			bird.appetite = "hungry";
+			bird.satedBehavior = "none";
+			bird.satedUntil = 0;
+			bird.hasEatenFood = false;
+			clearBirdCarry(bird);
+		};
+		const setBirdSated = (bird, behavior) => {
+			bird.appetite = "sated";
+			bird.satedBehavior = behavior;
+		};
+		const isGroundFlankBird = (bird, source) => {
+			if (source?.mode !== "active") {
+				return false;
+			}
+			const sourceCenterX = source.x + source.size * 0.5;
+			const footY = bird.y + bird.footOffset;
+			const groundY = source.y + source.size * 0.72;
+			return (
+				Math.abs(footY - groundY) < 28 &&
+				Math.abs(bird.x + bird.width * 0.5 - sourceCenterX) >= source.size * 0.8
+			);
+		};
+		const removeFoodSource = (source) => {
+			if (!source) {
+				return;
+			}
+			if (source.kind === "main") {
+				state.food.mode = "resetting";
+				state.food.resetAt = performance.now() + FOOD_RESET_DELAY_MS;
+				applyFoodFrame();
+				return;
+			}
+			const scrap = getFoodEntityFromSource(source);
+			if (scrap) {
+				removeScrap(scrap);
+			}
+		};
+		const findCarryableDrumstickSource = (preferredSource = null) => {
+			if (
+				preferredSource?.foodKind === "drumstick" &&
+				preferredSource.kind === "scrap" &&
+				getFoodEntityFromSource(preferredSource)
+			) {
+				return preferredSource;
+			}
+			return (
+				getFoodSources().find(
+					(source) => source.foodKind === "drumstick" && source.kind === "scrap",
+				) ?? null
+			);
+		};
+		const startSkyCircling = (bird) => {
+			const centerX = clamp(
+				bird.x + randomBetween(-140, 140),
+				bird.width * 0.6,
+				window.innerWidth - bird.width * 0.6,
+			);
+			const centerY = randomBetween(72, Math.max(96, window.innerHeight * 0.26));
+			bird.state = "sky-circling";
+			bird.element.dataset.state = "sky-circling";
+			bird.circlingCenterX = centerX;
+			bird.circlingCenterY = centerY;
+			bird.circlingRadiusX = randomBetween(88, 168);
+			bird.circlingRadiusY = randomBetween(22, 54);
+			bird.circlingSpeed = randomBetween(0.0014, 0.0022);
+			bird.circlingDirection = Math.random() < 0.5 ? -1 : 1;
+			bird.satedUntil = performance.now() + randomBetween(SATIATED_CIRCLE_MIN_MS, SATIATED_CIRCLE_MAX_MS);
+			bird.visualShiftX = 0;
+			bird.visualBob = 0;
+		};
+		const startSatedBehavior = (bird, source = null) => {
+			const carryableSource = findCarryableDrumstickSource(source);
+			const behaviorPool = carryableSource
+				? ["carry-away", "sky-circling", "panel-perched"]
+				: ["sky-circling", "panel-perched"];
+			const behavior =
+				behaviorPool[Math.floor(Math.random() * behaviorPool.length)] ?? "sky-circling";
+			setBirdSated(bird, behavior);
+			if (behavior === "carry-away" && carryableSource) {
+				removeFoodSource(carryableSource);
+				assignFoodSlots();
+				attachBirdCarry(bird, "drumstick");
+				const exitPoint = getDirectExitPoint(bird);
+				beginFlightSegment(bird, {
+					state: "escaping",
+					destination: { x: exitPoint.x, y: exitPoint.y },
+					duration: randomBetween(860, 1280),
+					arcHeight: randomBetween(34, 76),
+					finalAction: "remove",
+				});
+				bird.facing = exitPoint.direction;
+				return;
+			}
+			if (behavior === "panel-perched") {
+				bird.satedUntil = performance.now() + SATIATED_PERCH_MS;
+				const landingSpot = chooseLandingSpot({ excludeBird: bird });
+				if (landingSpot) {
+					sendBirdToPanel(bird, landingSpot, { doubleHop: Math.random() < 0.35 });
+					return;
+				}
+			}
+			const destination = {
+				x: clamp(
+					bird.x + randomBetween(-120, 120),
+					-bird.width * 0.3,
+					window.innerWidth - bird.width * 0.7,
+				),
+				y: randomBetween(48, Math.max(72, window.innerHeight * 0.22)),
+			};
+			beginFlightSegment(bird, {
+				state: "relocating",
+				destination,
+				duration: randomBetween(520, 860),
+				arcHeight: randomBetween(26, 64),
+				finalAction: "startSkyCircling",
+			});
+		};
+		const updateSkyCirclingBird = (bird, now) => {
+			const phase = now * bird.circlingSpeed * bird.circlingDirection + bird.idlePhase;
+			const targetX =
+				bird.circlingCenterX + Math.cos(phase) * bird.circlingRadiusX - bird.width * 0.5;
+			const targetY =
+				bird.circlingCenterY + Math.sin(phase * 1.7) * bird.circlingRadiusY - bird.height * 0.46;
+			bird.facing = targetX >= bird.x ? 1 : -1;
+			bird.x = lerp(bird.x, targetX, bird.hoverTightness);
+			bird.y = lerp(bird.y, targetY, bird.hoverTightness * 0.92);
+			bird.visualShiftX = 0;
+			bird.visualBob = 0;
+			updateFlightFrame(bird, now);
+			applyBirdFrame(bird);
+			if (now >= bird.satedUntil) {
+				wakeBirdHunger(bird);
+				if (hasChickenLegs()) {
+					startFoodHover(bird);
+					return;
+				}
+				const landingSpot = chooseLandingSpot({ excludeBird: bird });
+				if (landingSpot) {
+					sendBirdToPanel(bird, landingSpot);
+					return;
+				}
+				startEscape(bird);
+			}
 		};
 
 		const spawnEmote = (markup, className, options) => {
@@ -1414,6 +1649,7 @@
 				scale,
 				x,
 				y,
+				vx: randomBetween(-0.45, 0.45),
 				vy: 2.4,
 				mode: "falling",
 				bitesTotal: Math.max(
@@ -1431,6 +1667,8 @@
 				bounceVelocityY: 0,
 				lastBiteAt: -FOOD_BITE_COOLDOWN_MS,
 				nextContestAt: performance.now() + randomBetween(320, 620),
+				floorBounceCount: 0,
+				restX: null,
 			};
 
 			scrap.bitesRemaining = scrap.bitesTotal;
@@ -1456,6 +1694,7 @@
 				scale,
 				x: options.x ?? state.food.x,
 				y: options.y ?? state.food.y,
+				vx: options.vx ?? 0,
 				vy: options.vy ?? 2.2,
 				mode: options.mode ?? "falling",
 				bitesTotal: options.bitesTotal ?? state.food.bitesTotal,
@@ -1474,6 +1713,8 @@
 				lastBiteAt: -FOOD_BITE_COOLDOWN_MS,
 				nextContestAt:
 					performance.now() + randomBetween(options.contestDelayMin ?? 280, options.contestDelayMax ?? 560),
+				floorBounceCount: 0,
+				restX: options.restX ?? null,
 			};
 
 			state.scraps.push(item);
@@ -1481,38 +1722,115 @@
 			updateScrapFrame(item);
 			return item;
 		};
+		const getBottomExitInset = (size) =>
+			Math.min(
+				SCRAP_BOTTOM_EXIT_EDGE_MAX,
+				Math.max(
+					SCRAP_BOTTOM_EXIT_EDGE_MIN,
+					size * 1.45,
+					window.innerWidth * SCRAP_BOTTOM_EXIT_EDGE_RATIO,
+				),
+			);
+		const rectsOverlap = (left, right, padding = 0) =>
+			left.x < right.x + right.width + padding &&
+			left.x + left.width > right.x - padding &&
+			left.y < right.y + right.height + padding &&
+			left.y + left.height > right.y - padding;
 		const getTopDropSpawnX = (size) => {
 			const maxX = Math.max(0, window.innerWidth - size);
 			if (maxX <= 0) {
 				return 0;
 			}
-
-			// Keep click-dropped drumsticks away from the far-left home position when space allows.
-			const leftExclusion = Math.min(
-				maxX,
-				Math.max(TOP_DROP_LEFT_EXCLUSION_MIN, window.innerWidth * TOP_DROP_LEFT_EXCLUSION_RATIO),
+			return randomBetween(0, maxX);
+		};
+		const findSideDropSpawnY = (size, side) => {
+			const maxY = Math.max(
+				18,
+				Math.min(window.innerHeight - size - 160, window.innerHeight * 0.42),
 			);
-			return randomBetween(leftExclusion, maxX);
+			const edgeX = side === "left" ? 0 : Math.max(0, window.innerWidth - size);
+			for (let attempt = 0; attempt < 18; attempt += 1) {
+				const candidateY = randomBetween(18, maxY);
+				const overlaps = state.scraps.some((scrap) => {
+					if (scrap.mode === "dropping" || scrap.bitesRemaining <= 0) {
+						return false;
+					}
+					const otherSize = getScrapSize(scrap);
+					return rectsOverlap(
+						{
+							x: edgeX,
+							y: candidateY,
+							width: size,
+							height: size,
+						},
+						{
+							x: scrap.x,
+							y: scrap.y,
+							width: otherSize,
+							height: otherSize,
+						},
+						Math.max(10, Math.min(size, otherSize) * 0.16),
+					);
+				});
+				if (!overlaps) {
+					return candidateY;
+				}
+			}
+			return randomBetween(18, maxY);
+		};
+		const chooseRandomDroppedDrumstickSpawn = (size) => {
+			const preferredX = getTopDropSpawnX(size);
+			const spawnSide = ["left", "right", "top"][Math.floor(Math.random() * 3)];
+			if (spawnSide === "top") {
+				return {
+					x: preferredX,
+					y: -size - randomBetween(18, 56),
+					vx: randomBetween(-0.9, 0.9),
+					vy: randomBetween(RANDOM_DROP_TOP_SPEED_MIN, RANDOM_DROP_TOP_SPEED_MAX),
+					restX: preferredX,
+				};
+			}
+
+			const inwardDirection = spawnSide === "left" ? 1 : -1;
+			const launchAngle = randomBetween(-0.16, 0.12);
+			const launchSpeed = randomBetween(
+				RANDOM_DROP_SIDE_SPEED_MIN,
+				RANDOM_DROP_SIDE_SPEED_MAX,
+			);
+			return {
+				x:
+					spawnSide === "left"
+						? -size - randomBetween(RANDOM_DROP_SIDE_ENTRY_MIN, RANDOM_DROP_SIDE_ENTRY_MAX)
+						: window.innerWidth +
+							randomBetween(RANDOM_DROP_SIDE_ENTRY_MIN, RANDOM_DROP_SIDE_ENTRY_MAX),
+				y: findSideDropSpawnY(size, spawnSide),
+				vx: inwardDirection * Math.cos(launchAngle) * launchSpeed,
+				vy: Math.sin(launchAngle) * launchSpeed,
+				restX: preferredX,
+			};
 		};
 		const spawnTopDroppedDrumstick = () => {
 			const scale = state.food.scale;
 			const size = FOOD_HOME_SIZE * scale;
+			const spawn = chooseRandomDroppedDrumstickSpawn(size);
 			createDroppedFoodItem({
 				foodKind: "drumstick",
 				scale,
-				x: getTopDropSpawnX(size),
-				y: -size - randomBetween(12, 44),
-				vy: randomBetween(2.8, 4.2),
+				x: spawn.x,
+				y: spawn.y,
+				vx: spawn.vx,
+				vy: spawn.vy,
 				bitesTotal: calculateFoodBites(scale),
 				bitesRemaining: calculateFoodBites(scale),
 				visualOffsetX: 0,
 				visualOffsetY: 0,
-				impulseX: randomBetween(-0.35, 0.35),
+				impulseX: randomBetween(-0.55, 0.55),
 				impulseY: 0,
 				visualRotation: randomBetween(-8, 8),
-				rotationVelocity: randomBetween(-1.4, 1.4),
+				rotationVelocity: randomBetween(-2.2, 2.2),
 				contestDelayMin: 360,
 				contestDelayMax: 680,
+				restX: spawn.restX,
 			});
 		};
 
@@ -1559,9 +1877,27 @@
 			bird.leaveAt = performance.now() + randomBetween(MIN_DWELL_MS, MAX_DWELL_MS);
 			bird.perchedAt = performance.now();
 			bird.lastHungerBubbleAt = bird.lastHungerBubbleAt || 0;
+			bird.perchAction = "idle";
+			bird.perchActionStartedAt = 0;
+			bird.perchActionDuration = 0;
+			bird.nextPerchActionAt =
+				performance.now() + randomBetween(PERCH_ACTION_MIN_MS, PERCH_ACTION_MAX_MS);
 			rememberBirdPerchElement(bird, bird.perch?.element ?? null);
 			setBirdFrame(bird, PERCHED_FRAME_INDEX);
 			applyBirdFrame(bird);
+		};
+		const beginPerchAction = (bird, now) => {
+			const actions = ["hop", "turn-hop", "preen"];
+			bird.perchAction = actions[Math.floor(Math.random() * actions.length)] ?? "hop";
+			bird.perchActionStartedAt = now;
+			bird.perchActionDuration = randomBetween(520, 980);
+			bird.nextPerchActionAt =
+				now +
+				bird.perchActionDuration +
+				randomBetween(PERCH_ACTION_MIN_MS, PERCH_ACTION_MAX_MS);
+			if (bird.perchAction === "turn-hop") {
+				bird.facing *= -1;
+			}
 		};
 
 		const sendBirdToPanel = (bird, landingSpot, options = {}) => {
@@ -1648,6 +1984,9 @@
 		};
 
 		const startFoodHover = (bird, options = {}) => {
+			if (!isBirdHungry(bird) && options.force !== true) {
+				return;
+			}
 			const sources = options.sources ?? getFoodSources();
 			const source =
 				options.source ??
@@ -1691,7 +2030,7 @@
 			}
 			assignFoodSlots(sources);
 			state.birds.forEach((bird) => {
-				if (bird.state === "escaping") {
+				if (bird.state === "escaping" || !isBirdHungry(bird)) {
 					return;
 				}
 				startFoodHover(bird, { source: getAssignedFoodSource(bird, sources), sources });
@@ -1732,9 +2071,11 @@
 				state: "food-dash",
 				destination,
 				duration: isGroundFood
-					? randomBetween(220, 360)
-					: randomBetween(340, 560),
-				arcHeight: isGroundFood ? randomBetween(2, 8) : randomBetween(10, 26),
+					? randomBetween(220, 360) * bird.dashDurationFactor
+					: randomBetween(320, 620) * bird.dashDurationFactor,
+				arcHeight:
+					(isGroundFood ? randomBetween(2, 10) : randomBetween(12, 34)) *
+					bird.dashArcFactor,
 				finalAction: options.success ? "foodBiteSuccess" : "foodBiteFail",
 				payload: { source: options.source, success: options.success },
 			});
@@ -1777,20 +2118,16 @@
 						releaseBirdFromFood(otherBird);
 					}
 				});
-				releaseBirdFromFood(bird);
+				startSatedBehavior(bird, source);
 				return;
 			}
 
 			if (source.kind === "scrap" && foodEntity.bitesRemaining === 0) {
 				removeScrap(foodEntity);
 				reconcileFoodDrivenFlock();
-				if (!hasChickenLegs()) {
-					releaseBirdFromFood(bird);
-					return;
-				}
 			}
 
-			startFoodHover(bird);
+			startSatedBehavior(bird, source);
 		};
 
 		const startBirdAttack = (bird, target) => {
@@ -1844,7 +2181,7 @@
 		};
 
 		const handleFailedFoodDash = (bird) => {
-			if (!bird.hasEatenFood) {
+			if (isBirdHungry(bird)) {
 				spawnAngryBurst(bird);
 				const attackTarget = shuffle(
 					state.birds.filter(
@@ -1853,6 +2190,7 @@
 							otherBird.state !== "escaping" &&
 							otherBird.state !== "bird-attack" &&
 							otherBird.state.startsWith("food") &&
+							isBirdHungry(otherBird) &&
 							Math.hypot(otherBird.x - bird.x, otherBird.y - bird.y) < 180,
 					),
 				)[0];
@@ -1926,6 +2264,11 @@
 				return;
 			}
 
+			if (bird.finalAction === "startSkyCircling") {
+				startSkyCircling(bird);
+				return;
+			}
+
 			if (bird.finalAction === "foodBiteSuccess") {
 				completeFoodBite(bird);
 				return;
@@ -1971,12 +2314,20 @@
 				return;
 			}
 
-			if (!isVisibleTarget(bird.perch.element) || now >= bird.leaveAt) {
+			if (!isVisibleTarget(bird.perch.element) || (isBirdHungry(bird) && now >= bird.leaveAt)) {
 				startEscape(bird);
 				return;
 			}
 
-			if (hasChickenLegs()) {
+			if (!isBirdHungry(bird)) {
+				if (now >= bird.satedUntil) {
+					wakeBirdHunger(bird);
+					if (hasChickenLegs()) {
+						startFoodHover(bird);
+						return;
+					}
+				}
+			} else if (hasChickenLegs()) {
 				startFoodHover(bird);
 				return;
 			}
@@ -1989,11 +2340,30 @@
 				-VIEWPORT_PADDING,
 				window.innerWidth - bird.width + VIEWPORT_PADDING,
 			);
+			if (now >= bird.nextPerchActionAt) {
+				beginPerchAction(bird, now);
+			}
 			const swayPhase = now * 0.0018 + bird.idlePhase;
 			bird.visualShiftX = Math.round(Math.sin(swayPhase * 0.58) * 1);
 			bird.visualBob = Math.round(
 				Math.sin(swayPhase) * 1 + Math.sin(swayPhase * 0.47) * 0.4,
 			);
+			if (bird.perchAction !== "idle") {
+				const elapsed = now - bird.perchActionStartedAt;
+				const progress = clamp(elapsed / Math.max(1, bird.perchActionDuration), 0, 1);
+				if (progress >= 1) {
+					bird.perchAction = "idle";
+				} else if (bird.perchAction === "hop") {
+					bird.visualBob -= Math.round(Math.sin(progress * Math.PI) * 8);
+					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI) * 2);
+				} else if (bird.perchAction === "turn-hop") {
+					bird.visualBob -= Math.round(Math.sin(progress * Math.PI) * 10);
+					bird.visualShiftX += Math.round(Math.cos(progress * Math.PI) * 3);
+				} else if (bird.perchAction === "preen") {
+					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI * 3) * 3);
+					bird.visualBob += Math.round(Math.sin(progress * Math.PI * 2) * 2 - 2);
+				}
+			}
 
 			if (
 				now - bird.perchedAt >= HUNGER_BUBBLE_DELAY_MS &&
@@ -2008,6 +2378,10 @@
 		};
 
 		const updateFoodHoverBird = (bird, now) => {
+			if (!isBirdHungry(bird)) {
+				startSatedBehavior(bird);
+				return;
+			}
 			const sources = getFoodSources();
 			const source =
 				getFoodSourceByTargetKey(bird.foodTargetKey, sources) ?? sources[0] ?? null;
@@ -2038,8 +2412,8 @@
 					bird.foodHoverOffsetY +
 					Math.round(Math.sin(orbitPhase * 1.2) * 6);
 			bird.facing = targetX >= bird.x ? 1 : -1;
-			bird.x = lerp(bird.x, targetX, isGroundFood ? 0.14 : 0.1);
-			bird.y = lerp(bird.y, targetY, isGroundFood ? 0.14 : 0.1);
+			bird.x = lerp(bird.x, targetX, isGroundFood ? bird.hoverTightness : bird.hoverTightness * 0.74);
+			bird.y = lerp(bird.y, targetY, isGroundFood ? bird.hoverTightness : bird.hoverTightness * 0.72);
 			if (isGroundFood) {
 				const swayPhase = now * 0.0017 + bird.idlePhase;
 				bird.visualShiftX = Math.round(Math.sin(swayPhase * 0.54) * 2);
@@ -2055,16 +2429,53 @@
 			applyBirdFrame(bird);
 		};
 		const reconcileFoodDrivenFlock = () => {
-			if (!hasChickenLegs()) {
-				state.birds.forEach((bird) => {
-					if (
-						bird.state === "food-hover" ||
-						bird.state === "food-approaching" ||
-						bird.state === "food-dash" ||
-						bird.state === "bird-attack"
-					) {
-						startEscape(bird);
+			if (hasChickenLegs()) {
+				state.lastHadChickenLegs = true;
+				state.foodlessRetainTarget = 0;
+			} else {
+				if (!state.lastHadChickenLegs && state.foodlessRetainTarget === 0) {
+					state.birds.forEach((bird) => {
+						if (
+							bird.state === "food-hover" ||
+							bird.state === "food-approaching" ||
+							bird.state === "food-dash" ||
+							bird.state === "bird-attack" ||
+							bird.state === "sky-circling"
+						) {
+							startEscape(bird);
+						}
+					});
+					return;
+				}
+				if (state.lastHadChickenLegs) {
+					state.lastHadChickenLegs = false;
+					state.foodlessRetainTarget = 7 + (Math.random() < 0.5 ? 0 : 1);
+				}
+				const settledBirds = state.birds
+					.filter((bird) => bird.state !== "escaping")
+					.sort((left, right) => left.id - right.id);
+				const retainedBirds = new Set(
+					settledBirds.slice(0, Math.min(state.foodlessRetainTarget, settledBirds.length)),
+				);
+				settledBirds.forEach((bird) => {
+					if (retainedBirds.has(bird)) {
+						if (
+							bird.state === "food-hover" ||
+							bird.state === "food-approaching" ||
+							bird.state === "food-dash" ||
+							bird.state === "bird-attack" ||
+							bird.state === "sky-circling"
+						) {
+							const landingSpot = chooseLandingSpot({ excludeBird: bird });
+							if (landingSpot) {
+								sendBirdToPanel(bird, landingSpot, { doubleHop: Math.random() < 0.28 });
+							} else {
+								startEscape(bird);
+							}
+						}
+						return;
 					}
+					startEscape(bird);
 				});
 			}
 
@@ -2085,19 +2496,23 @@
 			const sprite = document.createElement("div");
 			sprite.className = "raven-bird__sprite";
 			element.appendChild(sprite);
+			const carryElement = document.createElement("div");
+			carryElement.className = "raven-bird__carry";
+			carryElement.dataset.visible = "false";
+			element.appendChild(carryElement);
 
 			const sizeScale = randomBetween(0.92, 1.12);
 			const initialWidth = BASE_BIRD_WIDTH * sizeScale;
 			const source = getSkyEntryPoint(initialWidth);
 			const rareColorRoll = Math.random();
 			const colorVariant =
-				rareColorRoll < 0.018
+				rareColorRoll < 0.1
 					? {
 							hueRotate: randomBetween(-8, 6).toFixed(1),
 							saturate: randomBetween(0.08, 0.18).toFixed(2),
 							brightness: randomBetween(1.62, 1.86).toFixed(2),
 						}
-					: rareColorRoll < 0.036
+					: rareColorRoll < 0.2
 						? {
 								hueRotate: randomBetween(-28, -14).toFixed(1),
 								saturate: randomBetween(1.18, 1.34).toFixed(2),
@@ -2113,6 +2528,7 @@
 				id: state.nextBirdId++,
 				element,
 				sprite,
+				carryElement,
 				state: "spawning",
 				source,
 				destination: source,
@@ -2145,6 +2561,24 @@
 				foodEatenCount: 0,
 				foodBusyUntil: 0,
 				lastHungerBubbleAt: 0,
+				perchAction: "idle",
+				perchActionStartedAt: 0,
+				perchActionDuration: 0,
+				nextPerchActionAt: 0,
+				appetite: "hungry",
+				satedUntil: 0,
+				satedBehavior: "none",
+				carryingFoodKind: null,
+				circlingCenterX: source.x,
+				circlingCenterY: source.y,
+				circlingRadiusX: 0,
+				circlingRadiusY: 0,
+				circlingSpeed: 0,
+				circlingDirection: 1,
+				dashDurationFactor: randomBetween(0.84, 1.18),
+				dashArcFactor: randomBetween(0.8, 1.35),
+				hoverTightness: randomBetween(0.09, 0.16),
+				greed: randomBetween(0, 1),
 				baseScale: sizeScale,
 				growthScale: 1,
 				recentPerchElements: [],
@@ -2207,7 +2641,13 @@
 
 			let safety = 0;
 			while (now >= state.nextSpawnAt && safety < getMaxBirdCount()) {
-				maybeSpawnBird({ instantPerch });
+				const batchCount = Math.min(
+					getSpawnBurstCount(),
+					Math.max(0, getMaxBirdCount() - state.birds.length),
+				);
+				for (let index = 0; index < batchCount; index += 1) {
+					maybeSpawnBird({ instantPerch: instantPerch && index === 0 });
+				}
 				state.nextSpawnAt += getSpawnIntervalMs();
 				safety += 1;
 			}
@@ -2391,6 +2831,7 @@
 			resetFoodMotionState(state.food);
 			state.food.dragOffsetX = event.clientX - state.food.x;
 			state.food.dragOffsetY = event.clientY - state.food.y;
+			state.food.dragSourceScrapId = scrap.id;
 			try {
 				drumstickElement.setPointerCapture(event.pointerId);
 			} catch {
@@ -2422,6 +2863,7 @@
 			state.food.foodKind = "drumstick";
 			state.food.bitesTotal = FOOD_BASE_BITES;
 			state.food.bitesRemaining = FOOD_BASE_BITES;
+			state.food.dragSourceScrapId = null;
 			resetFoodMotionState(state.food);
 			try {
 				drumstickElement.setPointerCapture(event.pointerId);
@@ -2550,34 +2992,146 @@
 				applyFoodFrame();
 			}
 		};
+		const settleScrapOnSurface = (scrap, supportY, impactVy, now, isFloor = false) => {
+			const size = getScrapSize(scrap);
+			scrap.y = supportY - size;
+			if (isFloor) {
+				const edgeInset = getBottomExitInset(size);
+				if (scrap.x <= edgeInset || scrap.x + size >= window.innerWidth - edgeInset) {
+					sendScrapOffscreen(
+						scrap,
+						scrap.x + size * 0.5 < window.innerWidth * 0.5 ? -1 : 1,
+					);
+					return;
+				}
+			}
 
-		const updateScraps = () => {
+			scrap.floorBounceCount += 1;
+			scrap.bounceOffsetY = Math.min(
+				scrap.bounceOffsetY,
+				-Math.min(18, Math.max(5, impactVy * 0.34)),
+			);
+			scrap.bounceVelocityY = Math.min(
+				scrap.bounceVelocityY,
+				-Math.max(1.4, impactVy * 0.22),
+			);
+			if (
+				scrap.floorBounceCount >= 2 &&
+				impactVy <= SCRAP_SETTLE_VELOCITY &&
+				Math.abs(scrap.vx) <= SCRAP_SETTLE_DRIFT
+			) {
+				scrap.x = clamp(scrap.x, 0, Math.max(0, window.innerWidth - size));
+				scrap.vx = 0;
+				scrap.vy = 0;
+				scrap.mode = "active";
+				scrap.rotationVelocity *= -0.36;
+				scrap.nextContestAt = now + randomBetween(280, 560);
+				return;
+			}
+
+			scrap.vy = -Math.max(3.8, impactVy * SCRAP_FLOOR_BOUNCE_DAMPING);
+			scrap.vx *= 0.9;
+			scrap.rotationVelocity *= -0.58;
+		};
+		const sendScrapOffscreen = (scrap, direction) => {
+			scrap.mode = "dropping";
+			scrap.floorBounceCount = 0;
+			scrap.vx = direction * Math.max(4.8, Math.abs(scrap.vx) * 0.82 + 1.6);
+			scrap.vy = Math.max(1.6, Math.abs(scrap.vy) * 0.18);
+			scrap.rotationVelocity += direction * randomBetween(0.7, 1.6);
+			scrap.bounceOffsetY = 0;
+			scrap.bounceVelocityY = 0;
+		};
+		const updateScraps = (now) => {
 			state.scraps.slice().forEach((scrap) => {
 				if (scrap.mode === "falling") {
-					const bottomY = window.innerHeight - getScrapSize(scrap) - 8;
-					scrap.y = Math.min(bottomY, scrap.y + scrap.vy);
-					scrap.vy = Math.min(
-						SCRAP_FALL_TERMINAL_VELOCITY,
-						scrap.vy + SCRAP_FALL_GRAVITY,
-					);
+					const size = getScrapSize(scrap);
+					const bottomY = window.innerHeight - size - 8;
+					const previousY = scrap.y;
+					scrap.x += scrap.vx;
+					scrap.y += scrap.vy;
+					scrap.vx *= SCRAP_HORIZONTAL_DRAG;
+					scrap.vy = Math.min(SCRAP_FALL_TERMINAL_VELOCITY, scrap.vy + SCRAP_FALL_GRAVITY);
 					scrap.rotationVelocity +=
-						(scrap.rotationVelocity >= 0 ? 0.06 : -0.06) +
-						Math.sin(performance.now() * 0.005 + scrap.id) * 0.02;
+						(scrap.rotationVelocity >= 0 ? 0.08 : -0.08) +
+						Math.sin(now * 0.006 + scrap.id) * 0.028;
+					if (scrap.x <= 0) {
+						scrap.x = 0;
+						scrap.vx = Math.abs(scrap.vx) * SCRAP_SIDE_BOUNCE_DAMPING;
+						scrap.rotationVelocity += randomBetween(0.8, 1.6);
+					} else if (scrap.x + size >= window.innerWidth) {
+						scrap.x = window.innerWidth - size;
+						scrap.vx = -Math.abs(scrap.vx) * SCRAP_SIDE_BOUNCE_DAMPING;
+						scrap.rotationVelocity -= randomBetween(0.8, 1.6);
+					}
+					const collidedSupport = state.scraps
+						.filter(
+							(other) =>
+								other !== scrap &&
+								other.mode !== "dropping" &&
+								other.bitesRemaining > 0,
+						)
+						.sort((left, right) => left.y - right.y)
+						.find((other) => {
+							const otherSize = getScrapSize(other);
+							const overlapsX =
+								scrap.x + size > other.x + 6 && scrap.x < other.x + otherSize - 6;
+							if (!overlapsX) {
+								return false;
+							}
+							const previousBottom = previousY + size;
+							const otherTop = other.y;
+							return previousBottom <= otherTop + 10 && scrap.y + size >= otherTop;
+						});
+					if (collidedSupport) {
+						const impactVy = Math.max(0, scrap.vy);
+						settleScrapOnSurface(scrap, collidedSupport.y, impactVy, now, false);
+						updateFoodMotionState(scrap);
+						updateScrapFrame(scrap);
+						return;
+					}
+					state.scraps.forEach((other) => {
+						if (
+							other === scrap ||
+							other.mode === "dropping" ||
+							other.bitesRemaining <= 0
+						) {
+							return;
+						}
+						const otherSize = getScrapSize(other);
+						if (
+							!rectsOverlap(
+								{ x: scrap.x, y: scrap.y, width: size, height: size },
+								{ x: other.x, y: other.y, width: otherSize, height: otherSize },
+								-6,
+							)
+						) {
+							return;
+						}
+						const scrapCenterX = scrap.x + size * 0.5;
+						const otherCenterX = other.x + otherSize * 0.5;
+						const pushDirection = scrapCenterX >= otherCenterX ? 1 : -1;
+						scrap.x = clamp(
+							scrap.x + pushDirection * Math.max(3, Math.min(10, Math.abs(scrap.vx) * 1.6 + 2)),
+							0,
+							Math.max(0, window.innerWidth - size),
+						);
+						scrap.vx = pushDirection * Math.max(0.8, Math.abs(scrap.vx) * 0.72);
+					});
 					updateFoodMotionState(scrap);
 					if (scrap.y >= bottomY) {
-						scrap.y = bottomY;
-						scrap.mode = "active";
-						scrap.bounceOffsetY = -Math.min(8, Math.max(3, scrap.vy * 0.42));
-						scrap.bounceVelocityY = Math.max(0.9, scrap.vy * 0.14);
-						scrap.rotationVelocity *= -0.42;
-						scrap.nextContestAt = performance.now() + randomBetween(280, 560);
+						const impactVy = Math.max(0, scrap.vy);
+						settleScrapOnSurface(scrap, bottomY + size, impactVy, now, true);
 					}
 					updateScrapFrame(scrap);
 					return;
 				}
 
 				if (scrap.mode === "dropping") {
+					const size = getScrapSize(scrap);
+					scrap.x += scrap.vx;
 					scrap.y += scrap.vy;
+					scrap.vx *= 0.992;
 					scrap.vy = Math.min(
 						SCRAP_FALL_TERMINAL_VELOCITY + 4,
 						scrap.vy + SCRAP_FALL_GRAVITY,
@@ -2585,7 +3139,11 @@
 					scrap.rotationVelocity +=
 						(scrap.rotationVelocity >= 0 ? 0.05 : -0.05) * 0.9;
 					updateFoodMotionState(scrap);
-					if (scrap.y > window.innerHeight + getScrapSize(scrap) + 12) {
+					if (
+						scrap.y > window.innerHeight + size + 12 ||
+						scrap.x < -size * 1.8 ||
+						scrap.x > window.innerWidth + size * 1.8
+					) {
 						removeScrap(scrap);
 						return;
 					}
@@ -2622,31 +3180,34 @@
 				const candidates = shuffle(
 					state.birds.filter(
 						(bird) =>
+							isBirdHungry(bird) &&
 							bird.foodTargetKey === source.targetKey &&
 							(bird.state === "food-hover" || bird.state === "food-approaching") &&
-							now >= bird.foodBusyUntil,
+							now >= bird.foodBusyUntil &&
+							!isGroundFlankBird(bird, source),
 					),
 				);
 				if (candidates.length === 0) {
-					foodEntity.nextContestAt = now + randomBetween(420, 920);
+					foodEntity.nextContestAt =
+						now + randomBetween(FOOD_CONTEST_MIN_MS * 0.24, FOOD_CONTEST_MAX_MS * 0.26);
 					return;
 				}
 
 				let participantCount = 1;
-				if (candidates.length >= 2 && Math.random() < 0.82) {
+				if (candidates.length >= 2 && Math.random() < 0.9) {
 					participantCount = 2;
 				}
-				if (candidates.length >= 4 && Math.random() < 0.28) {
+				if (candidates.length >= 4 && Math.random() < 0.54) {
 					participantCount = 3;
+				}
+				if (candidates.length >= 5 && Math.random() < 0.24) {
+					participantCount = 4;
 				}
 				const participants = candidates.slice(
 					0,
 					Math.min(participantCount, candidates.length),
 				);
-				const canBite =
-					now - (foodEntity.lastBiteAt ?? -FOOD_BITE_COOLDOWN_MS) >=
-						FOOD_BITE_COOLDOWN_MS && source.bitesRemaining > 0;
-				const winner = canBite ? participants[0] : null;
+				const winner = source.bitesRemaining > 0 ? participants[0] : null;
 
 				participants.forEach((bird, index) => {
 					bird.foodBusyUntil = now + randomBetween(260, 540);
@@ -2656,13 +3217,8 @@
 						index,
 					});
 				});
-
-				if (winner) {
-					foodEntity.lastBiteAt = now;
-				}
-
 				foodEntity.nextContestAt =
-					now + randomBetween(FOOD_CONTEST_MIN_MS, FOOD_CONTEST_MAX_MS);
+					now + randomBetween(FOOD_CONTEST_MIN_MS * 0.28, FOOD_CONTEST_MAX_MS * 0.38);
 			});
 		};
 
@@ -2732,7 +3288,7 @@
 
 		const tick = (now) => {
 			updateFood(now);
-			updateScraps();
+			updateScraps(now);
 			reconcileFoodDrivenFlock();
 			maybeTriggerSharedThought(now);
 			if (isFoodDetected()) {
@@ -2760,6 +3316,11 @@
 
 				if (bird.state === "food-hover") {
 					updateFoodHoverBird(bird, now);
+					return;
+				}
+
+				if (bird.state === "sky-circling") {
+					updateSkyCirclingBird(bird, now);
 				}
 			});
 
