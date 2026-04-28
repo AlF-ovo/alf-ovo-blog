@@ -20,7 +20,7 @@ onMount(() => {
 	const changeThemeWhenSchemeChanged: Parameters<
 		typeof darkModePreference.addEventListener<"change">
 	>[1] = () => {
-		applyThemeToDocument(mode);
+		applyThemeToDocument();
 	};
 	darkModePreference.addEventListener("change", changeThemeWhenSchemeChanged);
 	return () => {
@@ -33,7 +33,7 @@ onMount(() => {
 
 function switchScheme(newMode: LIGHT_DARK_MODE) {
 	mode = newMode;
-	setTheme(newMode);
+	setTheme();
 }
 
 function toggleScheme() {

@@ -267,7 +267,7 @@ import {
 	// SizeObserverPlugin,
 	// ClickScrollPlugin
 } from 'overlayscrollbars';
-import {getStoredTheme, setTheme} from "../utils/setting-utils";
+import {setTheme} from "../utils/setting-utils";
 import {pathsEqual, url} from "../utils/url-utils";
 import {
 	BANNER_HEIGHT,
@@ -380,8 +380,7 @@ setClickOutsideToClose("search-panel", ["search-panel", "search-bar", "search-sw
 
 
 function loadTheme() {
-	const theme = getStoredTheme()
-	setTheme(theme)
+	setTheme()
 }
 
 function initCustomScrollbar() {
