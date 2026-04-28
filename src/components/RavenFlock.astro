@@ -69,16 +69,21 @@
 		const BASE_FOOT_OFFSET_Y = 58;
 		const VIEWPORT_PADDING = 12;
 		const MAX_BIRDS = 6;
-		const SPAWN_INTERVAL_MS = 32000;
+		const SPAWN_INTERVAL_MS = 26000;
 		const SPAWN_HEARTBEAT_MS = 4000;
 		const MIN_TARGET_WIDTH = 112;
 		const MIN_TARGET_HEIGHT = 56;
-		const MIN_DWELL_MS = 26000;
-		const MAX_DWELL_MS = 46000;
+		const MIN_DWELL_MS = 20000;
+		const MAX_DWELL_MS = 34000;
 		const FLIGHT_FRAME_INTERVAL_MS = 92;
 		const MIN_ROW_GAP = 84;
 		const MIN_COLUMN_GAP = 132;
 		const LANDING_SAMPLES_PER_TARGET = 5;
+		const TARGET_POSITION_EPSILON = 12;
+		const TARGET_REACTION_DELAY_MS = 180;
+		const TARGET_REACTION_GRACE_MS = 260;
+		const ESCAPE_ON_TARGET_CHANGE_PROBABILITY = 0.55;
+		const STABLE_RELOCATION_PROBABILITY = 0.3;
 		const PERCHED_FRAME_INDEX = 0;
 		const FLIGHT_SEQUENCE = [1, 2, 3, 4, 5, 4, 3, 2];
 
@@ -206,6 +211,8 @@
 			spawnHeartbeatId: 0,
 			initialSpawnDone: false,
 			nextSpawnAt: 0,
+			targetReactionToken: 0,
+			targetChangeGraceUntil: 0,
 		};
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
@@ -267,14 +274,30 @@
 				}));
 		};
 
+		const snapshotTargets = () =>
+			getTargetCandidates().map((candidate) => ({
+				element: candidate.element,
+				rect: {
+					left: candidate.rect.left,
+					top: candidate.rect.top,
+					right: candidate.rect.right,
+					bottom: candidate.rect.bottom,
+					width: candidate.rect.width,
+					height: candidate.rect.height,
+				},
+			}));
+
 		const getBirdLandingAnchor = (bird) => ({
 			x: bird.perch?.x ?? bird.destination.x + bird.width / 2,
 			y: bird.perch?.y ?? bird.destination.y + bird.footOffset,
 			element: bird.perch?.element ?? null,
 		});
 
-		const scoreLandingSpot = (spot) => {
-			const occupiedBirds = state.birds.filter((bird) => bird.state !== "escaping");
+		const scoreLandingSpot = (spot, options = {}) => {
+			const { excludeBird = null } = options;
+			const occupiedBirds = state.birds.filter(
+				(bird) => bird !== excludeBird && bird.state !== "escaping",
+			);
 			if (occupiedBirds.length === 0) {
 				return Math.random() * 0.1;
 			}
@@ -296,8 +319,8 @@
 			}, 0);
 		};
 
-		const chooseLandingSpot = () => {
-			const candidates = getTargetCandidates();
+		const chooseLandingSpotFromCandidates = (candidates, options = {}) => {
+			const { excludeBird = null } = options;
 			if (candidates.length === 0) {
 				return null;
 			}
@@ -329,7 +352,7 @@
 						x: sampledX,
 						y: candidate.rect.top,
 					};
-					const score = scoreLandingSpot(spot);
+					const score = scoreLandingSpot(spot, { excludeBird });
 					if (score > bestScore) {
 						bestScore = score;
 						bestSpot = spot;
@@ -349,6 +372,9 @@
 			};
 		};
 
+		const chooseLandingSpot = (options = {}) =>
+			chooseLandingSpotFromCandidates(getTargetCandidates(), options);
+
 		const getSkyEntryPoint = (birdWidth) => ({
 			x: randomBetween(-birdWidth * 0.25, window.innerWidth - birdWidth * 0.75),
 			y: randomBetween(-200, -100),
@@ -365,6 +391,54 @@
 				y: Math.max(-bird.height * 2, bird.y - randomBetween(140, 260)),
 				direction,
 			};
+		};
+
+		const getPerchDestination = (landingSpot, bird) => ({
+			x: clamp(
+				landingSpot.x - bird.width / 2,
+				-VIEWPORT_PADDING,
+				window.innerWidth - bird.width + VIEWPORT_PADDING,
+			),
+			y: landingSpot.y - bird.footOffset,
+		});
+
+		const getRelayWaypoint = (bird, landingSpot) => {
+			const landingDestination = getPerchDestination(landingSpot, bird);
+			const midpointX = (bird.x + landingDestination.x) / 2;
+			return {
+				x: clamp(
+					midpointX + randomBetween(-60, 60),
+					-bird.width * 0.4,
+					window.innerWidth - bird.width * 0.6,
+				),
+				y: Math.max(
+					-bird.height * 2.2,
+					Math.min(bird.y, landingDestination.y) - randomBetween(110, 180),
+				),
+			};
+		};
+
+		const beginFlightSegment = (bird, options) => {
+			const {
+				state: nextState,
+				destination,
+				duration,
+				arcHeight,
+				finalAction,
+				landingSpot = null,
+			} = options;
+
+			bird.state = nextState;
+			bird.element.dataset.state = nextState;
+			bird.source = { x: bird.x, y: bird.y };
+			bird.destination = destination;
+			bird.startedAt = performance.now();
+			bird.duration = duration;
+			bird.arcHeight = arcHeight;
+			bird.facing = destination.x >= bird.x ? 1 : -1;
+			bird.nextFrameAt = bird.startedAt;
+			bird.finalAction = finalAction;
+			bird.pendingLandingSpot = landingSpot;
 		};
 
 		const setBirdFrame = (bird, frameIndex) => {
@@ -409,26 +483,56 @@
 			applyBirdFrame(bird);
 		};
 
+		const startRelocation = (bird, landingSpot, options = {}) => {
+			const { doubleHop = false } = options;
+			if (!landingSpot) {
+				startEscape(bird);
+				return;
+			}
+
+			if (doubleHop) {
+				const relayWaypoint = getRelayWaypoint(bird, landingSpot);
+				beginFlightSegment(bird, {
+					state: "relocating",
+					destination: relayWaypoint,
+					duration: randomBetween(420, 620),
+					arcHeight: randomBetween(26, 54),
+					finalAction: "relay",
+					landingSpot,
+				});
+				return;
+			}
+
+			beginFlightSegment(bird, {
+				state: "relocating",
+				destination: getPerchDestination(landingSpot, bird),
+				duration: randomBetween(760, 1120),
+				arcHeight: randomBetween(24, 52),
+				finalAction: "perch",
+				landingSpot,
+			});
+		};
+
 		const startEscape = (bird) => {
 			if (bird.state === "escaping") {
 				return;
 			}
 
 			const exitPoint = getDirectExitPoint(bird);
-			bird.state = "escaping";
-			bird.element.dataset.state = "escaping";
-			bird.source = { x: bird.x, y: bird.y };
-			bird.destination = { x: exitPoint.x, y: exitPoint.y };
+			beginFlightSegment(bird, {
+				state: "escaping",
+				destination: { x: exitPoint.x, y: exitPoint.y },
+				duration: randomBetween(760, 1180),
+				arcHeight: randomBetween(22, 58),
+				finalAction: "remove",
+			});
 			bird.facing = exitPoint.direction;
-			bird.startedAt = performance.now();
-			bird.duration = randomBetween(760, 1180);
-			bird.arcHeight = randomBetween(22, 58);
-			bird.nextFrameAt = bird.startedAt;
 		};
 
-		const updateApproachingBird = (bird, now) => {
+		const updateFlyingBird = (bird, now) => {
 			const progress = clamp((now - bird.startedAt) / bird.duration, 0, 1);
-			const eased = easeOutCubic(progress);
+			const eased =
+				bird.state === "escaping" ? easeInCubic(progress) : easeOutCubic(progress);
 
 			bird.x = lerp(bird.source.x, bird.destination.x, easeInOutSine(progress));
 			bird.y =
@@ -439,28 +543,44 @@
 			applyBirdFrame(bird);
 
 			if (progress >= 1) {
+				if (bird.finalAction === "remove") {
+					removeBird(bird);
+					return;
+				}
+
+				if (bird.finalAction === "relay") {
+					const nextLandingSpot = bird.pendingLandingSpot;
+					if (!nextLandingSpot) {
+						startEscape(bird);
+						return;
+					}
+
+					beginFlightSegment(bird, {
+						state: "relocating",
+						destination: getPerchDestination(nextLandingSpot, bird),
+						duration: randomBetween(720, 1080),
+						arcHeight: randomBetween(24, 50),
+						finalAction: "perch",
+						landingSpot: nextLandingSpot,
+					});
+					return;
+				}
+
+				bird.perch = bird.pendingLandingSpot;
 				setBirdPerched(bird);
 			}
 		};
 
-		const updateEscapingBird = (bird, now) => {
-			const progress = clamp((now - bird.startedAt) / bird.duration, 0, 1);
-			const eased = easeInCubic(progress);
-
-			bird.x = lerp(bird.source.x, bird.destination.x, eased);
-			bird.y =
-				lerp(bird.source.y, bird.destination.y, eased) -
-				Math.sin(progress * Math.PI) * bird.arcHeight;
-
-			updateFlightFrame(bird, now);
-			applyBirdFrame(bird);
-
-			if (progress >= 1) {
-				removeBird(bird);
-			}
-		};
-
 		const updatePerchedBird = (bird, now) => {
+			if (
+				!isVisibleTarget(bird.perch.element) &&
+				now < state.targetChangeGraceUntil
+			) {
+				setBirdFrame(bird, PERCHED_FRAME_INDEX);
+				applyBirdFrame(bird);
+				return;
+			}
+
 			if (!isVisibleTarget(bird.perch.element) || now >= bird.leaveAt) {
 				startEscape(bird);
 				return;
@@ -480,13 +600,12 @@
 
 		const tick = (now) => {
 			state.birds.slice().forEach((bird) => {
-				if (bird.state === "approaching") {
-					updateApproachingBird(bird, now);
-					return;
-				}
-
-				if (bird.state === "escaping") {
-					updateEscapingBird(bird, now);
+				if (
+					bird.state === "approaching" ||
+					bird.state === "relocating" ||
+					bird.state === "escaping"
+				) {
+					updateFlyingBird(bird, now);
 					return;
 				}
 
@@ -527,14 +646,10 @@
 			element.style.height = `${height}px`;
 
 			const source = getSkyEntryPoint(width);
-			const destination = {
-				x: clamp(
-					landingSpot.x - width / 2,
-					-VIEWPORT_PADDING,
-					window.innerWidth - width + VIEWPORT_PADDING,
-				),
-				y: landingSpot.y - footOffset,
-			};
+			const destination = getPerchDestination(landingSpot, {
+				width,
+				footOffset,
+			});
 
 			const bird = {
 				element,
@@ -556,6 +671,8 @@
 				frameIndex: -1,
 				frameCursor: Math.floor(Math.random() * FLIGHT_SEQUENCE.length),
 				nextFrameAt: performance.now(),
+				finalAction: "perch",
+				pendingLandingSpot: landingSpot,
 			};
 
 			setBirdFrame(bird, FLIGHT_SEQUENCE[bird.frameCursor]);
@@ -624,9 +741,125 @@
 			}
 		};
 
+		const targetsSharePosition = (beforeTarget, afterTarget) => {
+			const dx = Math.abs(beforeTarget.rect.left - afterTarget.rect.left);
+			const dy = Math.abs(beforeTarget.rect.top - afterTarget.rect.top);
+			const dw = Math.abs(beforeTarget.rect.width - afterTarget.rect.width);
+			const dh = Math.abs(beforeTarget.rect.height - afterTarget.rect.height);
+			return (
+				dx <= TARGET_POSITION_EPSILON &&
+				dy <= TARGET_POSITION_EPSILON &&
+				dw <= TARGET_POSITION_EPSILON &&
+				dh <= TARGET_POSITION_EPSILON
+			);
+		};
+
+		const reactToTargetChange = (bird, stableTargets, freshTargets) => {
+			const roll = Math.random();
+			const stableLandingSpot = chooseLandingSpotFromCandidates(stableTargets, {
+				excludeBird: bird,
+			});
+			const freshLandingSpot = chooseLandingSpotFromCandidates(freshTargets, {
+				excludeBird: bird,
+			});
+
+			if (roll < ESCAPE_ON_TARGET_CHANGE_PROBABILITY) {
+				startEscape(bird);
+				return;
+			}
+
+			if (
+				roll <
+				ESCAPE_ON_TARGET_CHANGE_PROBABILITY + STABLE_RELOCATION_PROBABILITY
+			) {
+				if (stableLandingSpot) {
+					startRelocation(bird, stableLandingSpot);
+					return;
+				}
+
+				startEscape(bird);
+				return;
+			}
+
+			if (freshLandingSpot) {
+				startRelocation(bird, freshLandingSpot, { doubleHop: true });
+				return;
+			}
+
+			if (stableLandingSpot) {
+				startRelocation(bird, stableLandingSpot);
+				return;
+			}
+
+			startEscape(bird);
+		};
+
+		const processClickDrivenTargetChange = (beforeTargets, token) => {
+			if (token !== state.targetReactionToken) {
+				return;
+			}
+
+			const afterTargets = snapshotTargets();
+			const beforeMap = new Map(beforeTargets.map((target) => [target.element, target]));
+			const afterMap = new Map(afterTargets.map((target) => [target.element, target]));
+			const removedTargets = beforeTargets.filter(
+				(target) => !afterMap.has(target.element),
+			);
+			const stableTargets = afterTargets.filter((target) => {
+				const previousTarget = beforeMap.get(target.element);
+				return previousTarget && targetsSharePosition(previousTarget, target);
+			});
+			const freshTargets = afterTargets.filter((target) => {
+				const previousTarget = beforeMap.get(target.element);
+				return !previousTarget || !targetsSharePosition(previousTarget, target);
+			});
+
+			if (removedTargets.length === 0 && freshTargets.length === 0) {
+				state.targetChangeGraceUntil = 0;
+				return;
+			}
+
+			state.birds.slice().forEach((bird) => {
+				if (bird.state !== "perched" || !(bird.perch?.element instanceof HTMLElement)) {
+					return;
+				}
+
+				if (!beforeMap.has(bird.perch.element) || afterMap.has(bird.perch.element)) {
+					return;
+				}
+
+				reactToTargetChange(bird, stableTargets, freshTargets);
+			});
+
+			state.targetChangeGraceUntil = 0;
+			if (state.birds.length > 0) {
+				ensureAnimationLoop();
+			}
+		};
+
+		const scheduleClickDrivenTargetChangeCheck = (event) => {
+			const target = event.target;
+			if (!(target instanceof Element) || root.contains(target)) {
+				return;
+			}
+
+			const beforeTargets = snapshotTargets();
+			const token = state.targetReactionToken + 1;
+			state.targetReactionToken = token;
+			state.targetChangeGraceUntil = performance.now() + TARGET_REACTION_GRACE_MS;
+
+			window.setTimeout(() => {
+				processClickDrivenTargetChange(beforeTargets, token);
+			}, TARGET_REACTION_DELAY_MS);
+		};
+
 		const reconcileBirdTargets = () => {
 			state.birds.forEach((bird) => {
-				if (bird.state === "perched" && !isVisibleTarget(bird.perch.element)) {
+				if (
+					bird.state === "perched" &&
+					!isVisibleTarget(bird.perch.element) &&
+					performance.now() >= state.targetChangeGraceUntil
+				) {
 					startEscape(bird);
 				}
 			});
@@ -674,6 +907,7 @@
 			{ passive: true },
 		);
 
+		document.addEventListener("click", scheduleClickDrivenTargetChangeCheck, true);
 		window.addEventListener("resize", reconcileBirdTargets);
 		document.addEventListener("astro:page-load", () => {
 			reconcileBirdTargets();
