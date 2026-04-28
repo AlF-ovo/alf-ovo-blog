@@ -17,146 +17,26 @@
 		position: absolute;
 		left: 0;
 		top: 0;
-		width: 5.25rem;
-		height: 4.125rem;
+		width: 6rem;
+		height: 4.5rem;
 		pointer-events: auto;
 		cursor: pointer;
+		user-select: none;
 		will-change: transform;
-		filter: drop-shadow(0 0.75rem 1.25rem rgb(15 23 42 / 0.18));
+		filter: drop-shadow(0 0.65rem 1rem rgb(3 7 18 / 0.28));
 	}
 
-	.raven-bird__frame {
-		width: 100%;
-		height: 100%;
-		transform: translate3d(
-				0,
-				calc(var(--bird-bob, 0px) + var(--bird-hop, 0px)),
-				0
-			)
-			rotate(var(--bird-tilt, 0deg));
-		transform-origin: 50% 88%;
-		will-change: transform;
-	}
-
-	.raven-bird__shell {
-		width: 100%;
-		height: 100%;
-		transform-origin: 50% 88%;
-	}
-
-	.raven-bird.is-perched .raven-bird__shell {
-		animation: raven-perch-bob 4200ms ease-in-out infinite;
-	}
-
-	.raven-bird svg {
+	.raven-bird__sprite,
+	.raven-bird__sprite svg {
 		display: block;
 		width: 100%;
 		height: 100%;
 		overflow: visible;
+		image-rendering: pixelated;
 	}
 
-	.raven-bird__body,
-	.raven-bird__head,
-	.raven-bird__tail,
-	.raven-bird__leg,
-	.raven-bird__beak {
-		fill: var(--bird-body-fill, rgb(250 250 250));
-	}
-
-	.raven-bird__body,
-	.raven-bird__head,
-	.raven-bird__tail,
-	.raven-bird__wing {
-		stroke: var(--bird-outline, rgb(15 23 42 / 0.24));
-		stroke-width: 0.7;
-	}
-
-	.raven-bird__wing {
-		transform-box: fill-box;
-		will-change: transform;
-	}
-
-	.raven-bird__wing--rear {
-		fill: var(--bird-rear-wing-fill, rgb(216 216 216));
-	}
-
-	.raven-bird__wing--front {
-		fill: var(--bird-front-wing-fill, rgb(240 240 240));
-	}
-
-	.raven-bird__head-group {
-		transform-box: fill-box;
-		transform-origin: 14% 72%;
-		transform: translateY(var(--bird-head-lift, 0px))
-			rotate(var(--bird-head-turn, 0deg));
-		transition: transform 320ms ease;
-	}
-
-	.raven-bird__eye {
-		fill: var(--bird-body-fill, rgb(250 250 250));
-	}
-
-	.raven-bird__detail {
-		fill: none;
-		stroke: var(--bird-detail, rgb(15 23 42 / 0.2));
-		stroke-width: 0.9;
-		stroke-linecap: round;
-		stroke-linejoin: round;
-	}
-
-	.raven-bird__wing--rear {
-		transform-origin: 78% 34%;
-		animation: raven-wing-flap-left var(--wing-speed, 380ms) ease-in-out infinite
-			alternate;
-	}
-
-	.raven-bird__wing--front {
-		transform-origin: 22% 34%;
-		animation: raven-wing-flap-right var(--wing-speed, 380ms) ease-in-out infinite
-			alternate;
-	}
-
-	.raven-bird.is-perched {
-		--wing-speed: 1400ms;
-	}
-
-	.raven-bird.is-escaping {
-		--wing-speed: 260ms;
-	}
-
-	.raven-bird.is-relocating {
-		--wing-speed: 320ms;
-	}
-
-	@keyframes raven-wing-flap-left {
-		0% {
-			transform: rotate(10deg) translateY(-0.15rem);
-		}
-
-		100% {
-			transform: rotate(-34deg) translateY(0.1rem);
-		}
-	}
-
-	@keyframes raven-wing-flap-right {
-		0% {
-			transform: rotate(-10deg) translateY(-0.15rem);
-		}
-
-		100% {
-			transform: rotate(34deg) translateY(0.1rem);
-		}
-	}
-
-	@keyframes raven-perch-bob {
-		0%,
-		100% {
-			transform: translateY(0);
-		}
-
-		50% {
-			transform: translateY(-0.08rem);
-		}
+	.raven-bird[data-state="perched"] {
+		filter: drop-shadow(0 0.45rem 0.8rem rgb(3 7 18 / 0.22));
 	}
 </style>
 
@@ -182,23 +62,149 @@
 			".dashboard-hero",
 		].join(",");
 
-		const MAX_BIRDS = 8;
-		const SPAWN_INTERVAL_MS = 30000;
-		const BASE_BIRD_WIDTH = 84;
-		const BASE_FOOT_OFFSET_Y = 57;
+		const SPRITE_WIDTH = 24;
+		const SPRITE_HEIGHT = 18;
+		const BASE_BIRD_WIDTH = 96;
+		const BASE_BIRD_HEIGHT = 72;
+		const BASE_FOOT_OFFSET_Y = 58;
 		const VIEWPORT_PADDING = 12;
+		const MAX_BIRDS = 6;
+		const SPAWN_INTERVAL_MS = 32000;
+		const SPAWN_HEARTBEAT_MS = 4000;
 		const MIN_TARGET_WIDTH = 112;
 		const MIN_TARGET_HEIGHT = 56;
-		const MIN_DWELL_MS = 38000;
-		const MAX_DWELL_MS = 62000;
-		const SPAWN_HEARTBEAT_MS = 4000;
+		const MIN_DWELL_MS = 26000;
+		const MAX_DWELL_MS = 46000;
+		const FLIGHT_FRAME_INTERVAL_MS = 92;
+		const MIN_ROW_GAP = 84;
+		const MIN_COLUMN_GAP = 132;
+		const LANDING_SAMPLES_PER_TARGET = 5;
+		const PERCHED_FRAME_INDEX = 0;
+		const FLIGHT_SEQUENCE = [1, 2, 3, 4, 5, 4, 3, 2];
+
+		const palette = {
+			body: "#17181d",
+			shadow: "#09090c",
+			highlight: "#2b2e36",
+			beak: "#b69357",
+			eye: "#f1ead3",
+		};
+
+		const frameDefinitions = [
+			[
+				[7, 6, 7, 1, "highlight"],
+				[8, 7, 9, 4, "body"],
+				[10, 8, 7, 3, "shadow"],
+				[15, 5, 3, 2, "body"],
+				[17, 4, 3, 3, "body"],
+				[18, 5, 2, 2, "shadow"],
+				[20, 5, 2, 1, "beak"],
+				[4, 9, 4, 2, "shadow"],
+				[3, 10, 2, 1, "body"],
+				[11, 11, 1, 3, "shadow"],
+				[14, 11, 1, 3, "shadow"],
+				[10, 14, 3, 1, "shadow"],
+				[13, 14, 3, 1, "shadow"],
+				[19, 5, 1, 1, "eye"],
+			],
+			[
+				[7, 9, 8, 3, "body"],
+				[9, 10, 6, 2, "shadow"],
+				[14, 7, 3, 2, "body"],
+				[17, 6, 3, 3, "body"],
+				[18, 7, 2, 2, "shadow"],
+				[20, 7, 2, 1, "beak"],
+				[4, 8, 3, 2, "shadow"],
+				[2, 7, 3, 1, "highlight"],
+				[10, 6, 4, 2, "body"],
+				[12, 4, 3, 3, "body"],
+				[11, 5, 2, 4, "shadow"],
+				[10, 12, 2, 2, "shadow"],
+				[13, 12, 2, 2, "shadow"],
+				[19, 7, 1, 1, "eye"],
+			],
+			[
+				[7, 7, 6, 1, "highlight"],
+				[7, 8, 7, 4, "body"],
+				[9, 9, 6, 3, "shadow"],
+				[14, 6, 3, 2, "body"],
+				[17, 5, 3, 3, "body"],
+				[18, 6, 2, 2, "shadow"],
+				[20, 6, 2, 1, "beak"],
+				[3, 9, 4, 4, "body"],
+				[2, 10, 2, 3, "shadow"],
+				[14, 8, 6, 5, "body"],
+				[16, 9, 4, 4, "shadow"],
+				[5, 8, 2, 1, "highlight"],
+				[8, 12, 2, 1, "shadow"],
+				[12, 12, 2, 1, "shadow"],
+				[19, 6, 1, 1, "eye"],
+			],
+			[
+				[7, 7, 6, 1, "highlight"],
+				[7, 8, 7, 4, "body"],
+				[9, 9, 6, 3, "shadow"],
+				[14, 6, 3, 2, "body"],
+				[17, 5, 3, 3, "body"],
+				[18, 6, 2, 2, "shadow"],
+				[20, 6, 2, 1, "beak"],
+				[1, 7, 6, 3, "body"],
+				[0, 8, 4, 2, "shadow"],
+				[14, 6, 8, 4, "body"],
+				[18, 7, 4, 3, "shadow"],
+				[5, 6, 2, 1, "highlight"],
+				[19, 6, 1, 1, "eye"],
+			],
+			[
+				[8, 8, 7, 3, "body"],
+				[10, 9, 5, 2, "shadow"],
+				[15, 6, 3, 2, "body"],
+				[18, 5, 3, 3, "body"],
+				[19, 6, 2, 2, "shadow"],
+				[21, 6, 2, 1, "beak"],
+				[7, 1, 3, 7, "body"],
+				[6, 2, 2, 6, "shadow"],
+				[14, 0, 4, 8, "body"],
+				[16, 1, 2, 7, "shadow"],
+				[4, 9, 4, 2, "shadow"],
+				[3, 10, 2, 1, "body"],
+				[19, 6, 1, 1, "eye"],
+			],
+			[
+				[8, 7, 8, 4, "body"],
+				[10, 8, 6, 3, "shadow"],
+				[16, 5, 3, 3, "body"],
+				[19, 6, 2, 2, "shadow"],
+				[21, 6, 2, 1, "beak"],
+				[6, 5, 10, 2, "highlight"],
+				[2, 7, 6, 2, "body"],
+				[1, 8, 4, 2, "shadow"],
+				[16, 6, 6, 2, "body"],
+				[18, 7, 4, 2, "shadow"],
+				[4, 9, 4, 1, "shadow"],
+				[3, 10, 2, 1, "body"],
+				[18, 6, 1, 1, "eye"],
+			],
+		];
+
+		const buildSpriteMarkup = (rects) => {
+			const spriteRects = rects
+				.map(
+					([x, y, width, height, color]) =>
+						`<rect x="${x}" y="${y}" width="${width}" height="${height}" fill="${palette[color]}" />`,
+				)
+				.join("");
+
+			return `<svg viewBox="0 0 ${SPRITE_WIDTH} ${SPRITE_HEIGHT}" role="presentation" focusable="false" shape-rendering="crispEdges">${spriteRects}</svg>`;
+		};
+
+		const spriteMarkup = frameDefinitions.map(buildSpriteMarkup);
 
 		const state = {
 			birds: [],
 			rafId: 0,
 			spawnHeartbeatId: 0,
 			initialSpawnDone: false,
-			pendingSpawns: 0,
 			nextSpawnAt: 0,
 		};
 
@@ -209,43 +215,6 @@
 		const easeInCubic = (progress) => progress ** 3;
 		const easeInOutSine = (progress) =>
 			-(Math.cos(Math.PI * progress) - 1) / 2;
-
-		const birdMarkup = `
-			<div class="raven-bird__frame">
-				<div class="raven-bird__shell">
-					<svg viewBox="0 0 84 66" role="presentation" focusable="false">
-						<path
-							class="raven-bird__tail"
-							d="M24 44 L10 48 L18 38 Z"
-						/>
-						<path
-							class="raven-bird__wing raven-bird__wing--rear"
-							d="M40 27 C29 14 16 12 9 19 C15 24 21 34 26 45 C34 40 39 33 40 27 Z"
-						/>
-						<ellipse class="raven-bird__body" cx="42" cy="38" rx="16" ry="11" />
-						<g class="raven-bird__head-group">
-							<circle class="raven-bird__head" cx="57" cy="28" r="7.5" />
-							<path
-								class="raven-bird__beak"
-								d="M63 28 L74 25.5 L65.5 31.5 Z"
-							/>
-							<circle class="raven-bird__eye" cx="59" cy="26.5" r="1.1" />
-						</g>
-						<path class="raven-bird__detail" d="M31 36 C36 33.5 45 33.5 51 36" />
-						<path class="raven-bird__detail" d="M26 42 C33 40 49 40 55 42" />
-						<path class="raven-bird__detail" d="M51 22 C54 20.8 58 20.8 61 22" />
-						<path
-							class="raven-bird__wing raven-bird__wing--front"
-							d="M44 28 C55 15 68 13 75 21 C69 25 63 35 58 46 C50 41 45 34 44 28 Z"
-						/>
-						<rect class="raven-bird__leg" x="37.4" y="47" width="2.2" height="9" rx="1.1" />
-						<rect class="raven-bird__leg" x="46.4" y="47" width="2.2" height="9" rx="1.1" />
-						<rect class="raven-bird__leg" x="36.3" y="55" width="6.6" height="1.6" rx="0.8" />
-						<rect class="raven-bird__leg" x="45.3" y="55" width="6.6" height="1.6" rx="0.8" />
-					</svg>
-				</div>
-			</div>
-		`;
 
 		const isVisibleTarget = (element) => {
 			if (!(element instanceof HTMLElement) || !element.isConnected) {
@@ -279,7 +248,7 @@
 				return false;
 			}
 
-			return rect.top >= BASE_FOOT_OFFSET_Y - 8;
+			return rect.top >= BASE_FOOT_OFFSET_Y - 10;
 		};
 
 		const getTargetCandidates = () => {
@@ -298,59 +267,81 @@
 				}));
 		};
 
-		const chooseLandingSpot = (options = {}) => {
-			const {
-				excludeElement = null,
-				excludeX = null,
-				minDistanceFromX = 0,
-			} = options;
+		const getBirdLandingAnchor = (bird) => ({
+			x: bird.perch?.x ?? bird.destination.x + bird.width / 2,
+			y: bird.perch?.y ?? bird.destination.y + bird.footOffset,
+			element: bird.perch?.element ?? null,
+		});
+
+		const scoreLandingSpot = (spot) => {
+			const occupiedBirds = state.birds.filter((bird) => bird.state !== "escaping");
+			if (occupiedBirds.length === 0) {
+				return Math.random() * 0.1;
+			}
+
+			return occupiedBirds.reduce((score, bird) => {
+				const anchor = getBirdLandingAnchor(bird);
+				const dx = Math.abs(spot.x - anchor.x);
+				const dy = Math.abs(spot.y - anchor.y);
+				const columnPenalty =
+					dx < MIN_COLUMN_GAP ? (1 - dx / MIN_COLUMN_GAP) * 1.8 : 0;
+				const rowPenalty = dy < MIN_ROW_GAP ? (1 - dy / MIN_ROW_GAP) * 1.4 : 0;
+				const sameElementPenalty =
+					anchor.element === spot.element ? 0.75 : 0;
+				const spreadScore =
+					Math.min(dx / MIN_COLUMN_GAP, 1.4) +
+					Math.min(dy / MIN_ROW_GAP, 1.2);
+
+				return score + spreadScore - columnPenalty - rowPenalty - sameElementPenalty;
+			}, 0);
+		};
+
+		const chooseLandingSpot = () => {
 			const candidates = getTargetCandidates();
 			if (candidates.length === 0) {
 				return null;
 			}
 
-			const filteredCandidates = candidates.filter((candidate) => {
-				if (!(excludeElement instanceof HTMLElement)) {
-					return true;
+			let bestSpot = null;
+			let bestScore = Number.NEGATIVE_INFINITY;
+
+			candidates.forEach((candidate) => {
+				const minX = candidate.rect.left + 22;
+				const maxX = candidate.rect.right - 22;
+				if (maxX <= minX) {
+					return;
 				}
 
-				if (candidates.length === 1) {
-					return true;
-				}
+				const sampleCount = Math.max(
+					LANDING_SAMPLES_PER_TARGET,
+					Math.floor((maxX - minX) / 72),
+				);
 
-				return candidate.element !== excludeElement;
+				for (let index = 0; index < sampleCount; index += 1) {
+					const progress = (index + 0.5) / sampleCount;
+					const sampledX = clamp(
+						lerp(minX, maxX, progress) + randomBetween(-10, 10),
+						minX,
+						maxX,
+					);
+					const spot = {
+						element: candidate.element,
+						x: sampledX,
+						y: candidate.rect.top,
+					};
+					const score = scoreLandingSpot(spot);
+					if (score > bestScore) {
+						bestScore = score;
+						bestSpot = spot;
+					}
+				}
 			});
 
-			const sourceCandidates =
-				filteredCandidates.length > 0 ? filteredCandidates : candidates;
-
-			for (let attempt = 0; attempt < 12; attempt++) {
-				const candidate =
-					sourceCandidates[Math.floor(Math.random() * sourceCandidates.length)];
-				const minX = candidate.rect.left + 18;
-				const maxX = candidate.rect.right - 18;
-				if (maxX <= minX) {
-					continue;
-				}
-
-				const perchX = randomBetween(minX, maxX);
-				if (
-					typeof excludeX === "number" &&
-					Math.abs(perchX - excludeX) < minDistanceFromX &&
-					sourceCandidates.length > 1
-				) {
-					continue;
-				}
-
-				return {
-					element: candidate.element,
-					x: perchX,
-					y: candidate.rect.top,
-				};
+			if (bestSpot) {
+				return bestSpot;
 			}
 
-			const fallback =
-				sourceCandidates[Math.floor(Math.random() * sourceCandidates.length)];
+			const fallback = candidates[Math.floor(Math.random() * candidates.length)];
 			return {
 				element: fallback.element,
 				x: (fallback.rect.left + fallback.rect.right) / 2,
@@ -359,43 +350,39 @@
 		};
 
 		const getSkyEntryPoint = (birdWidth) => ({
-			x: randomBetween(-birdWidth * 0.15, window.innerWidth - birdWidth * 0.85),
-			y: randomBetween(-180, -90),
+			x: randomBetween(-birdWidth * 0.25, window.innerWidth - birdWidth * 0.75),
+			y: randomBetween(-200, -100),
 		});
 
-		const getExitPoint = (birdWidth) => {
-			const edge = Math.floor(Math.random() * 4);
-			if (edge === 0) {
-				return {
-					x: randomBetween(-birdWidth * 1.8, -birdWidth * 0.6),
-					y: randomBetween(-160, window.innerHeight + 60),
-				};
-			}
-
-			if (edge === 1) {
-				return {
-					x: randomBetween(
-						window.innerWidth + birdWidth * 0.6,
-						window.innerWidth + birdWidth * 1.8,
-					),
-					y: randomBetween(-160, window.innerHeight + 60),
-				};
-			}
-
-			if (edge === 2) {
-				return {
-					x: randomBetween(-birdWidth * 0.3, window.innerWidth - birdWidth * 0.7),
-					y: randomBetween(-200, -80),
-				};
-			}
-
+		const getDirectExitPoint = (bird) => {
+			const direction =
+				bird.x + bird.width / 2 < window.innerWidth / 2 ? -1 : 1;
 			return {
-				x: randomBetween(-birdWidth * 0.3, window.innerWidth - birdWidth * 0.7),
-				y: randomBetween(
-					window.innerHeight + 60,
-					window.innerHeight + 180,
-				),
+				x:
+					direction < 0
+						? -bird.width * 1.8
+						: window.innerWidth + bird.width * 0.8,
+				y: Math.max(-bird.height * 2, bird.y - randomBetween(140, 260)),
+				direction,
 			};
+		};
+
+		const setBirdFrame = (bird, frameIndex) => {
+			if (bird.frameIndex === frameIndex) {
+				return;
+			}
+			bird.frameIndex = frameIndex;
+			bird.sprite.innerHTML = spriteMarkup[frameIndex];
+		};
+
+		const updateFlightFrame = (bird, now) => {
+			if (now < bird.nextFrameAt) {
+				return;
+			}
+
+			bird.frameCursor = (bird.frameCursor + 1) % FLIGHT_SEQUENCE.length;
+			bird.nextFrameAt = now + FLIGHT_FRAME_INTERVAL_MS;
+			setBirdFrame(bird, FLIGHT_SEQUENCE[bird.frameCursor]);
 		};
 
 		const applyBirdFrame = (bird) => {
@@ -403,11 +390,6 @@
 			bird.element.style.zIndex = String(
 				Math.max(1, Math.round(bird.y + bird.footOffset)),
 			);
-			bird.element.style.setProperty("--bird-bob", `${bird.bob}px`);
-			bird.element.style.setProperty("--bird-hop", `${bird.hop}px`);
-			bird.element.style.setProperty("--bird-tilt", `${bird.tilt}deg`);
-			bird.element.style.setProperty("--bird-head-turn", `${bird.headTurn}deg`);
-			bird.element.style.setProperty("--bird-head-lift", `${bird.headLift}px`);
 		};
 
 		const removeBird = (bird) => {
@@ -415,68 +397,16 @@
 				bird.element.remove();
 			}
 			state.birds = state.birds.filter((item) => item !== bird);
-			if (state.pendingSpawns > 0 && state.birds.length < MAX_BIRDS) {
-				const spawnCount = state.pendingSpawns;
-				state.pendingSpawns = 0;
-				for (let index = 0; index < spawnCount; index++) {
-					queueMicrotask(() => {
-						maybeSpawnBird(true);
-					});
-				}
-			}
 		};
-
-		const getBirdBounds = (bird) => ({
-			left: bird.x,
-			right: bird.x + bird.width,
-			top: bird.y,
-			bottom: bird.y + bird.height,
-		});
-
-		const birdsOverlap = (birdA, birdB) => {
-			const a = getBirdBounds(birdA);
-			const b = getBirdBounds(birdB);
-			return !(
-				a.right < b.left ||
-				a.left > b.right ||
-				a.bottom < b.top ||
-				a.top > b.bottom
-			);
-		};
-
-		const getOverlappingPerchedBirds = (bird) =>
-			state.birds.filter(
-				(otherBird) =>
-					otherBird !== bird &&
-					otherBird.state === "perched" &&
-					birdsOverlap(bird, otherBird),
-			);
 
 		const setBirdPerched = (bird) => {
 			bird.state = "perched";
+			bird.element.dataset.state = "perched";
 			bird.x = bird.destination.x;
 			bird.y = bird.destination.y;
-			bird.bob = 0;
-			bird.hop = 0;
-			bird.tilt = 0;
-			bird.headLift = 0;
-			bird.motionType = "idle";
-			bird.motionStartedAt = 0;
-			bird.motionDuration = 0;
-			bird.nextMotionAt = performance.now() + randomBetween(1100, 2600);
 			bird.leaveAt = performance.now() + randomBetween(MIN_DWELL_MS, MAX_DWELL_MS);
-			bird.element.classList.remove("is-escaping");
-			bird.element.classList.remove("is-relocating");
-			bird.element.classList.add("is-perched");
+			setBirdFrame(bird, PERCHED_FRAME_INDEX);
 			applyBirdFrame(bird);
-		};
-
-		const spawnBirdPerched = (bird) => {
-			bird.element.classList.remove("is-escaping");
-			bird.element.classList.remove("is-relocating");
-			bird.element.classList.add("is-perched");
-			root.appendChild(bird.element);
-			setBirdPerched(bird);
 		};
 
 		const startEscape = (bird) => {
@@ -484,92 +414,45 @@
 				return;
 			}
 
+			const exitPoint = getDirectExitPoint(bird);
 			bird.state = "escaping";
+			bird.element.dataset.state = "escaping";
 			bird.source = { x: bird.x, y: bird.y };
-			bird.destination = getExitPoint(bird.width);
+			bird.destination = { x: exitPoint.x, y: exitPoint.y };
+			bird.facing = exitPoint.direction;
 			bird.startedAt = performance.now();
-			bird.duration = randomBetween(950, 1700);
-			bird.arcHeight = randomBetween(18, 86) * (bird.destination.y < bird.y ? -1 : 1);
-			bird.facing = bird.destination.x >= bird.x ? 1 : -1;
-			bird.hop = 0;
-			bird.headLift = 0;
-			bird.element.classList.remove("is-perched");
-			bird.element.classList.remove("is-relocating");
-			bird.element.classList.add("is-escaping");
-		};
-
-		const startRelocation = (bird) => {
-			const landingSpot = chooseLandingSpot({
-				excludeElement: bird.perch?.element || null,
-				excludeX: bird.perch?.x ?? null,
-				minDistanceFromX: Math.max(48, bird.width * 0.6),
-			});
-			if (!landingSpot) {
-				startEscape(bird);
-				return false;
-			}
-
-			bird.state = "relocating";
-			bird.source = { x: bird.x, y: bird.y };
-			bird.perch = landingSpot;
-			bird.destination = {
-				x: clamp(
-					landingSpot.x - bird.width / 2,
-					-VIEWPORT_PADDING,
-					window.innerWidth - bird.width + VIEWPORT_PADDING,
-				),
-				y: landingSpot.y - bird.footOffset,
-			};
-			bird.startedAt = performance.now();
-			bird.duration = randomBetween(1100, 1900);
-			bird.swayMagnitude = randomBetween(8, 16);
-			bird.facing = bird.destination.x >= bird.x ? 1 : -1;
-			bird.bob = 0;
-			bird.hop = 0;
-			bird.headLift = 0;
-			bird.motionType = "idle";
-			bird.element.classList.remove("is-perched");
-			bird.element.classList.remove("is-escaping");
-			bird.element.classList.add("is-relocating");
-			return true;
+			bird.duration = randomBetween(760, 1180);
+			bird.arcHeight = randomBetween(22, 58);
+			bird.nextFrameAt = bird.startedAt;
 		};
 
 		const updateApproachingBird = (bird, now) => {
 			const progress = clamp((now - bird.startedAt) / bird.duration, 0, 1);
 			const eased = easeOutCubic(progress);
-			const sway =
-				Math.sin(progress * Math.PI * 3 + bird.phase) * bird.swayMagnitude;
 
 			bird.x = lerp(bird.source.x, bird.destination.x, easeInOutSine(progress));
 			bird.y =
-				lerp(bird.source.y, bird.destination.y, eased) +
-				sway * (1 - progress * 0.7);
-			bird.bob = Math.sin(progress * Math.PI * 10 + bird.phase) * 1.6;
-			bird.tilt =
-				lerp(-12, 0, eased) * (bird.facing > 0 ? 1 : -1) +
-				Math.cos(progress * Math.PI * 4) * 1.6;
+				lerp(bird.source.y, bird.destination.y, eased) -
+				Math.sin(progress * Math.PI) * bird.arcHeight;
+
+			updateFlightFrame(bird, now);
+			applyBirdFrame(bird);
 
 			if (progress >= 1) {
 				setBirdPerched(bird);
-				return;
 			}
-
-			applyBirdFrame(bird);
 		};
 
 		const updateEscapingBird = (bird, now) => {
 			const progress = clamp((now - bird.startedAt) / bird.duration, 0, 1);
 			const eased = easeInCubic(progress);
-			const arc = Math.sin(progress * Math.PI) * bird.arcHeight;
 
 			bird.x = lerp(bird.source.x, bird.destination.x, eased);
-			bird.y = lerp(bird.source.y, bird.destination.y, eased) - arc;
-			bird.bob = Math.sin(progress * Math.PI * 16 + bird.phase) * 2.4;
-			bird.hop = 0;
-			bird.tilt = lerp(0, 18, eased) * (bird.facing > 0 ? 1 : -1);
-			bird.headTurn = lerp(bird.headTurn, 0, eased);
-			bird.headLift = 0;
+			bird.y =
+				lerp(bird.source.y, bird.destination.y, eased) -
+				Math.sin(progress * Math.PI) * bird.arcHeight;
 
+			updateFlightFrame(bird, now);
 			applyBirdFrame(bird);
 
 			if (progress >= 1) {
@@ -577,36 +460,8 @@
 			}
 		};
 
-		const maybeStartPerchedMotion = (bird, now) => {
-			if (bird.motionType !== "idle" || now < bird.nextMotionAt) {
-				return;
-			}
-
-			if (Math.random() < 0.24) {
-				bird.motionType = "hop";
-				bird.motionStartedAt = now;
-				bird.motionDuration = randomBetween(460, 720);
-				bird.motionAmplitude = randomBetween(2.2, 4.8);
-				bird.motionHeadTarget = randomBetween(-4, 4);
-				return;
-			}
-
-			bird.motionType = "look";
-			bird.motionStartedAt = now;
-			bird.motionDuration = randomBetween(620, 980);
-			bird.motionFrom = bird.headTurn;
-			const headTargets = [-10, -6, 0, 6, 10];
-			bird.motionHeadTarget =
-				headTargets[Math.floor(Math.random() * headTargets.length)];
-		};
-
 		const updatePerchedBird = (bird, now) => {
-			if (!isVisibleTarget(bird.perch.element)) {
-				startEscape(bird);
-				return;
-			}
-
-			if (now >= bird.leaveAt) {
+			if (!isVisibleTarget(bird.perch.element) || now >= bird.leaveAt) {
 				startEscape(bird);
 				return;
 			}
@@ -614,57 +469,12 @@
 			const rect = bird.perch.element.getBoundingClientRect();
 			bird.perch.y = rect.top;
 			bird.y = rect.top - bird.footOffset;
-			bird.bob = 0;
-			bird.tilt = 0;
-
-			maybeStartPerchedMotion(bird, now);
-
-			if (bird.motionType === "look") {
-				const progress = clamp(
-					(now - bird.motionStartedAt) / bird.motionDuration,
-					0,
-					1,
-				);
-				bird.headTurn = lerp(
-					bird.motionFrom,
-					bird.motionHeadTarget,
-					easeInOutSine(progress),
-				);
-				bird.headLift = Math.abs(bird.headTurn) * -0.02;
-				bird.hop = 0;
-
-				if (progress >= 1) {
-					bird.motionType = "idle";
-					bird.headTurn = bird.motionHeadTarget;
-					bird.headLift = Math.abs(bird.headTurn) * -0.02;
-					bird.nextMotionAt = now + randomBetween(2200, 5200);
-				}
-			} else if (bird.motionType === "hop") {
-				const progress = clamp(
-					(now - bird.motionStartedAt) / bird.motionDuration,
-					0,
-					1,
-				);
-				bird.hop = -Math.sin(progress * Math.PI) * bird.motionAmplitude;
-				bird.headTurn = lerp(
-					bird.headTurn,
-					bird.motionHeadTarget,
-					0.08,
-				);
-				bird.headLift = bird.hop * 0.2;
-
-				if (progress >= 1) {
-					bird.motionType = "idle";
-					bird.hop = 0;
-					bird.headLift = 0;
-					bird.nextMotionAt = now + randomBetween(3200, 6400);
-				}
-			} else {
-				bird.hop = 0;
-				bird.headLift = lerp(bird.headLift, 0, 0.08);
-				bird.headTurn = lerp(bird.headTurn, 0, 0.018);
-			}
-
+			bird.x = clamp(
+				bird.perch.x - bird.width / 2,
+				-VIEWPORT_PADDING,
+				window.innerWidth - bird.width + VIEWPORT_PADDING,
+			);
+			setBirdFrame(bird, PERCHED_FRAME_INDEX);
 			applyBirdFrame(bird);
 		};
 
@@ -677,11 +487,6 @@
 
 				if (bird.state === "escaping") {
 					updateEscapingBird(bird, now);
-					return;
-				}
-
-				if (bird.state === "relocating") {
-					updateApproachingBird(bird, now);
 					return;
 				}
 
@@ -708,41 +513,18 @@
 		const createBird = (landingSpot) => {
 			const element = document.createElement("div");
 			element.className = "raven-bird";
-			element.innerHTML = birdMarkup;
-			const sizeScale = randomBetween(0.88, 1.14);
+			element.dataset.state = "approaching";
+
+			const sprite = document.createElement("div");
+			sprite.className = "raven-bird__sprite";
+			element.appendChild(sprite);
+
+			const sizeScale = randomBetween(0.92, 1.12);
 			const width = BASE_BIRD_WIDTH * sizeScale;
+			const height = BASE_BIRD_HEIGHT * sizeScale;
 			const footOffset = BASE_FOOT_OFFSET_Y * sizeScale;
-			const bodyTone = Math.round(randomBetween(236, 252));
-			const frontWingTone = Math.max(222, bodyTone - Math.round(randomBetween(6, 12)));
-			const rearWingTone = Math.max(194, bodyTone - Math.round(randomBetween(18, 30)));
-			const outlineAlpha = randomBetween(0.16, 0.28).toFixed(2);
-			const detailAlpha = randomBetween(0.14, 0.22).toFixed(2);
 			element.style.width = `${width}px`;
-			element.style.height = `${66 * sizeScale}px`;
-			element.style.setProperty(
-				"--wing-speed",
-				`${randomBetween(300, 420).toFixed(0)}ms`,
-			);
-			element.style.setProperty(
-				"--bird-body-fill",
-				`rgb(${bodyTone} ${bodyTone} ${bodyTone})`,
-			);
-			element.style.setProperty(
-				"--bird-front-wing-fill",
-				`rgb(${frontWingTone} ${frontWingTone} ${frontWingTone})`,
-			);
-			element.style.setProperty(
-				"--bird-rear-wing-fill",
-				`rgb(${rearWingTone} ${rearWingTone} ${rearWingTone})`,
-			);
-			element.style.setProperty(
-				"--bird-outline",
-				`rgb(15 23 42 / ${outlineAlpha})`,
-			);
-			element.style.setProperty(
-				"--bird-detail",
-				`rgb(15 23 42 / ${detailAlpha})`,
-			);
+			element.style.height = `${height}px`;
 
 			const source = getSkyEntryPoint(width);
 			const destination = {
@@ -756,66 +538,33 @@
 
 			const bird = {
 				element,
+				sprite,
 				state: "approaching",
 				source,
 				destination,
 				perch: landingSpot,
 				x: source.x,
 				y: source.y,
-				bob: 0,
-				hop: 0,
-				tilt: 0,
-				headTurn: randomBetween(-2.5, 2.5),
-				headLift: 0,
+				width,
+				height,
+				footOffset,
 				facing: destination.x >= source.x ? 1 : -1,
 				startedAt: performance.now(),
-				duration: randomBetween(1800, 3200),
-				swayMagnitude: randomBetween(6, 18),
-				phase: randomBetween(0, Math.PI * 2),
-				arcHeight: 0,
-				width,
-				height: 66 * sizeScale,
-				footOffset,
-				motionType: "idle",
-				motionStartedAt: 0,
-				motionDuration: 0,
-				motionAmplitude: 0,
-				motionFrom: 0,
-				motionHeadTarget: 0,
-				nextMotionAt: 0,
+				duration: randomBetween(1500, 2300),
+				arcHeight: randomBetween(20, 54),
 				leaveAt: 0,
+				frameIndex: -1,
+				frameCursor: Math.floor(Math.random() * FLIGHT_SEQUENCE.length),
+				nextFrameAt: performance.now(),
 			};
 
+			setBirdFrame(bird, FLIGHT_SEQUENCE[bird.frameCursor]);
 			applyBirdFrame(bird);
 			return bird;
 		};
 
-		const releaseBirdsForIncomingSpawn = () => {
-			const candidates = state.birds.filter((bird) => bird.state !== "escaping");
-			if (candidates.length === 0) {
-				return 0;
-			}
-
-			const releaseCount = Math.min(
-				candidates.length,
-				Math.floor(randomBetween(1, 4)),
-			);
-			const shuffled = [...candidates].sort(() => Math.random() - 0.5);
-			shuffled.slice(0, releaseCount).forEach((bird) => {
-				startEscape(bird);
-			});
-			return releaseCount;
-		};
-
-		const maybeSpawnBird = (isDeferred = false, instantPerch = false) => {
+		const maybeSpawnBird = ({ instantPerch = false } = {}) => {
 			if (state.birds.length >= MAX_BIRDS) {
-				if (!isDeferred) {
-					const releasedCount = releaseBirdsForIncomingSpawn();
-					if (releasedCount > 0) {
-						state.pendingSpawns = Math.min(state.pendingSpawns + 1, MAX_BIRDS);
-						ensureAnimationLoop();
-					}
-				}
 				return;
 			}
 
@@ -826,12 +575,12 @@
 
 			const bird = createBird(landingSpot);
 			state.birds.push(bird);
+			root.appendChild(bird.element);
+
 			if (instantPerch) {
-				spawnBirdPerched(bird);
-				return;
+				setBirdPerched(bird);
 			}
 
-			root.appendChild(bird.element);
 			ensureAnimationLoop();
 		};
 
@@ -846,7 +595,7 @@
 
 			let safety = 0;
 			while (now >= state.nextSpawnAt && safety < MAX_BIRDS) {
-				maybeSpawnBird(false, instantPerch);
+				maybeSpawnBird({ instantPerch });
 				state.nextSpawnAt += SPAWN_INTERVAL_MS;
 				safety += 1;
 			}
@@ -875,6 +624,17 @@
 			}
 		};
 
+		const reconcileBirdTargets = () => {
+			state.birds.forEach((bird) => {
+				if (bird.state === "perched" && !isVisibleTarget(bird.perch.element)) {
+					startEscape(bird);
+				}
+			});
+			if (state.birds.length > 0) {
+				ensureAnimationLoop();
+			}
+		};
+
 		const handleBirdClick = (event) => {
 			const target = event.target;
 			if (!(target instanceof Element)) {
@@ -886,46 +646,15 @@
 				return;
 			}
 
-			const clickedBird = state.birds.find((bird) => bird.element === birdElement);
-			if (!clickedBird || clickedBird.state === "escaping") {
+			const bird = state.birds.find((item) => item.element === birdElement);
+			if (!bird) {
 				return;
 			}
 
 			event.preventDefault();
 			event.stopPropagation();
-
-			const overlappingBirds =
-				clickedBird.state === "perched"
-					? getOverlappingPerchedBirds(clickedBird)
-					: [];
-
-			if (overlappingBirds.length > 0) {
-				startRelocation(clickedBird);
-				overlappingBirds.forEach((bird) => {
-					startRelocation(bird);
-				});
-				ensureAnimationLoop();
-				return;
-			}
-
-			if (clickedBird.state === "perched" && startRelocation(clickedBird)) {
-				ensureAnimationLoop();
-				return;
-			}
-
-			startEscape(clickedBird);
+			startEscape(bird);
 			ensureAnimationLoop();
-		};
-
-		const reconcileBirdTargets = () => {
-			state.birds.forEach((bird) => {
-				if (bird.state === "perched" && !isVisibleTarget(bird.perch.element)) {
-					startEscape(bird);
-				}
-			});
-			if (state.birds.length > 0) {
-				ensureAnimationLoop();
-			}
 		};
 
 		let scrollTriggerArmed = true;
