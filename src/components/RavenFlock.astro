@@ -572,18 +572,23 @@
 		};
 
 		const spriteMarkup = frameDefinitions.map(buildSpriteMarkup);
-		const drumstickSpriteMarkup =
-			'<div class="raven-drumstick__sprite"><svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="11" width="3" height="3" fill="#f4ecde" /><rect x="2" y="10" width="1" height="1" fill="#f4ecde" /><rect x="2" y="14" width="1" height="1" fill="#f4ecde" /><rect x="3" y="12" width="2" height="2" fill="#f4ecde" /><rect x="4" y="11" width="1" height="1" fill="#ceb892" /><rect x="5" y="8" width="3" height="7" fill="#c77d3b" /><rect x="8" y="5" width="5" height="10" fill="#d98c47" /><rect x="13" y="6" width="3" height="8" fill="#c77d3b" /><rect x="15" y="7" width="2" height="6" fill="#b46731" /><rect x="7" y="6" width="2" height="2" fill="#edb16c" /><rect x="10" y="4" width="2" height="2" fill="#edb16c" /><rect x="9" y="15" width="4" height="1" fill="#9d5525" /><rect x="6" y="15" width="3" height="1" fill="#9d5525" /></svg></div>';
+		const drumstickSvgFull =
+			'<svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="11" width="3" height="3" fill="#f4ecde" /><rect x="2" y="10" width="1" height="1" fill="#f4ecde" /><rect x="2" y="14" width="1" height="1" fill="#f4ecde" /><rect x="3" y="12" width="2" height="2" fill="#f4ecde" /><rect x="4" y="11" width="1" height="1" fill="#ceb892" /><rect x="5" y="8" width="3" height="7" fill="#c77d3b" /><rect x="8" y="5" width="5" height="10" fill="#d98c47" /><rect x="13" y="6" width="3" height="8" fill="#c77d3b" /><rect x="15" y="7" width="2" height="6" fill="#b46731" /><rect x="7" y="6" width="2" height="2" fill="#edb16c" /><rect x="10" y="4" width="2" height="2" fill="#edb16c" /><rect x="9" y="15" width="4" height="1" fill="#9d5525" /><rect x="6" y="15" width="3" height="1" fill="#9d5525" /></svg>';
+		const drumstickSvgHalf =
+			'<svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="11" width="3" height="3" fill="#f4ecde" /><rect x="2" y="10" width="1" height="1" fill="#f4ecde" /><rect x="2" y="14" width="1" height="1" fill="#f4ecde" /><rect x="3" y="12" width="2" height="2" fill="#f4ecde" /><rect x="4" y="11" width="1" height="1" fill="#ceb892" /><rect x="5" y="8" width="3" height="7" fill="#c77d3b" /><rect x="8" y="5" width="4" height="10" fill="#d98c47" /><rect x="12" y="6" width="2" height="8" fill="#c77d3b" /><rect x="7" y="6" width="2" height="2" fill="#edb16c" /><rect x="9" y="4" width="2" height="2" fill="#edb16c" /><rect x="13" y="8" width="1" height="4" fill="#9d5525" /><rect x="11" y="15" width="2" height="1" fill="#9d5525" /><rect x="6" y="15" width="4" height="1" fill="#9d5525" /></svg>';
+		const drumstickBoneSvg =
+			'<svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="10" width="3" height="3" fill="#f4ecde" /><rect x="2" y="9" width="1" height="1" fill="#f4ecde" /><rect x="2" y="13" width="1" height="1" fill="#f4ecde" /><rect x="3" y="11" width="3" height="2" fill="#f4ecde" /><rect x="6" y="10" width="8" height="3" fill="#e7dbc6" /><rect x="14" y="10" width="3" height="3" fill="#f4ecde" /><rect x="15" y="9" width="1" height="1" fill="#f4ecde" /><rect x="15" y="13" width="1" height="1" fill="#f4ecde" /><rect x="5" y="11" width="1" height="1" fill="#ceb892" /><rect x="14" y="11" width="1" height="1" fill="#ceb892" /></svg>';
+		const buildFoodSpriteWrapper = (className) => `<div class="${className}"></div>`;
 		const drumstickMarkup =
-			`${drumstickSpriteMarkup}<div class="raven-drumstick__meter"></div>`;
+			`${buildFoodSpriteWrapper("raven-drumstick__sprite")}<div class="raven-drumstick__meter"></div>`;
 		const heartMarkup =
 			'<svg viewBox="0 0 8 7" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="0" width="2" height="2" fill="#ff84b7" /><rect x="5" y="0" width="2" height="2" fill="#ff84b7" /><rect x="0" y="1" width="3" height="2" fill="#ff84b7" /><rect x="5" y="1" width="3" height="2" fill="#ff84b7" /><rect x="1" y="3" width="6" height="2" fill="#ff6ea8" /><rect x="2" y="5" width="4" height="1" fill="#ff5b9a" /><rect x="3" y="6" width="2" height="1" fill="#ff5b9a" /></svg>';
 		const angryMarkup =
 			'<svg viewBox="0 0 12 12" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="2" y="1" width="8" height="8" fill="#fff6ef" /><rect x="1" y="2" width="1" height="6" fill="#fff6ef" /><rect x="10" y="2" width="1" height="6" fill="#fff6ef" /><rect x="3" y="9" width="4" height="1" fill="#fff6ef" /><rect x="4" y="10" width="2" height="1" fill="#fff6ef" /><rect x="2" y="0" width="8" height="1" fill="#4a3126" /><rect x="1" y="1" width="1" height="1" fill="#4a3126" /><rect x="10" y="1" width="1" height="1" fill="#4a3126" /><rect x="0" y="2" width="1" height="6" fill="#4a3126" /><rect x="11" y="2" width="1" height="6" fill="#4a3126" /><rect x="1" y="8" width="1" height="1" fill="#4a3126" /><rect x="10" y="8" width="1" height="1" fill="#4a3126" /><rect x="2" y="9" width="1" height="1" fill="#4a3126" /><rect x="7" y="9" width="3" height="1" fill="#4a3126" /><rect x="4" y="10" width="2" height="1" fill="#4a3126" /><rect x="3" y="2" width="1" height="6" fill="#d04a43" /><rect x="7" y="2" width="1" height="6" fill="#d04a43" /><rect x="2" y="4" width="7" height="1" fill="#d04a43" /><rect x="2" y="6" width="7" height="1" fill="#d04a43" /></svg>';
 		const thoughtMarkup =
 			'<svg viewBox="0 0 22 16" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="4" y="2" width="13" height="9" fill="#fff7ee" /><rect x="2" y="4" width="2" height="5" fill="#fff7ee" /><rect x="17" y="4" width="2" height="5" fill="#fff7ee" /><rect x="6" y="1" width="9" height="1" fill="#fff7ee" /><rect x="7" y="11" width="8" height="1" fill="#fff7ee" /><rect x="8" y="12" width="3" height="1" fill="#fff7ee" /><rect x="3" y="13" width="2" height="2" fill="#fff7ee" /><rect x="1" y="15" width="1" height="1" fill="#fff7ee" /><rect x="4" y="1" width="2" height="1" fill="#50352a" /><rect x="15" y="1" width="2" height="1" fill="#50352a" /><rect x="2" y="3" width="2" height="1" fill="#50352a" /><rect x="17" y="3" width="2" height="1" fill="#50352a" /><rect x="1" y="4" width="1" height="5" fill="#50352a" /><rect x="19" y="4" width="1" height="5" fill="#50352a" /><rect x="2" y="9" width="2" height="1" fill="#50352a" /><rect x="17" y="9" width="2" height="1" fill="#50352a" /><rect x="4" y="11" width="3" height="1" fill="#50352a" /><rect x="15" y="11" width="2" height="1" fill="#50352a" /><rect x="8" y="12" width="3" height="1" fill="#50352a" /><rect x="3" y="13" width="2" height="1" fill="#50352a" /><rect x="2" y="14" width="1" height="1" fill="#50352a" /><rect x="1" y="15" width="1" height="1" fill="#50352a" /><rect x="8" y="5" width="2" height="4" fill="#c77d3b" /><rect x="10" y="4" width="4" height="5" fill="#d98c47" /><rect x="14" y="5" width="2" height="4" fill="#c77d3b" /><rect x="7" y="7" width="1" height="2" fill="#f4ecde" /><rect x="7" y="6" width="1" height="1" fill="#f4ecde" /><rect x="8" y="8" width="1" height="1" fill="#f4ecde" /></svg>';
-		const scrapMarkup =
-			'<div class="raven-scrap__sprite"><svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="2" y="11" width="2" height="2" fill="#f4ecde" /><rect x="3" y="10" width="1" height="1" fill="#f4ecde" /><rect x="4" y="11" width="1" height="1" fill="#ceb892" /><rect x="5" y="9" width="2" height="5" fill="#c77d3b" /><rect x="7" y="7" width="4" height="7" fill="#d98c47" /><rect x="11" y="8" width="2" height="5" fill="#c77d3b" /><rect x="6" y="7" width="2" height="1" fill="#edb16c" /><rect x="8" y="14" width="3" height="1" fill="#9d5525" /></svg></div>';
+		const scrapSvg =
+			'<svg viewBox="0 0 20 20" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="2" y="11" width="2" height="2" fill="#f4ecde" /><rect x="3" y="10" width="1" height="1" fill="#f4ecde" /><rect x="4" y="11" width="1" height="1" fill="#ceb892" /><rect x="5" y="9" width="2" height="5" fill="#c77d3b" /><rect x="7" y="7" width="4" height="7" fill="#d98c47" /><rect x="11" y="8" width="2" height="5" fill="#c77d3b" /><rect x="6" y="7" width="2" height="1" fill="#edb16c" /><rect x="8" y="14" width="3" height="1" fill="#9d5525" /></svg>';
 
 		const state = {
 			birds: [],
@@ -644,13 +649,17 @@
 				}));
 
 		drumstickElement.innerHTML = drumstickMarkup;
+		const drumstickSpriteHost = drumstickElement.querySelector(".raven-drumstick__sprite");
 		const drumstickMeter = drumstickElement.querySelector(".raven-drumstick__meter");
 		const drumstickGhostElement = document.createElement("div");
 		drumstickGhostElement.className = "raven-drumstick raven-drumstick--ghost";
-		drumstickGhostElement.innerHTML = drumstickSpriteMarkup;
+		drumstickGhostElement.innerHTML = buildFoodSpriteWrapper("raven-drumstick__sprite");
 		drumstickGhostElement.dataset.mode = "idle";
 		drumstickGhostElement.dataset.visible = "false";
 		root.appendChild(drumstickGhostElement);
+		const drumstickGhostSpriteHost = drumstickGhostElement.querySelector(".raven-drumstick__sprite");
+		setSpriteHostMarkup(drumstickSpriteHost, "drumstick", "full");
+		setSpriteHostMarkup(drumstickGhostSpriteHost, "drumstick", "full");
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
 		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -660,6 +669,42 @@
 		const easeInOutSine = (progress) =>
 			-(Math.cos(Math.PI * progress) - 1) / 2;
 		const shuffle = (items) => [...items].sort(() => Math.random() - 0.5);
+		const getFoodVisualStage = (foodLike) => {
+			if ((foodLike?.bitesRemaining ?? 0) <= 0) {
+				return "bone";
+			}
+			if (
+				foodLike?.foodKind === "drumstick" &&
+				(foodLike?.bitesTotal ?? 0) > 0 &&
+				foodLike.bitesRemaining <= Math.ceil(foodLike.bitesTotal * 0.5)
+			) {
+				return "half";
+			}
+			return "full";
+		};
+		const getFoodSpriteSvg = (foodKind, stage = "full") => {
+			if (foodKind !== "drumstick") {
+				return scrapSvg;
+			}
+			if (stage === "bone") {
+				return drumstickBoneSvg;
+			}
+			if (stage === "half") {
+				return drumstickSvgHalf;
+			}
+			return drumstickSvgFull;
+		};
+		const setSpriteHostMarkup = (host, foodKind, stage = "full") => {
+			if (!(host instanceof HTMLElement)) {
+				return;
+			}
+			const nextStage = `${foodKind}:${stage}`;
+			if (host.dataset.spriteStage === nextStage) {
+				return;
+			}
+			host.dataset.spriteStage = nextStage;
+			host.innerHTML = getFoodSpriteSvg(foodKind, stage);
+		};
 		const getMainFoodSize = () => FOOD_HOME_SIZE * state.food.scale;
 		const getScrapSize = (scrap) =>
 			(scrap.foodKind === "drumstick" ? FOOD_HOME_SIZE : SCRAP_BASE_SIZE) *
@@ -930,6 +975,11 @@
 
 		const applyFoodFrame = () => {
 			drumstickElement.dataset.mode = state.food.mode;
+			setSpriteHostMarkup(
+				drumstickSpriteHost,
+				state.food.foodKind,
+				getFoodVisualStage(state.food),
+			);
 			if (state.food.mode === "dragging") {
 				const size = Math.max(getFoodSize(), 1);
 				const pivotX = clamp(
@@ -982,6 +1032,31 @@
 			state.food.x = state.food.homeX;
 			state.food.y = state.food.homeY;
 			applyFoodFrame();
+		};
+		const startMainFoodSpentExit = () => {
+			state.food.mode = "spent";
+			state.food.bitesRemaining = 0;
+			state.food.vy = -4.8;
+			state.food.visualOffsetX = 0;
+			state.food.visualOffsetY = 0;
+			state.food.impulseX = randomBetween(-0.7, 0.7);
+			state.food.impulseY = 0;
+			state.food.rotationVelocity += randomBetween(-2.1, 2.1);
+			state.food.bounceOffsetY = -6;
+			state.food.bounceVelocityY = -1.6;
+			applyFoodFrame();
+			ensureAnimationLoop();
+		};
+		const startScrapSpentExit = (scrap) => {
+			scrap.mode = "spent";
+			scrap.bitesRemaining = 0;
+			scrap.vx = randomBetween(-0.8, 0.8);
+			scrap.vy = -4.6;
+			scrap.rotationVelocity += randomBetween(-2.2, 2.2);
+			scrap.bounceOffsetY = -6;
+			scrap.bounceVelocityY = -1.5;
+			updateScrapFrame(scrap);
+			ensureAnimationLoop();
 		};
 
 		const isVisibleTarget = (element) => {
@@ -1340,8 +1415,12 @@
 		};
 		const attachBirdCarry = (bird, foodKind) => {
 			bird.carryingFoodKind = foodKind;
-			bird.carryElement.innerHTML =
-				foodKind === "drumstick" ? drumstickSpriteMarkup : scrapMarkup;
+			bird.carryElement.innerHTML = buildFoodSpriteWrapper("raven-drumstick__sprite");
+			setSpriteHostMarkup(
+				bird.carryElement.querySelector(".raven-drumstick__sprite"),
+				foodKind,
+				"full",
+			);
 			bird.carryElement.dataset.visible = "true";
 		};
 		const wakeBirdHunger = (bird) => {
@@ -1386,7 +1465,7 @@
 			if (
 				preferredSource?.foodKind === "drumstick" &&
 				preferredSource.kind === "scrap" &&
-				getFoodEntityFromSource(preferredSource)
+				getFoodEntityFromSource(preferredSource)?.bitesRemaining > 0
 			) {
 				return preferredSource;
 			}
@@ -1633,7 +1712,7 @@
 		const createScrapFromBird = (bird) => {
 			const element = document.createElement("div");
 			element.className = "raven-scrap";
-			element.innerHTML = scrapMarkup;
+			element.innerHTML = buildFoodSpriteWrapper("raven-scrap__sprite");
 
 			const scale = clamp(
 				0.76 + bird.foodEatenCount * 0.12 + (bird.baseScale - 1) * 0.7,
@@ -1685,7 +1764,9 @@
 			element.className = isDrumstick
 				? "raven-scrap raven-scrap--drumstick"
 				: "raven-scrap";
-			element.innerHTML = isDrumstick ? drumstickSpriteMarkup : scrapMarkup;
+			element.innerHTML = buildFoodSpriteWrapper(
+				isDrumstick ? "raven-scrap__sprite" : "raven-scrap__sprite",
+			);
 
 			const item = {
 				id: state.nextScrapId++,
@@ -1835,6 +1916,11 @@
 		};
 
 		const updateScrapFrame = (scrap) => {
+			setSpriteHostMarkup(
+				scrap.element.firstElementChild,
+				scrap.foodKind ?? "scrap",
+				getFoodVisualStage(scrap),
+			);
 			scrap.element.style.transform = `translate3d(${scrap.x + scrap.visualOffsetX}px, ${scrap.y + scrap.visualOffsetY + scrap.bounceOffsetY}px, 0) rotate(${scrap.visualRotation}deg) scale(${scrap.scale})`;
 		};
 
@@ -2110,9 +2196,7 @@
 			applyFoodFrame();
 
 			if (source.kind === "main" && foodEntity.bitesRemaining === 0) {
-				state.food.mode = "resetting";
-				state.food.resetAt = performance.now() + FOOD_RESET_DELAY_MS;
-				applyFoodFrame();
+				startMainFoodSpentExit();
 				state.birds.forEach((otherBird) => {
 					if (otherBird !== bird && otherBird.state.startsWith("food")) {
 						releaseBirdFromFood(otherBird);
@@ -2123,7 +2207,7 @@
 			}
 
 			if (source.kind === "scrap" && foodEntity.bitesRemaining === 0) {
-				removeScrap(foodEntity);
+				startScrapSpentExit(foodEntity);
 				reconcileFoodDrivenFlock();
 			}
 
@@ -2987,6 +3071,26 @@
 				return;
 			}
 
+			if (state.food.mode === "spent") {
+				state.food.x += state.food.impulseX;
+				state.food.y += state.food.vy;
+				state.food.impulseX *= 0.992;
+				state.food.vy = Math.min(
+					SCRAP_FALL_TERMINAL_VELOCITY,
+					state.food.vy + SCRAP_FALL_GRAVITY * 0.9,
+				);
+				updateFoodMotionState(state.food);
+				applyFoodFrame();
+				if (
+					state.food.y > window.innerHeight + getFoodSize() + 12 ||
+					state.food.x < -getFoodSize() * 1.6 ||
+					state.food.x > window.innerWidth + getFoodSize() * 1.6
+				) {
+					resetFoodToHome();
+				}
+				return;
+			}
+
 			if (state.food.mode === "dragging") {
 				updateFoodMotionState(state.food);
 				applyFoodFrame();
@@ -3138,6 +3242,28 @@
 					);
 					scrap.rotationVelocity +=
 						(scrap.rotationVelocity >= 0 ? 0.05 : -0.05) * 0.9;
+					updateFoodMotionState(scrap);
+					if (
+						scrap.y > window.innerHeight + size + 12 ||
+						scrap.x < -size * 1.8 ||
+						scrap.x > window.innerWidth + size * 1.8
+					) {
+						removeScrap(scrap);
+						return;
+					}
+					updateScrapFrame(scrap);
+					return;
+				}
+
+				if (scrap.mode === "spent") {
+					const size = getScrapSize(scrap);
+					scrap.x += scrap.vx;
+					scrap.y += scrap.vy;
+					scrap.vx *= 0.992;
+					scrap.vy = Math.min(
+						SCRAP_FALL_TERMINAL_VELOCITY,
+						scrap.vy + SCRAP_FALL_GRAVITY * 0.9,
+					);
 					updateFoodMotionState(scrap);
 					if (
 						scrap.y > window.innerHeight + size + 12 ||
