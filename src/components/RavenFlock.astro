@@ -321,6 +321,7 @@
 		const VIEWPORT_PADDING = 12;
 		const MAX_BIRDS = 6;
 		const SPAWN_INTERVAL_MS = 26000;
+		const FOOD_SPAWN_INTERVAL_MS = 12000;
 		const SPAWN_HEARTBEAT_MS = 4000;
 		const MIN_TARGET_WIDTH = 112;
 		const MIN_TARGET_HEIGHT = 56;
@@ -635,6 +636,8 @@
 		const isFoodDetected = () => getCurrentFoodSource() !== null;
 		const isFoodContestable = (source = getCurrentFoodSource()) =>
 			source?.mode === "active";
+		const getSpawnIntervalMs = () =>
+			isFoodDetected() ? FOOD_SPAWN_INTERVAL_MS : SPAWN_INTERVAL_MS;
 		const updateDrumstickVisibility = () => {
 			const shouldShow = state.birds.length > 0 || state.food.mode !== "idle";
 			drumstickElement.dataset.visible = shouldShow ? "true" : "false";
@@ -1466,6 +1469,10 @@
 				return;
 			}
 
+			const acceleratedSpawnAt = Date.now() + FOOD_SPAWN_INTERVAL_MS;
+			if (state.nextSpawnAt === 0 || state.nextSpawnAt > acceleratedSpawnAt) {
+				state.nextSpawnAt = acceleratedSpawnAt;
+			}
 			assignFoodSlots();
 			state.birds.forEach((bird) => {
 				if (bird.state === "escaping") {
@@ -1941,15 +1948,19 @@
 			now = Date.now(),
 			instantPerch = false,
 		} = {}) => {
+			const spawnIntervalMs = getSpawnIntervalMs();
 			if (state.nextSpawnAt === 0) {
-				state.nextSpawnAt = now + SPAWN_INTERVAL_MS;
+				state.nextSpawnAt = now + spawnIntervalMs;
 				return;
+			}
+			if (isFoodDetected()) {
+				state.nextSpawnAt = Math.min(state.nextSpawnAt, now + spawnIntervalMs);
 			}
 
 			let safety = 0;
 			while (now >= state.nextSpawnAt && safety < MAX_BIRDS) {
 				maybeSpawnBird({ instantPerch });
-				state.nextSpawnAt += SPAWN_INTERVAL_MS;
+				state.nextSpawnAt += getSpawnIntervalMs();
 				safety += 1;
 			}
 		};
@@ -1963,7 +1974,7 @@
 			window.requestAnimationFrame(() => {
 				window.requestAnimationFrame(() => {
 					maybeSpawnBird();
-					state.nextSpawnAt = Date.now() + SPAWN_INTERVAL_MS;
+					state.nextSpawnAt = Date.now() + getSpawnIntervalMs();
 				});
 			});
 		};
