@@ -3,7 +3,7 @@ title: "站点内容结构调整记录（2026-04-27）"
 published: 2026-04-27
 description: "记录这一轮围绕 Dashboard、System 面板、页面文案和全站动效做的继续整理。"
 image: ""
-tags: ["博客", "维护", "记录"]
+tags: ["维护", "记录"]
 category: "站点"
 categoryPath: ["站点", "维护记录"]
 series: "site-log"

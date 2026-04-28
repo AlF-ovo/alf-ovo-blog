@@ -3,7 +3,7 @@ title: "站点内容结构调整记录"
 published: 2026-04-23
 description: "记录这次博客把文章、笔记、分类路径和资源组织重新整理的原因。"
 image: ""
-tags: ["博客", "维护", "记录"]
+tags: ["维护", "记录"]
 category: "站点"
 categoryPath: ["站点", "维护记录"]
 series: "site-log"
