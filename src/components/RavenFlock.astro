@@ -19,6 +19,8 @@
 		top: 0;
 		width: 5.25rem;
 		height: 4.125rem;
+		pointer-events: auto;
+		cursor: pointer;
 		will-change: transform;
 		filter: drop-shadow(0 0.75rem 1.25rem rgb(15 23 42 / 0.18));
 	}
@@ -189,14 +191,15 @@
 		const MIN_TARGET_HEIGHT = 56;
 		const MIN_DWELL_MS = 38000;
 		const MAX_DWELL_MS = 62000;
-		const MOUSE_ESCAPE_DISTANCE = 82;
+		const SPAWN_HEARTBEAT_MS = 4000;
 
 		const state = {
 			birds: [],
 			rafId: 0,
-			spawnTimerId: 0,
+			spawnHeartbeatId: 0,
 			initialSpawnDone: false,
 			pendingSpawns: 0,
+			nextSpawnAt: 0,
 		};
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
@@ -466,6 +469,14 @@
 			bird.element.classList.remove("is-relocating");
 			bird.element.classList.add("is-perched");
 			applyBirdFrame(bird);
+		};
+
+		const spawnBirdPerched = (bird) => {
+			bird.element.classList.remove("is-escaping");
+			bird.element.classList.remove("is-relocating");
+			bird.element.classList.add("is-perched");
+			root.appendChild(bird.element);
+			setBirdPerched(bird);
 		};
 
 		const startEscape = (bird) => {
@@ -796,7 +807,7 @@
 			return releaseCount;
 		};
 
-		const maybeSpawnBird = (isDeferred = false) => {
+		const maybeSpawnBird = (isDeferred = false, instantPerch = false) => {
 			if (state.birds.length >= MAX_BIRDS) {
 				if (!isDeferred) {
 					const releasedCount = releaseBirdsForIncomingSpawn();
@@ -815,8 +826,30 @@
 
 			const bird = createBird(landingSpot);
 			state.birds.push(bird);
+			if (instantPerch) {
+				spawnBirdPerched(bird);
+				return;
+			}
+
 			root.appendChild(bird.element);
 			ensureAnimationLoop();
+		};
+
+		const processScheduledSpawns = ({
+			now = Date.now(),
+			instantPerch = false,
+		} = {}) => {
+			if (state.nextSpawnAt === 0) {
+				state.nextSpawnAt = now + SPAWN_INTERVAL_MS;
+				return;
+			}
+
+			let safety = 0;
+			while (now >= state.nextSpawnAt && safety < MAX_BIRDS) {
+				maybeSpawnBird(false, instantPerch);
+				state.nextSpawnAt += SPAWN_INTERVAL_MS;
+				safety += 1;
+			}
 		};
 
 		const spawnInitialBird = () => {
@@ -828,6 +861,7 @@
 			window.requestAnimationFrame(() => {
 				window.requestAnimationFrame(() => {
 					maybeSpawnBird();
+					state.nextSpawnAt = Date.now() + SPAWN_INTERVAL_MS;
 				});
 			});
 		};
@@ -841,40 +875,46 @@
 			}
 		};
 
-		const escapeBirdNearPointer = (clientX, clientY) => {
-			let moved = false;
-			state.birds.forEach((bird) => {
-				if (bird.state !== "perched") {
-					return;
-				}
-
-				const centerX = bird.x + bird.width / 2;
-				const centerY = bird.y + bird.footOffset * 0.52;
-				const distance = Math.hypot(clientX - centerX, clientY - centerY);
-				if (distance <= MOUSE_ESCAPE_DISTANCE) {
-					const overlappingBirds = getOverlappingPerchedBirds(bird);
-					if (overlappingBirds.length > 0) {
-						startRelocation(bird);
-						overlappingBirds.forEach((otherBird) => {
-							startRelocation(otherBird);
-						});
-						moved = true;
-						return;
-					}
-
-					if (startRelocation(bird)) {
-						moved = true;
-						return;
-					}
-
-					startEscape(bird);
-					moved = true;
-				}
-			});
-
-			if (moved) {
-				ensureAnimationLoop();
+		const handleBirdClick = (event) => {
+			const target = event.target;
+			if (!(target instanceof Element)) {
+				return;
 			}
+
+			const birdElement = target.closest(".raven-bird");
+			if (!(birdElement instanceof HTMLElement)) {
+				return;
+			}
+
+			const clickedBird = state.birds.find((bird) => bird.element === birdElement);
+			if (!clickedBird || clickedBird.state === "escaping") {
+				return;
+			}
+
+			event.preventDefault();
+			event.stopPropagation();
+
+			const overlappingBirds =
+				clickedBird.state === "perched"
+					? getOverlappingPerchedBirds(clickedBird)
+					: [];
+
+			if (overlappingBirds.length > 0) {
+				startRelocation(clickedBird);
+				overlappingBirds.forEach((bird) => {
+					startRelocation(bird);
+				});
+				ensureAnimationLoop();
+				return;
+			}
+
+			if (clickedBird.state === "perched" && startRelocation(clickedBird)) {
+				ensureAnimationLoop();
+				return;
+			}
+
+			startEscape(clickedBird);
+			ensureAnimationLoop();
 		};
 
 		const reconcileBirdTargets = () => {
@@ -906,17 +946,24 @@
 		);
 
 		window.addEventListener("resize", reconcileBirdTargets);
-		document.addEventListener("astro:page-load", reconcileBirdTargets);
-		document.addEventListener("DOMContentLoaded", reconcileBirdTargets);
-		window.addEventListener(
-			"pointermove",
-			(event) => {
-				escapeBirdNearPointer(event.clientX, event.clientY);
-			},
-			{ passive: true },
-		);
+		document.addEventListener("astro:page-load", () => {
+			reconcileBirdTargets();
+			processScheduledSpawns();
+		});
+		document.addEventListener("DOMContentLoaded", () => {
+			reconcileBirdTargets();
+			processScheduledSpawns();
+		});
+		document.addEventListener("visibilitychange", () => {
+			if (!document.hidden) {
+				processScheduledSpawns({ instantPerch: true });
+			}
+		});
+		root.addEventListener("click", handleBirdClick);
 
 		spawnInitialBird();
-		state.spawnTimerId = window.setInterval(maybeSpawnBird, SPAWN_INTERVAL_MS);
+		state.spawnHeartbeatId = window.setInterval(() => {
+			processScheduledSpawns();
+		}, SPAWN_HEARTBEAT_MS);
 	})();
 </script>
