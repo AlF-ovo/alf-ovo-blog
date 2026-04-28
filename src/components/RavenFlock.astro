@@ -733,12 +733,16 @@
 		const easeInOutSine = (progress) =>
 			-(Math.cos(Math.PI * progress) - 1) / 2;
 		const shuffle = (items) => [...items].sort(() => Math.random() - 0.5);
+		const isMiniDrumstickKind = (foodKind) => foodKind === "scrap";
 		const getFoodAttractionWeight = (foodLike) => {
 			if (!foodLike) {
 				return 0;
 			}
 			if (foodLike.foodKind === "drumstick") {
 				return 1;
+			}
+			if (isMiniDrumstickKind(foodLike.foodKind)) {
+				return 0.78;
 			}
 			if (foodLike.foodKind === "fries") {
 				return 0.24;
@@ -971,7 +975,13 @@
 				const crowdingPenalty = (assignedCounts.get(source.targetKey) ?? 0) * 64;
 				const sameTargetBonus = bird.foodTargetKey === source.targetKey ? 78 : 0;
 				const foodKindBonus =
-					source.foodKind === "drumstick" ? 28 : source.foodKind === "fries" ? 12 : 0;
+					source.foodKind === "drumstick"
+						? 28
+						: isMiniDrumstickKind(source.foodKind)
+							? 24
+							: source.foodKind === "fries"
+								? 12
+								: 0;
 				const score =
 					sameTargetBonus +
 					foodKindBonus -
@@ -990,12 +1000,20 @@
 			const looseRadius = isGroundFood
 				? source.foodKind === "drumstick"
 					? 54
+					: isMiniDrumstickKind(source.foodKind)
+						? 42
 					: source.foodKind === "fries"
 						? 28
 						: 34
 				: 76;
 			const clingChance =
-				source.foodKind === "drumstick" ? 0.3 : source.foodKind === "fries" ? 0.22 : 0.14;
+				source.foodKind === "drumstick"
+					? 0.3
+					: isMiniDrumstickKind(source.foodKind)
+						? 0.26
+						: source.foodKind === "fries"
+							? 0.22
+							: 0.14;
 			if (Math.random() < clingChance) {
 				bird.foodHoverOffsetX = randomBetween(
 					-source.size * 0.18,
@@ -1582,7 +1600,6 @@
 		};
 		const findCarryableFoodSource = (preferredSource = null) => {
 			if (
-				preferredSource?.foodKind !== "scrap" &&
 				preferredSource.kind === "scrap" &&
 				getFoodEntityFromSource(preferredSource)?.bitesRemaining > 0
 			) {
@@ -1590,7 +1607,9 @@
 			}
 			return (
 				getFoodSources().find(
-					(source) => source.foodKind !== "scrap" && source.kind === "scrap",
+					(source) =>
+						source.kind === "scrap" &&
+						getFoodEntityFromSource(source)?.bitesRemaining > 0,
 				) ?? null
 			);
 		};
