@@ -25,7 +25,11 @@
 		cursor: pointer;
 		user-select: none;
 		will-change: transform;
-		filter: drop-shadow(0 0.65rem 1rem rgb(3 7 18 / 0.28));
+		filter:
+			drop-shadow(0 0.65rem 1rem rgb(3 7 18 / 0.28))
+			hue-rotate(var(--bird-hue-rotate, 0deg))
+			saturate(var(--bird-saturate, 1))
+			brightness(var(--bird-brightness, 1));
 		transform-origin: 50% 88%;
 	}
 
@@ -49,7 +53,11 @@
 	}
 
 	.raven-bird[data-state="panel-perched"] {
-		filter: drop-shadow(0 0.45rem 0.8rem rgb(3 7 18 / 0.22));
+		filter:
+			drop-shadow(0 0.45rem 0.8rem rgb(3 7 18 / 0.22))
+			hue-rotate(var(--bird-hue-rotate, 0deg))
+			saturate(var(--bird-saturate, 1))
+			brightness(var(--bird-brightness, 1));
 	}
 
 	.raven-drumstick {
@@ -116,7 +124,9 @@
 		top: 0;
 		width: 1.5rem;
 		height: 1.5rem;
-		pointer-events: none;
+		pointer-events: auto;
+		cursor: grab;
+		touch-action: none;
 		will-change: transform;
 		filter: drop-shadow(0 0.28rem 0.4rem rgb(15 23 42 / 0.18));
 	}
@@ -335,11 +345,16 @@
 		const FOOD_BITE_COOLDOWN_MS = 5000;
 		const FOOD_BASE_BITES = 5;
 		const FOOD_MAX_EXTRA_BITES = 4;
-		const FOOD_CONTEST_MIN_MS = 1150;
-		const FOOD_CONTEST_MAX_MS = 2100;
+		const FOOD_CONTEST_MIN_MS = 760;
+		const FOOD_CONTEST_MAX_MS = 1380;
 		const FOOD_RESET_DELAY_MS = 520;
 		const FOOD_FALL_GRAVITY = 0.82;
 		const FOOD_FALL_TERMINAL_VELOCITY = 18;
+		const FOOD_BOUNCE_GRAVITY = 0.48;
+		const FOOD_BOUNCE_DAMPING = 0.34;
+		const FOOD_VISUAL_DRAG = 0.78;
+		const FOOD_ROTATION_DRAG = 0.84;
+		const FOOD_ROTATION_RETURN = 0.11;
 		const SCRAP_BASE_SIZE = 28;
 		const SCRAP_FALL_GRAVITY = 0.72;
 		const SCRAP_FALL_TERMINAL_VELOCITY = 15;
@@ -351,6 +366,14 @@
 			[-114, 20],
 			[-20, -112],
 			[38, 56],
+		];
+		const GROUND_FOOD_WAIT_OFFSETS = [
+			[-108, 10],
+			[-72, -2],
+			[-36, 12],
+			[30, 8],
+			[68, -4],
+			[104, 10],
 		];
 		const PERCHED_FRAME_INDEX = 0;
 		const FLIGHT_SEQUENCE = [1, 2, 3, 4, 5, 4, 3, 2];
@@ -532,6 +555,14 @@
 				pendingPointerX: 0,
 				pendingPointerY: 0,
 				vy: 0,
+				visualOffsetX: 0,
+				visualOffsetY: 0,
+				impulseX: 0,
+				impulseY: 0,
+				visualRotation: 0,
+				rotationVelocity: 0,
+				bounceOffsetY: 0,
+				bounceVelocityY: 0,
 				resetAt: 0,
 			},
 		};
@@ -603,6 +634,78 @@
 				((scale - FOOD_MIN_SCALE) / (FOOD_MAX_SCALE - FOOD_MIN_SCALE)) *
 					FOOD_MAX_EXTRA_BITES,
 			);
+		const resetFoodMotionState = (foodLike) => {
+			foodLike.visualOffsetX = 0;
+			foodLike.visualOffsetY = 0;
+			foodLike.impulseX = 0;
+			foodLike.impulseY = 0;
+			foodLike.visualRotation = 0;
+			foodLike.rotationVelocity = 0;
+			foodLike.bounceOffsetY = 0;
+			foodLike.bounceVelocityY = 0;
+		};
+		const updateFoodMotionState = (foodLike) => {
+			foodLike.visualOffsetX += foodLike.impulseX;
+			foodLike.visualOffsetY += foodLike.impulseY;
+			foodLike.impulseX *= FOOD_VISUAL_DRAG;
+			foodLike.impulseY *= FOOD_VISUAL_DRAG;
+			foodLike.visualOffsetX *= 0.82;
+			foodLike.visualOffsetY *= 0.82;
+			foodLike.rotationVelocity += -foodLike.visualRotation * FOOD_ROTATION_RETURN;
+			foodLike.visualRotation += foodLike.rotationVelocity;
+			foodLike.rotationVelocity *= FOOD_ROTATION_DRAG;
+
+			if (
+				Math.abs(foodLike.bounceOffsetY) > 0.04 ||
+				Math.abs(foodLike.bounceVelocityY) > 0.04
+			) {
+				foodLike.bounceOffsetY += foodLike.bounceVelocityY;
+				foodLike.bounceVelocityY += FOOD_BOUNCE_GRAVITY;
+				if (foodLike.bounceOffsetY >= 0) {
+					foodLike.bounceOffsetY = 0;
+					foodLike.bounceVelocityY *= -FOOD_BOUNCE_DAMPING;
+					if (Math.abs(foodLike.bounceVelocityY) < 0.3) {
+						foodLike.bounceVelocityY = 0;
+					}
+				}
+			}
+		};
+		const getFoodEntityFromSource = (source) => {
+			if (!source) {
+				return null;
+			}
+			if (source.kind === "main") {
+				return state.food;
+			}
+			return state.scraps.find((scrap) => scrap.id === source.id) ?? null;
+		};
+		const applyFoodSourceImpulse = (source, fromX, fromY, options = {}) => {
+			const foodLike = getFoodEntityFromSource(source);
+			if (!foodLike) {
+				return;
+			}
+
+			const success = options.success === true;
+			const sourceScale = source.scale ?? foodLike.scale ?? 1;
+			const centerX = source.x + source.size * 0.5;
+			const centerY = source.y + source.size * 0.54;
+			const dx = fromX - centerX;
+			const dy = fromY - centerY;
+			const distance = Math.max(1, Math.hypot(dx, dy));
+			const strength = (success ? 1.8 : 1) * clamp(sourceScale, 0.82, 1.58);
+			foodLike.impulseX += (dx / distance) * randomBetween(2.1, 3.5) * strength;
+			foodLike.impulseY +=
+				(dy / distance) * randomBetween(1.1, 2) * strength - 0.5 * strength;
+			foodLike.rotationVelocity +=
+				(dx / distance) * randomBetween(1.8, 3.1) * strength;
+			if (source.mode === "active") {
+				foodLike.bounceVelocityY = Math.min(
+					foodLike.bounceVelocityY,
+					(success ? -2.8 : -1.55) * clamp(sourceScale, 0.82, 1.28),
+				);
+			}
+			ensureAnimationLoop();
+		};
 
 		const renderFoodMeter = () => {
 			if (!(drumstickMeter instanceof HTMLElement)) {
@@ -622,7 +725,23 @@
 
 		const applyFoodFrame = () => {
 			drumstickElement.dataset.mode = state.food.mode;
-			drumstickElement.style.transform = `translate3d(${state.food.x}px, ${state.food.y}px, 0) scale(${state.food.scale})`;
+			if (state.food.mode === "dragging") {
+				const size = Math.max(getFoodSize(), 1);
+				const pivotX = clamp(
+					((state.food.pendingPointerX - state.food.x) / size) * 100,
+					12,
+					88,
+				);
+				const pivotY = clamp(
+					((state.food.pendingPointerY - state.food.y) / size) * 100,
+					12,
+					88,
+				);
+				drumstickElement.style.transformOrigin = `${pivotX}% ${pivotY}%`;
+			} else {
+				drumstickElement.style.transformOrigin = "50% 50%";
+			}
+			drumstickElement.style.transform = `translate3d(${state.food.x + state.food.visualOffsetX}px, ${state.food.y + state.food.visualOffsetY + state.food.bounceOffsetY}px, 0) rotate(${state.food.visualRotation}deg) scale(${state.food.scale})`;
 			renderFoodMeter();
 			updateDrumstickVisibility();
 		};
@@ -647,6 +766,7 @@
 			state.food.lastBiteAt = -FOOD_BITE_COOLDOWN_MS;
 			state.food.nextContestAt = 0;
 			state.food.vy = 0;
+			resetFoodMotionState(state.food);
 			state.food.resetAt = 0;
 			state.food.dragPointerId = null;
 			state.food.x = state.food.homeX;
@@ -749,6 +869,21 @@
 			bird.element.style.height = `${bird.height}px`;
 			bird.x = centerX - bird.width / 2;
 			bird.y = footY - bird.footOffset;
+		};
+
+		const applyBirdColorVariant = (bird) => {
+			bird.element.style.setProperty(
+				"--bird-hue-rotate",
+				`${bird.colorVariant.hueRotate}deg`,
+			);
+			bird.element.style.setProperty(
+				"--bird-saturate",
+				`${bird.colorVariant.saturate}`,
+			);
+			bird.element.style.setProperty(
+				"--bird-brightness",
+				`${bird.colorVariant.brightness}`,
+			);
 		};
 
 		const scoreLandingSpot = (spot, options = {}) => {
@@ -889,12 +1024,20 @@
 
 			const centerX = source.x + source.size * 0.5;
 			const centerY = source.y + source.size * 0.5;
+			const waitOffsets =
+				source.mode === "active" ? GROUND_FOOD_WAIT_OFFSETS : FOOD_WAIT_OFFSETS;
 			const [offsetX, offsetY] =
-				FOOD_WAIT_OFFSETS[bird.foodSlotIndex % FOOD_WAIT_OFFSETS.length];
-			const scaleFactor = 0.7 + source.scale * 0.36;
+				waitOffsets[bird.foodSlotIndex % waitOffsets.length];
+			const scaleFactor =
+				source.mode === "active"
+					? 0.68 + source.scale * 0.28
+					: 0.7 + source.scale * 0.36;
 			return {
 				x: centerX + offsetX * scaleFactor - bird.width / 2,
-				y: centerY + offsetY * scaleFactor - bird.height / 2,
+				y:
+					source.mode === "active"
+						? source.y + source.size * 0.72 + offsetY * 0.42 - bird.footOffset
+						: centerY + offsetY * scaleFactor - bird.height / 2,
 			};
 		};
 
@@ -1145,17 +1288,25 @@
 					Math.round(1 + bird.foodEatenCount * 0.6 + (scale - 0.72) * 1.8),
 				),
 				bitesRemaining: 0,
+				visualOffsetX: 0,
+				visualOffsetY: 0,
+				impulseX: 0,
+				impulseY: 0,
+				visualRotation: randomBetween(-4.5, 4.5),
+				rotationVelocity: randomBetween(-1.4, 1.4),
+				bounceOffsetY: 0,
+				bounceVelocityY: 0,
 			};
 
 			scrap.bitesRemaining = scrap.bitesTotal;
 			state.scraps.push(scrap);
 			root.appendChild(scrap.element);
-			scrap.element.style.transform = `translate3d(${scrap.x}px, ${scrap.y}px, 0) scale(${scrap.scale})`;
+			scrap.element.style.transform = `translate3d(${scrap.x}px, ${scrap.y}px, 0) rotate(${scrap.visualRotation}deg) scale(${scrap.scale})`;
 			return scrap;
 		};
 
 		const updateScrapFrame = (scrap) => {
-			scrap.element.style.transform = `translate3d(${scrap.x}px, ${scrap.y}px, 0) scale(${scrap.scale})`;
+			scrap.element.style.transform = `translate3d(${scrap.x + scrap.visualOffsetX}px, ${scrap.y + scrap.visualOffsetY + scrap.bounceOffsetY}px, 0) rotate(${scrap.visualRotation}deg) scale(${scrap.scale})`;
 		};
 
 		const removeScrap = (scrap) => {
@@ -1298,18 +1449,29 @@
 
 		const startFoodDash = (bird, options) => {
 			const bitePoint = getFoodBitePoint(options.index, options.source);
+			const isGroundFood = options.source?.mode === "active";
 			const destination = {
 				x: bitePoint.x - bird.width * 0.42 + randomBetween(-10, 10),
-				y: bitePoint.y - bird.height * 0.38 + randomBetween(-8, 8),
+				y: isGroundFood
+					? bitePoint.y - bird.footOffset + randomBetween(-3, 3)
+					: bitePoint.y - bird.height * 0.38 + randomBetween(-8, 8),
 			};
 			beginFlightSegment(bird, {
 				state: "food-dash",
 				destination,
-				duration: randomBetween(340, 560),
-				arcHeight: randomBetween(10, 26),
+				duration: isGroundFood
+					? randomBetween(220, 360)
+					: randomBetween(340, 560),
+				arcHeight: isGroundFood ? randomBetween(2, 8) : randomBetween(10, 26),
 				finalAction: options.success ? "foodBiteSuccess" : "foodBiteFail",
 				payload: { source: options.source, success: options.success },
 			});
+			applyFoodSourceImpulse(
+				options.source,
+				bird.x + bird.width * 0.5,
+				bird.y + bird.height * 0.42,
+				{ success: false },
+			);
 		};
 
 		const completeFoodBite = (bird) => {
@@ -1335,6 +1497,12 @@
 			bird.growthScale = clamp(1 + bird.foodEatenCount * 0.065, 1, 1.28);
 			updateBirdDimensions(bird);
 			spawnHeartBurst(bird);
+			applyFoodSourceImpulse(
+				source,
+				bird.x + bird.width * 0.48,
+				bird.y + bird.height * 0.42,
+				{ success: true },
+			);
 			applyFoodFrame();
 
 			if (source.kind === "main" && state.food.bitesRemaining === 0) {
@@ -1367,9 +1535,74 @@
 			startFoodHover(bird);
 		};
 
+		const startBirdAttack = (bird, target) => {
+			if (!target || target === bird || target.state === "escaping") {
+				return false;
+			}
+
+			bird.foodBusyUntil = performance.now() + randomBetween(520, 920);
+			target.foodBusyUntil = Math.max(
+				target.foodBusyUntil,
+				performance.now() + randomBetween(360, 680),
+			);
+			beginFlightSegment(bird, {
+				state: "bird-attack",
+				destination: {
+					x: target.x + randomBetween(-8, 8),
+					y: target.y + randomBetween(-6, 6),
+				},
+				duration: randomBetween(180, 300),
+				arcHeight: randomBetween(5, 14),
+				finalAction: "birdAttackHit",
+				payload: { targetId: target.id },
+			});
+			return true;
+		};
+
+		const resolveBirdAttack = (bird) => {
+			const targetId = bird.actionPayload?.targetId;
+			const target = state.birds.find((item) => item.id === targetId);
+			if (target && target !== bird && target.state !== "escaping") {
+				spawnAngryBurst(bird);
+				if (!target.hasEatenFood) {
+					spawnAngryBurst(target);
+				}
+				target.visualShiftX += randomBetween(-3.5, 3.5);
+				target.visualBob -= randomBetween(1.2, 3.2);
+				target.foodBusyUntil = Math.max(
+					target.foodBusyUntil,
+					performance.now() + randomBetween(420, 760),
+				);
+				if (isFoodDetected()) {
+					startFoodHover(target);
+				}
+			}
+
+			if (isFoodDetected()) {
+				startFoodHover(bird);
+				return;
+			}
+			releaseBirdFromFood(bird);
+		};
+
 		const handleFailedFoodDash = (bird) => {
 			if (!bird.hasEatenFood) {
 				spawnAngryBurst(bird);
+				const attackTarget = shuffle(
+					state.birds.filter(
+						(otherBird) =>
+							otherBird !== bird &&
+							otherBird.state !== "escaping" &&
+							otherBird.state !== "bird-attack" &&
+							otherBird.state.startsWith("food") &&
+							Math.hypot(otherBird.x - bird.x, otherBird.y - bird.y) < 180,
+					),
+				)[0];
+				if (attackTarget && Math.random() < 0.42) {
+					if (startBirdAttack(bird, attackTarget)) {
+						return;
+					}
+				}
 			}
 
 			if (isFoodDetected()) {
@@ -1442,6 +1675,11 @@
 
 			if (bird.finalAction === "foodBiteFail") {
 				handleFailedFoodDash(bird);
+				return;
+			}
+
+			if (bird.finalAction === "birdAttackHit") {
+				resolveBirdAttack(bird);
 			}
 		};
 
@@ -1521,14 +1759,28 @@
 			assignFoodSlots();
 			const waitPoint = getFoodWaitPoint(bird, source);
 			const orbitPhase = now * 0.0032 + bird.idlePhase;
-			const targetX = waitPoint.x + Math.round(Math.cos(orbitPhase) * 2);
-			const targetY = waitPoint.y + Math.round(Math.sin(orbitPhase * 1.2) * 3);
+			const isGroundFood = source.mode === "active";
+			const targetX = isGroundFood
+				? waitPoint.x + Math.round(Math.sin(orbitPhase * 0.62) * 1)
+				: waitPoint.x + Math.round(Math.cos(orbitPhase) * 2);
+			const targetY = isGroundFood
+				? waitPoint.y + Math.round(Math.sin(orbitPhase * 0.48) * 1)
+				: waitPoint.y + Math.round(Math.sin(orbitPhase * 1.2) * 3);
 			bird.facing = targetX >= bird.x ? 1 : -1;
-			bird.x = lerp(bird.x, targetX, 0.12);
-			bird.y = lerp(bird.y, targetY, 0.12);
-			bird.visualShiftX = 0;
-			bird.visualBob = 0;
-			updateFlightFrame(bird, now);
+			bird.x = lerp(bird.x, targetX, isGroundFood ? 0.18 : 0.12);
+			bird.y = lerp(bird.y, targetY, isGroundFood ? 0.18 : 0.12);
+			if (isGroundFood) {
+				const swayPhase = now * 0.0017 + bird.idlePhase;
+				bird.visualShiftX = Math.round(Math.sin(swayPhase * 0.54) * 1);
+				bird.visualBob = Math.round(
+					Math.sin(swayPhase) * 1 + Math.sin(swayPhase * 0.46) * 0.35,
+				);
+				setBirdFrame(bird, PERCHED_FRAME_INDEX);
+			} else {
+				bird.visualShiftX = 0;
+				bird.visualBob = 0;
+				updateFlightFrame(bird, now);
+			}
 			applyBirdFrame(bird);
 		};
 
@@ -1543,6 +1795,25 @@
 			const sizeScale = randomBetween(0.92, 1.12);
 			const initialWidth = BASE_BIRD_WIDTH * sizeScale;
 			const source = getSkyEntryPoint(initialWidth);
+			const rareColorRoll = Math.random();
+			const colorVariant =
+				rareColorRoll < 0.018
+					? {
+							hueRotate: randomBetween(-8, 6).toFixed(1),
+							saturate: randomBetween(0.08, 0.18).toFixed(2),
+							brightness: randomBetween(1.62, 1.86).toFixed(2),
+						}
+					: rareColorRoll < 0.036
+						? {
+								hueRotate: randomBetween(-28, -14).toFixed(1),
+								saturate: randomBetween(1.18, 1.34).toFixed(2),
+								brightness: randomBetween(1.18, 1.34).toFixed(2),
+							}
+						: {
+								hueRotate: randomBetween(-9, 10).toFixed(1),
+								saturate: randomBetween(0.94, 1.08).toFixed(2),
+								brightness: randomBetween(0.94, 1.06).toFixed(2),
+							};
 
 			const bird = {
 				id: state.nextBirdId++,
@@ -1574,13 +1845,16 @@
 				foodSlotIndex: 0,
 				hasEatenFood: false,
 				foodEatenCount: 0,
+				foodBusyUntil: 0,
 				lastHungerBubbleAt: 0,
 				baseScale: sizeScale,
 				growthScale: 1,
 				recentPerchElements: [],
+				colorVariant,
 			};
 
 			updateBirdDimensions(bird);
+			applyBirdColorVariant(bird);
 			setBirdFrame(bird, FLIGHT_SEQUENCE[bird.frameCursor]);
 			applyBirdFrame(bird);
 			return bird;
@@ -1779,8 +2053,39 @@
 			state.food.lastBiteAt = -FOOD_BITE_COOLDOWN_MS;
 			state.food.nextContestAt =
 				performance.now() + randomBetween(FOOD_WAIT_GATHER_DELAY_MS, 320);
+			resetFoodMotionState(state.food);
 			applyFoodFrame();
 			summonBirdsToFood();
+		};
+
+		const liftScrapAsFood = (scrap, event) => {
+			if (!(scrap?.element instanceof HTMLElement) || state.food.mode !== "idle") {
+				return;
+			}
+
+			event.preventDefault();
+			state.food.mode = "dragging";
+			state.food.dragPointerId = event.pointerId;
+			state.food.pointerStartX = event.clientX;
+			state.food.pointerStartY = event.clientY;
+			state.food.pendingPointerX = event.clientX;
+			state.food.pendingPointerY = event.clientY;
+			state.food.scale = scrap.scale;
+			state.food.heldScale = scrap.scale;
+			state.food.bitesTotal = scrap.bitesTotal;
+			state.food.bitesRemaining = scrap.bitesRemaining;
+			state.food.lastBiteAt = -FOOD_BITE_COOLDOWN_MS;
+			state.food.nextContestAt =
+				performance.now() + randomBetween(FOOD_WAIT_GATHER_DELAY_MS, 320);
+			state.food.x = scrap.x;
+			state.food.y = scrap.y;
+			resetFoodMotionState(state.food);
+			state.food.dragOffsetX = event.clientX - state.food.x;
+			state.food.dragOffsetY = event.clientY - state.food.y;
+			removeScrap(scrap);
+			applyFoodFrame();
+			summonBirdsToFood();
+			ensureAnimationLoop();
 		};
 
 		const handleDrumstickPointerDown = (event) => {
@@ -1802,8 +2107,28 @@
 			state.food.scale = FOOD_MIN_SCALE;
 			state.food.bitesTotal = FOOD_BASE_BITES;
 			state.food.bitesRemaining = FOOD_BASE_BITES;
+			resetFoodMotionState(state.food);
 			applyFoodFrame();
 			ensureAnimationLoop();
+		};
+
+		const handleScrapPointerDown = (event) => {
+			const target = event.target;
+			if (!(target instanceof Element)) {
+				return;
+			}
+
+			const scrapElement = target.closest(".raven-scrap");
+			if (!(scrapElement instanceof HTMLElement)) {
+				return;
+			}
+
+			const scrap = state.scraps.find((item) => item.element === scrapElement);
+			if (!scrap || (scrap.mode !== "active" && scrap.mode !== "falling")) {
+				return;
+			}
+
+			liftScrapAsFood(scrap, event);
 		};
 
 		const handlePointerMove = (event) => {
@@ -1857,6 +2182,10 @@
 			state.food.dragPointerId = null;
 			state.food.mode = "falling";
 			state.food.vy = 2.2;
+			state.food.rotationVelocity =
+				randomBetween(-1.6, 1.6) + (Math.random() < 0.5 ? -0.9 : 0.9);
+			state.food.bounceOffsetY = 0;
+			state.food.bounceVelocityY = 0;
 			applyFoodFrame();
 			ensureAnimationLoop();
 		};
@@ -1875,6 +2204,7 @@
 				state.food.bitesRemaining = state.food.bitesTotal;
 				state.food.x = state.food.homeX;
 				state.food.y = state.food.homeY;
+				resetFoodMotionState(state.food);
 				applyFoodFrame();
 				return;
 			}
@@ -1885,9 +2215,16 @@
 					FOOD_FALL_TERMINAL_VELOCITY,
 					state.food.vy + FOOD_FALL_GRAVITY,
 				);
+				state.food.rotationVelocity +=
+					(state.food.rotationVelocity >= 0 ? 0.08 : -0.08) +
+					Math.sin(now * 0.006 + state.food.scale) * 0.03;
+				updateFoodMotionState(state.food);
 				if (state.food.y >= getFoodBottomY()) {
 					state.food.y = getFoodBottomY();
 					state.food.mode = "active";
+					state.food.bounceOffsetY = -Math.min(10, Math.max(4, state.food.vy * 0.46));
+					state.food.bounceVelocityY = Math.max(1.2, state.food.vy * 0.16);
+					state.food.rotationVelocity *= -0.44;
 					state.food.nextContestAt = now + randomBetween(320, 620);
 				}
 				applyFoodFrame();
@@ -1902,6 +2239,7 @@
 			}
 
 			if (state.food.mode === "active" || state.food.mode === "dragging") {
+				updateFoodMotionState(state.food);
 				applyFoodFrame();
 			}
 		};
@@ -1915,9 +2253,16 @@
 						SCRAP_FALL_TERMINAL_VELOCITY,
 						scrap.vy + SCRAP_FALL_GRAVITY,
 					);
+					scrap.rotationVelocity +=
+						(scrap.rotationVelocity >= 0 ? 0.06 : -0.06) +
+						Math.sin(performance.now() * 0.005 + scrap.id) * 0.02;
+					updateFoodMotionState(scrap);
 					if (scrap.y >= bottomY) {
 						scrap.y = bottomY;
 						scrap.mode = "active";
+						scrap.bounceOffsetY = -Math.min(8, Math.max(3, scrap.vy * 0.42));
+						scrap.bounceVelocityY = Math.max(0.9, scrap.vy * 0.14);
+						scrap.rotationVelocity *= -0.42;
 						if (!isMainFoodDetected()) {
 							state.food.nextContestAt =
 								performance.now() + randomBetween(280, 560);
@@ -1933,6 +2278,9 @@
 						SCRAP_FALL_TERMINAL_VELOCITY + 4,
 						scrap.vy + SCRAP_FALL_GRAVITY,
 					);
+					scrap.rotationVelocity +=
+						(scrap.rotationVelocity >= 0 ? 0.05 : -0.05) * 0.9;
+					updateFoodMotionState(scrap);
 					if (scrap.y > window.innerHeight + getScrapSize(scrap) + 12) {
 						removeScrap(scrap);
 						return;
@@ -1942,6 +2290,7 @@
 				}
 
 				if (scrap.mode === "active") {
+					updateFoodMotionState(scrap);
 					updateScrapFrame(scrap);
 				}
 			});
@@ -1955,7 +2304,9 @@
 
 			const candidates = shuffle(
 				state.birds.filter(
-					(bird) => bird.state === "food-hover" || bird.state === "food-approaching",
+					(bird) =>
+						(bird.state === "food-hover" || bird.state === "food-approaching") &&
+						now >= bird.foodBusyUntil,
 				),
 			);
 			if (candidates.length === 0) {
@@ -1963,13 +2314,24 @@
 				return;
 			}
 
-			const participants = candidates.slice(0, Math.min(3, candidates.length));
+			let participantCount = 1;
+			if (candidates.length >= 2 && Math.random() < 0.82) {
+				participantCount = 2;
+			}
+			if (candidates.length >= 4 && Math.random() < 0.28) {
+				participantCount = 3;
+			}
+			const participants = candidates.slice(
+				0,
+				Math.min(participantCount, candidates.length),
+			);
 			const canBite =
 				now - state.food.lastBiteAt >= FOOD_BITE_COOLDOWN_MS &&
-				state.food.bitesRemaining > 0;
+				source.bitesRemaining > 0;
 			const winner = canBite ? participants[0] : null;
 
 			participants.forEach((bird, index) => {
+				bird.foodBusyUntil = now + randomBetween(260, 540);
 				startFoodDash(bird, {
 					source,
 					success: bird === winner,
@@ -2064,7 +2426,8 @@
 					bird.state === "relocating" ||
 					bird.state === "escaping" ||
 					bird.state === "food-approaching" ||
-					bird.state === "food-dash"
+					bird.state === "food-dash" ||
+					bird.state === "bird-attack"
 				) {
 					updateMovingBird(bird, now);
 					return;
@@ -2118,6 +2481,7 @@
 		);
 
 		drumstickElement.addEventListener("pointerdown", handleDrumstickPointerDown);
+		root.addEventListener("pointerdown", handleScrapPointerDown);
 		window.addEventListener("pointermove", handlePointerMove, { passive: true });
 		window.addEventListener("pointerup", handlePointerUp, { passive: true });
 		window.addEventListener("pointercancel", handlePointerUp, { passive: true });
