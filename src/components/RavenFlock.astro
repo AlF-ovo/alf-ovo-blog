@@ -3114,7 +3114,14 @@
 				scrap.vx = 0;
 				scrap.vy = 0;
 				scrap.mode = "active";
-				scrap.rotationVelocity *= -0.36;
+				scrap.visualOffsetX = 0;
+				scrap.visualOffsetY = 0;
+				scrap.impulseX = 0;
+				scrap.impulseY = 0;
+				scrap.visualRotation = 0;
+				scrap.rotationVelocity = 0;
+				scrap.bounceOffsetY = 0;
+				scrap.bounceVelocityY = 0;
 				scrap.nextContestAt = now + randomBetween(280, 560);
 				return;
 			}
@@ -3137,7 +3144,6 @@
 				if (scrap.mode === "falling") {
 					const size = getScrapSize(scrap);
 					const bottomY = window.innerHeight - size - 8;
-					const previousY = scrap.y;
 					scrap.x += scrap.vx;
 					scrap.y += scrap.vy;
 					scrap.vx *= SCRAP_HORIZONTAL_DRAG;
@@ -3154,60 +3160,6 @@
 						scrap.vx = -Math.abs(scrap.vx) * SCRAP_SIDE_BOUNCE_DAMPING;
 						scrap.rotationVelocity -= randomBetween(0.8, 1.6);
 					}
-					const collidedSupport = state.scraps
-						.filter(
-							(other) =>
-								other !== scrap &&
-								other.mode !== "dropping" &&
-								other.bitesRemaining > 0,
-						)
-						.sort((left, right) => left.y - right.y)
-						.find((other) => {
-							const otherSize = getScrapSize(other);
-							const overlapsX =
-								scrap.x + size > other.x + 6 && scrap.x < other.x + otherSize - 6;
-							if (!overlapsX) {
-								return false;
-							}
-							const previousBottom = previousY + size;
-							const otherTop = other.y;
-							return previousBottom <= otherTop + 10 && scrap.y + size >= otherTop;
-						});
-					if (collidedSupport) {
-						const impactVy = Math.max(0, scrap.vy);
-						settleScrapOnSurface(scrap, collidedSupport.y, impactVy, now, false);
-						updateFoodMotionState(scrap);
-						updateScrapFrame(scrap);
-						return;
-					}
-					state.scraps.forEach((other) => {
-						if (
-							other === scrap ||
-							other.mode === "dropping" ||
-							other.bitesRemaining <= 0
-						) {
-							return;
-						}
-						const otherSize = getScrapSize(other);
-						if (
-							!rectsOverlap(
-								{ x: scrap.x, y: scrap.y, width: size, height: size },
-								{ x: other.x, y: other.y, width: otherSize, height: otherSize },
-								-6,
-							)
-						) {
-							return;
-						}
-						const scrapCenterX = scrap.x + size * 0.5;
-						const otherCenterX = other.x + otherSize * 0.5;
-						const pushDirection = scrapCenterX >= otherCenterX ? 1 : -1;
-						scrap.x = clamp(
-							scrap.x + pushDirection * Math.max(3, Math.min(10, Math.abs(scrap.vx) * 1.6 + 2)),
-							0,
-							Math.max(0, window.innerWidth - size),
-						);
-						scrap.vx = pushDirection * Math.max(0.8, Math.abs(scrap.vx) * 0.72);
-					});
 					updateFoodMotionState(scrap);
 					if (scrap.y >= bottomY) {
 						const impactVy = Math.max(0, scrap.vy);
