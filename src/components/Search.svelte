@@ -12,6 +12,7 @@ let result: SearchResult[] = [];
 let isSearching = false;
 let pagefindLoaded = false;
 let initialized = false;
+let activeSearchToken = 0;
 
 const fakeResult: SearchResult[] = [
 	{
@@ -47,6 +48,9 @@ const setPanelVisibility = (show: boolean, isDesktop: boolean): void => {
 	}
 };
 
+const getCurrentKeyword = (isDesktop: boolean): string =>
+	isDesktop ? keywordDesktop : keywordMobile;
+
 const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 	if (!keyword) {
 		setPanelVisibility(false, isDesktop);
@@ -59,6 +63,7 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 	}
 
 	isSearching = true;
+	const searchToken = ++activeSearchToken;
 
 	try {
 		let searchResults: SearchResult[] = [];
@@ -75,14 +80,26 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 			console.error("Pagefind is not available in production environment.");
 		}
 
+		const latestKeyword = getCurrentKeyword(isDesktop);
+		if (searchToken !== activeSearchToken || latestKeyword !== keyword) {
+			return;
+		}
+
 		result = searchResults;
 		setPanelVisibility(result.length > 0, isDesktop);
 	} catch (error) {
+		const latestKeyword = getCurrentKeyword(isDesktop);
+		if (searchToken !== activeSearchToken || latestKeyword !== keyword) {
+			return;
+		}
+
 		console.error("Search error:", error);
 		result = [];
 		setPanelVisibility(false, isDesktop);
 	} finally {
-		isSearching = false;
+		if (searchToken === activeSearchToken) {
+			isSearching = false;
+		}
 	}
 };
 
