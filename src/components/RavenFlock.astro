@@ -319,6 +319,34 @@
 		image-rendering: pixelated;
 	}
 
+	.raven-fries-button[data-mode="holding"],
+	.raven-fries-button[data-mode="dragging"] {
+		cursor: grabbing;
+		filter: drop-shadow(0 0.58rem 0.86rem rgb(15 23 42 / 0.28));
+	}
+
+	.raven-fries-button__count {
+		position: absolute;
+		right: -0.2rem;
+		top: -0.26rem;
+		display: none;
+		min-width: 1.1rem;
+		height: 1.1rem;
+		padding: 0 0.24rem;
+		border-radius: 999px;
+		background: rgb(15 23 42 / 0.86);
+		color: rgb(255 248 220 / 0.98);
+		font-size: 0.64rem;
+		font-weight: 800;
+		line-height: 1.1rem;
+		text-align: center;
+		box-shadow: 0 0.18rem 0.34rem rgb(15 23 42 / 0.24);
+	}
+
+	.raven-fries-button[data-count-visible="true"] .raven-fries-button__count {
+		display: block;
+	}
+
 	.raven-drumstick[data-visible="false"] {
 		opacity: 0;
 	}
@@ -447,7 +475,7 @@
 			0 2px 10px rgb(9 9 12 / 0.42);
 		opacity: 0;
 		transform: translate3d(var(--talk-x, 0px), var(--talk-y, 0px), 0);
-		animation: raven-thought-line-fade 4800ms ease forwards;
+		animation: raven-thought-line-fade var(--thought-line-duration, 1600ms) ease forwards;
 	}
 
 	.raven-emote--heart {
@@ -656,15 +684,21 @@
 		const FRIES_LOOSE_BASE_SIZE = FRIES_BAG_BASE_SIZE * 0.62;
 		const FRIES_BAG_BITE_COUNT = 5;
 		const FRIES_LOOSE_BITE_COUNT = 2;
-		const FRIES_SPILL_MIN = 4;
-		const FRIES_SPILL_MAX = 7;
+		const FRIES_SPILL_MIN = 5;
+		const FRIES_SPILL_MAX = 10;
 		const FRIES_SPILL_ARC_MIN = 0.18;
-		const FRIES_SPILL_ARC_MAX = 0.72;
+		const FRIES_SPILL_ARC_MAX = 0.86;
 		const FRIES_SPILL_ANGLE_JITTER = 0.06;
-		const FRIES_SPILL_RADIUS_MIN = 5;
-		const FRIES_SPILL_RADIUS_MAX = 14;
-		const FRIES_SPILL_RADIUS_JITTER = 1.4;
+		const FRIES_SPILL_RADIUS_MIN = 7;
+		const FRIES_SPILL_RADIUS_MAX = 20;
+		const FRIES_SPILL_RADIUS_JITTER = 1.8;
 		const FRIES_EMPTY_BAG_EXIT_VY = 6.4;
+		const FRIES_DRAG_ACTIVATION_DISTANCE = 14;
+		const FRIES_HOLD_TO_MAX_MS = 1800;
+		const FRIES_DIRECT_DROP_VY_MIN = 2.2;
+		const FRIES_DIRECT_DROP_VY_MAX = 3.8;
+		const THOUGHT_LINE_LIFETIME_MIN_MS = 1200;
+		const THOUGHT_LINE_LIFETIME_MAX_MS = 1800;
 		const SCARECROW_GAP = 18;
 		const SCARECROW_BUTTON_GAP = 10;
 		const SCARECROW_BODY_HEIGHT = 83;
@@ -992,6 +1026,25 @@
 				scrollActive: false,
 				scrollDockTimeoutId: 0,
 			},
+			fries: {
+				mode: "idle",
+				x: 0,
+				y: 0,
+				homeX: 0,
+				homeY: 0,
+				pointerId: null,
+				pointerStartX: 0,
+				pointerStartY: 0,
+				dragOffsetX: 0,
+				dragOffsetY: 0,
+				holdStartedAt: 0,
+				burstCount: FRIES_SPILL_MIN,
+				lastPointerX: 0,
+				lastPointerY: 0,
+				lastPointerAt: 0,
+				pointerVelocityX: 0,
+				pointerVelocityY: 0,
+			},
 			food: {
 				mode: "idle",
 				x: 0,
@@ -1055,9 +1108,13 @@
 				".raven-nameplate-button__sprite",
 			);
 		}
-		friesButtonElement.innerHTML = '<span class="raven-fries-button__sprite"></span>';
+		friesButtonElement.innerHTML =
+			'<span class="raven-fries-button__sprite"></span><span class="raven-fries-button__count"></span>';
 		const friesButtonSpriteHost = friesButtonElement.querySelector(
 			".raven-fries-button__sprite",
+		);
+		const friesButtonCountHost = friesButtonElement.querySelector(
+			".raven-fries-button__count",
 		);
 		if (nameplateButtonSpriteHost instanceof HTMLElement) {
 			nameplateButtonSpriteHost.innerHTML = nameplateButtonSvg;
@@ -1103,6 +1160,18 @@
 			}
 			return result;
 		};
+		const getFriesBurstCountFromHold = (elapsedMs) =>
+			clamp(
+				Math.round(
+					lerp(
+						FRIES_SPILL_MIN,
+						FRIES_SPILL_MAX,
+						clamp(elapsedMs / FRIES_HOLD_TO_MAX_MS, 0, 1),
+					),
+				),
+				FRIES_SPILL_MIN,
+				FRIES_SPILL_MAX,
+			);
 		const getBirdById = (birdId) =>
 			typeof birdId === "number"
 				? state.birds.find((bird) => bird.id === birdId) ?? null
@@ -1618,6 +1687,31 @@
 			updateDrumstickVisibility();
 			updateDrumstickGhostVisibility();
 		};
+		const applyFriesButtonFrame = () => {
+			friesButtonElement.dataset.mode = state.fries.mode;
+			friesButtonElement.dataset.countVisible =
+				state.fries.mode === "holding" || state.fries.mode === "dragging"
+					? "true"
+					: "false";
+			friesButtonElement.style.transform = `translate3d(${state.fries.x}px, ${state.fries.y}px, 0)`;
+			if (friesButtonCountHost instanceof HTMLElement) {
+				friesButtonCountHost.textContent = `${state.fries.burstCount}`;
+			}
+		};
+		const resetFriesButtonState = () => {
+			state.fries.mode = "idle";
+			state.fries.pointerId = null;
+			state.fries.holdStartedAt = 0;
+			state.fries.burstCount = FRIES_SPILL_MIN;
+			state.fries.pointerVelocityX = 0;
+			state.fries.pointerVelocityY = 0;
+			state.fries.lastPointerX = 0;
+			state.fries.lastPointerY = 0;
+			state.fries.lastPointerAt = 0;
+			state.fries.x = state.fries.homeX;
+			state.fries.y = state.fries.homeY;
+			applyFriesButtonFrame();
+		};
 		const getFriesButtonHome = () => ({
 			x: state.food.homeX - 2,
 			y: state.food.homeY - FOOD_HOME_SIZE - FRIES_BUTTON_GAP,
@@ -1726,7 +1820,13 @@
 			state.scarecrow.hiddenY = scarecrowHome.hiddenY;
 			state.scarecrow.buttonX = scarecrowButtonHome.x;
 			state.scarecrow.buttonY = scarecrowButtonHome.y;
-			friesButtonElement.style.transform = `translate3d(${friesHome.x}px, ${friesHome.y}px, 0)`;
+			state.fries.homeX = friesHome.x;
+			state.fries.homeY = friesHome.y;
+			if (state.fries.mode === "idle" || state.fries.mode === "holding") {
+				state.fries.x = friesHome.x;
+				state.fries.y = friesHome.y;
+			}
+			applyFriesButtonFrame();
 			updateScarecrowButtonFrame();
 			if (state.selection.mode !== "dragging") {
 				state.selection.x = nameplateHome.x;
@@ -2961,15 +3061,20 @@
 			const line = document.createElement("div");
 			line.className = "raven-thought-line";
 			line.textContent = text;
+			const lifetime = randomBetween(
+				THOUGHT_LINE_LIFETIME_MIN_MS,
+				THOUGHT_LINE_LIFETIME_MAX_MS,
+			);
 			const aheadX = bird.x + bird.width * (bird.facing > 0 ? 0.72 : -0.08);
 			const offsetX = bird.facing > 0 ? 12 : -12;
 			const y = bird.y - 16;
 			line.style.setProperty("--talk-x", `${aheadX + offsetX}px`);
 			line.style.setProperty("--talk-y", `${y}px`);
+			line.style.setProperty("--thought-line-duration", `${Math.round(lifetime)}ms`);
 			root.appendChild(line);
 			window.setTimeout(() => {
 				line.remove();
-			}, 5000);
+			}, lifetime);
 		};
 
 		const maybeTriggerSharedThought = (now) => {
@@ -3116,6 +3221,7 @@
 				floorBounceCount: 0,
 				restX: options.restX ?? null,
 				hasGroundBurst: options.hasGroundBurst ?? false,
+				burstCount: options.burstCount ?? null,
 			};
 
 			state.scraps.push(item);
@@ -3273,6 +3379,7 @@
 			bag.hasGroundBurst = true;
 			const burstCount =
 				options.count ??
+				bag.burstCount ??
 				(FRIES_SPILL_MIN +
 					Math.floor(Math.random() * (FRIES_SPILL_MAX - FRIES_SPILL_MIN + 1)));
 			if (options.consumeAll === true) {
@@ -3344,15 +3451,43 @@
 				startScrapSpentExit(bag, { direction: "down" });
 			}
 		};
-		const spawnFriesBurst = () => {
+		const spawnFriesBurst = (options = {}) => {
 			const now = performance.now();
 			if (now - state.lastFriesBurstAt < FRIES_BURST_COOLDOWN_MS) {
 				return;
 			}
 			state.lastFriesBurstAt = now;
+			const burstCount = clamp(
+				Math.round(options.count ?? FRIES_SPILL_MIN),
+				FRIES_SPILL_MIN,
+				FRIES_SPILL_MAX,
+			);
 			const burstScale = randomBetween(0.96, 1.08);
 			const size = FRIES_BAG_BASE_SIZE * burstScale;
-			const burstSpawn = chooseRandomFriesBurstSpawn(size);
+			const hasDirectDrop =
+				Number.isFinite(options.directX) && Number.isFinite(options.directY);
+			const burstSpawn = hasDirectDrop
+				? {
+						x: clamp(
+							options.directX - size * 0.5,
+							0,
+							Math.max(0, window.innerWidth - size),
+						),
+						y: clamp(
+							options.directY - size * 0.5,
+							0,
+							Math.max(0, getScrapFloorY(size) - size * 0.2),
+						),
+						vx: clamp((options.pointerVelocityX ?? 0) * 0.08, -2.2, 2.2),
+						vy: clamp(
+							Math.max(0, (options.pointerVelocityY ?? 0) * 0.08) +
+								randomBetween(FRIES_DIRECT_DROP_VY_MIN, FRIES_DIRECT_DROP_VY_MAX),
+							1.8,
+							5.2,
+						),
+						restX: null,
+					}
+				: chooseRandomFriesBurstSpawn(size);
 			createDroppedFoodItem({
 				foodKind: "fries",
 				scale: burstScale,
@@ -3360,8 +3495,8 @@
 				y: burstSpawn.y,
 				vx: burstSpawn.vx,
 				vy: burstSpawn.vy,
-				bitesTotal: FRIES_BAG_BITE_COUNT,
-				bitesRemaining: FRIES_BAG_BITE_COUNT,
+				bitesTotal: Math.max(FRIES_BAG_BITE_COUNT, burstCount),
+				bitesRemaining: Math.max(FRIES_BAG_BITE_COUNT, burstCount),
 				visualOffsetX: 0,
 				visualOffsetY: 0,
 				impulseX: randomBetween(-0.16, 0.2),
@@ -3371,6 +3506,7 @@
 				contestDelayMin: 320,
 				contestDelayMax: 620,
 				restX: burstSpawn.restX,
+				burstCount,
 			});
 			summonBirdsToFood();
 			ensureAnimationLoop();
@@ -3409,6 +3545,18 @@
 			try {
 				if (nameplateButtonElement.hasPointerCapture(pointerId)) {
 					nameplateButtonElement.releasePointerCapture(pointerId);
+				}
+			} catch {
+				// Ignore capture mismatches and continue the state transition.
+			}
+		};
+		const releaseFriesPointerCapture = (pointerId) => {
+			if (typeof pointerId !== "number") {
+				return;
+			}
+			try {
+				if (friesButtonElement.hasPointerCapture(pointerId)) {
+					friesButtonElement.releasePointerCapture(pointerId);
 				}
 			} catch {
 				// Ignore capture mismatches and continue the state transition.
@@ -4664,12 +4812,35 @@
 			ensureAnimationLoop();
 		};
 		const handleFriesButtonPointerDown = (event) => {
-			if (state.food.dragPointerId !== null) {
+			if (
+				state.food.dragPointerId !== null ||
+				state.selection.dragPointerId !== null ||
+				state.fries.pointerId !== null
+			) {
 				return;
 			}
 			event.preventDefault();
 			event.stopPropagation();
-			spawnFriesBurst();
+			state.fries.mode = "holding";
+			state.fries.pointerId = event.pointerId;
+			state.fries.pointerStartX = event.clientX;
+			state.fries.pointerStartY = event.clientY;
+			state.fries.dragOffsetX = event.clientX - state.fries.x;
+			state.fries.dragOffsetY = event.clientY - state.fries.y;
+			state.fries.holdStartedAt = performance.now();
+			state.fries.burstCount = FRIES_SPILL_MIN;
+			state.fries.lastPointerX = event.clientX;
+			state.fries.lastPointerY = event.clientY;
+			state.fries.lastPointerAt = performance.now();
+			state.fries.pointerVelocityX = 0;
+			state.fries.pointerVelocityY = 0;
+			try {
+				friesButtonElement.setPointerCapture(event.pointerId);
+			} catch {
+				// Pointer capture is optional but avoids getting stuck in dragging mode.
+			}
+			applyFriesButtonFrame();
+			ensureAnimationLoop();
 		};
 
 		const handleScrapPointerDown = (event) => {
@@ -4721,6 +4892,41 @@
 				if (state.selection.mode === "dragging") {
 					ensureAnimationLoop();
 				}
+				return;
+			}
+			if (event.pointerId === state.fries.pointerId) {
+				const pointerNow = performance.now();
+				const pointerDt = Math.max(12, pointerNow - (state.fries.lastPointerAt || pointerNow));
+				const pointerVx = ((event.clientX - state.fries.lastPointerX) / pointerDt) * 16;
+				const pointerVy = ((event.clientY - state.fries.lastPointerY) / pointerDt) * 16;
+				state.fries.pointerVelocityX = lerp(state.fries.pointerVelocityX, pointerVx, 0.72);
+				state.fries.pointerVelocityY = lerp(state.fries.pointerVelocityY, pointerVy, 0.72);
+				state.fries.lastPointerX = event.clientX;
+				state.fries.lastPointerY = event.clientY;
+				state.fries.lastPointerAt = pointerNow;
+				if (state.fries.mode === "holding") {
+					const distance = Math.hypot(
+						event.clientX - state.fries.pointerStartX,
+						event.clientY - state.fries.pointerStartY,
+					);
+					if (distance >= FRIES_DRAG_ACTIVATION_DISTANCE) {
+						state.fries.mode = "dragging";
+					}
+				}
+				if (state.fries.mode === "dragging") {
+					state.fries.x = clamp(
+						event.clientX - state.fries.dragOffsetX,
+						0,
+						window.innerWidth - friesButtonElement.offsetWidth,
+					);
+					state.fries.y = clamp(
+						event.clientY - state.fries.dragOffsetY,
+						0,
+						window.innerHeight - friesButtonElement.offsetHeight,
+					);
+				}
+				applyFriesButtonFrame();
+				ensureAnimationLoop();
 				return;
 			}
 			if (event.pointerId !== state.food.dragPointerId) {
@@ -4776,6 +4982,28 @@
 				}
 				return;
 			}
+			if (event.pointerId === state.fries.pointerId) {
+				releaseFriesPointerCapture(event.pointerId);
+				const burstCount = state.fries.burstCount;
+				const wasDragging = state.fries.mode === "dragging";
+				const releaseX = state.fries.x + friesButtonElement.offsetWidth * 0.5;
+				const releaseY = state.fries.y + friesButtonElement.offsetHeight * 0.5;
+				const pointerVelocityX = state.fries.pointerVelocityX;
+				const pointerVelocityY = state.fries.pointerVelocityY;
+				resetFriesButtonState();
+				spawnFriesBurst(
+					wasDragging
+						? {
+								count: burstCount,
+								directX: releaseX,
+								directY: releaseY,
+								pointerVelocityX,
+								pointerVelocityY,
+							}
+						: { count: burstCount },
+				);
+				return;
+			}
 			if (event.pointerId !== state.food.dragPointerId) {
 				return;
 			}
@@ -4801,6 +5029,10 @@
 				releaseNameplatePointerCapture(state.selection.dragPointerId);
 				resetNameplateButtonState();
 			}
+			if (state.fries.pointerId !== null) {
+				releaseFriesPointerCapture(state.fries.pointerId);
+				resetFriesButtonState();
+			}
 			if (state.food.dragPointerId === null) {
 				return;
 			}
@@ -4812,6 +5044,20 @@
 			if (state.food.mode === "dragging") {
 				dropDraggedFood();
 			}
+		};
+		const updateFriesControl = (now) => {
+			if (state.fries.mode === "idle") {
+				return;
+			}
+
+			state.fries.burstCount = getFriesBurstCountFromHold(
+				now - state.fries.holdStartedAt,
+			);
+			if (state.fries.mode === "holding") {
+				state.fries.x = state.fries.homeX;
+				state.fries.y = state.fries.homeY;
+			}
+			applyFriesButtonFrame();
 		};
 
 		const updateFood = (now) => {
@@ -5225,6 +5471,7 @@
 		};
 
 		const tick = (now) => {
+			updateFriesControl(now);
 			updateFood(now);
 			updateScraps(now);
 			updateHoveredSelectionBird();
@@ -5277,6 +5524,7 @@
 
 			if (
 				state.birds.length === 0 &&
+				state.fries.mode === "idle" &&
 				state.food.mode === "idle" &&
 				state.scraps.length === 0
 			) {
@@ -5329,6 +5577,19 @@
 				state.food.x = clamp(state.food.x, 0, window.innerWidth - getFoodSize());
 				state.food.y = clamp(state.food.y, 0, getFoodBottomY());
 				applyFoodFrame();
+			}
+			if (state.fries.mode === "dragging") {
+				state.fries.x = clamp(
+					state.fries.x,
+					0,
+					window.innerWidth - friesButtonElement.offsetWidth,
+				);
+				state.fries.y = clamp(
+					state.fries.y,
+					0,
+					window.innerHeight - friesButtonElement.offsetHeight,
+				);
+				applyFriesButtonFrame();
 			}
 			state.scraps.forEach((scrap) => {
 				const scrapSize = getScrapSize(scrap);
