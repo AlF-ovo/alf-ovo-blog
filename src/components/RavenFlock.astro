@@ -683,7 +683,7 @@
 		const FRIES_BAG_BASE_SIZE = 28;
 		const FRIES_LOOSE_BASE_SIZE = FRIES_BAG_BASE_SIZE * 0.62;
 		const FRIES_BAG_BITE_COUNT = 5;
-		const FRIES_LOOSE_BITE_COUNT = 2;
+		const FRIES_LOOSE_BITE_COUNT = 1;
 		const FRIES_SPILL_MIN = 5;
 		const FRIES_SPILL_MAX = 10;
 		const FRIES_SPILL_ARC_MIN = 0.18;
@@ -726,7 +726,8 @@
 		const ALF_THOUGHT_MAX_MS = 14000;
 		const ALF_DROP_SLOT_SPACING = 52;
 		const FRIES_BURST_COOLDOWN_MS = 220;
-		const FRIES_SATED_BONUS_MS = 3600;
+		const FRIES_SATED_BONUS_MS = 1800;
+		const FRIES_BITES_TO_SATED = 2;
 		const FRIES_BAG_REST_ANGLE_MIN = 12;
 		const FRIES_BAG_REST_ANGLE_MAX = 18;
 		const SCRAP_FALL_GRAVITY = 0.92;
@@ -2839,7 +2840,16 @@
 		const setBirdSated = (bird, behavior) => {
 			bird.appetite = "sated";
 			bird.satedBehavior = behavior;
+			bird.friesBitesSinceSated = 0;
 			updateBirdHungerBubble(bird);
+		};
+		const registerFoodSatiety = (bird, sourceFoodKind) => {
+			if (isFriesFoodKind(sourceFoodKind)) {
+				bird.friesBitesSinceSated = (bird.friesBitesSinceSated ?? 0) + 1;
+				return bird.friesBitesSinceSated >= FRIES_BITES_TO_SATED;
+			}
+			bird.friesBitesSinceSated = 0;
+			return true;
 		};
 		const isGroundFlankBird = (bird, source) => {
 			if (source?.mode !== "active") {
@@ -3885,6 +3895,10 @@
 				{ success: true },
 			);
 			applyFoodFrame();
+			const becomesSated = registerFoodSatiety(
+				bird,
+				source.foodKind ?? foodEntity.foodKind ?? "drumstick",
+			);
 
 			if (source.kind === "main" && foodEntity.bitesRemaining === 0) {
 				startMainFoodSpentExit();
@@ -3893,7 +3907,11 @@
 						releaseBirdFromFood(otherBird);
 					}
 				});
-				startSatedBehavior(bird, source);
+				if (becomesSated) {
+					startSatedBehavior(bird, source);
+				} else {
+					releaseBirdFromFood(bird);
+				}
 				return;
 			}
 
@@ -3904,7 +3922,18 @@
 				reconcileFoodDrivenFlock();
 			}
 
-			startSatedBehavior(bird, source);
+			if (becomesSated) {
+				startSatedBehavior(bird, source);
+				return;
+			}
+
+			bird.foodBusyUntil = performance.now() + randomBetween(140, 260);
+			const nextSources = getFoodSources();
+			if (hasFoodForBird(bird, nextSources)) {
+				startFoodHover(bird, { source: getAssignedFoodSource(bird, nextSources), sources: nextSources });
+				return;
+			}
+			releaseBirdFromFood(bird);
 		};
 
 		const startBirdAttack = (bird, target) => {
@@ -4444,6 +4473,7 @@
 				nextFoodHoverShiftAt: 0,
 				hasEatenFood: false,
 				foodEatenCount: 0,
+				friesBitesSinceSated: 0,
 				foodBusyUntil: 0,
 				lastHungerBubbleAt: 0,
 				perchAction: "idle",
