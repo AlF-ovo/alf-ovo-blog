@@ -308,8 +308,35 @@ const defaultSummary = summarizeDataset(defaultDataset);
 			return;
 		}
 
+		if (root.dataset.dashboardSearchInitialized === "true") {
+			return;
+		}
+		root.dataset.dashboardSearchInitialized = "true";
+
 		const items = JSON.parse(dataNode.textContent || "[]");
 		const normalize = (value) => String(value || "").trim().toLowerCase();
+		const dashboardWindow = window;
+		const outsideClickHandlerKey = "__alfDashboardSearchOutsideClickBound";
+		const createResultNode = (item) => {
+			const link = document.createElement("a");
+			link.className = "dashboard-search-result";
+			link.href = item.url;
+
+			const meta = document.createElement("div");
+			meta.className = "dashboard-search-result-meta";
+			meta.textContent = `${item.type}${item.time ? ` - ${item.time}` : ""}`;
+
+			const title = document.createElement("div");
+			title.className = "dashboard-search-result-title";
+			title.textContent = item.title;
+
+			const copy = document.createElement("div");
+			copy.className = "dashboard-search-result-copy";
+			copy.textContent = item.description;
+
+			link.append(meta, title, copy);
+			return link;
+		};
 
 		const renderResults = (query = "") => {
 			const keyword = normalize(query);
@@ -335,15 +362,7 @@ const defaultSummary = summarizeDataset(defaultDataset);
 
 			emptyNode.hidden = true;
 			matchedItems.forEach((item) => {
-				const link = document.createElement("a");
-				link.className = "dashboard-search-result";
-				link.href = item.url;
-				link.innerHTML = `
-					<div class="dashboard-search-result-meta">${item.type}${item.time ? ` - ${item.time}` : ""}</div>
-					<div class="dashboard-search-result-title">${item.title}</div>
-					<div class="dashboard-search-result-copy">${item.description}</div>
-				`;
-				listNode.appendChild(link);
+				listNode.appendChild(createResultNode(item));
 			});
 
 			results.hidden = false;
@@ -351,11 +370,21 @@ const defaultSummary = summarizeDataset(defaultDataset);
 
 		input.onfocus = () => renderResults(input.value);
 		input.oninput = () => renderResults(input.value);
-		document.addEventListener("click", (event) => {
-			if (!root.contains(event.target)) {
-				results.hidden = true;
-			}
-		});
+
+		if (!dashboardWindow[outsideClickHandlerKey]) {
+			dashboardWindow[outsideClickHandlerKey] = true;
+			document.addEventListener("click", (event) => {
+				const currentRoot = document.querySelector("[data-dashboard-search]");
+				const currentResults = document.querySelector("[data-dashboard-search-results]");
+				if (!(currentRoot instanceof HTMLElement) || !(currentResults instanceof HTMLElement)) {
+					return;
+				}
+
+				if (!currentRoot.contains(event.target)) {
+					currentResults.hidden = true;
+				}
+			});
+		}
 	};
 
 	const initDashboardHints = () => {
