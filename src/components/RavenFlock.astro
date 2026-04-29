@@ -2784,6 +2784,25 @@
 			bird.nextFrameAt = now + FLIGHT_FRAME_INTERVAL_MS;
 			setBirdFrame(bird, FLIGHT_SEQUENCE[bird.frameCursor]);
 		};
+		const getBirdCarryPose = (bird, carrySize) => {
+			const beakAnchorX = bird.facing > 0 ? 0.76 : 0.24;
+			const beakAnchorY = bird.state === "panel-perched" ? 0.24 : 0.28;
+			const beakX =
+				bird.x +
+				bird.width * beakAnchorX +
+				bird.visualShiftX +
+				bird.facing * Math.max(4, bird.width * 0.015);
+			const beakY =
+				bird.y +
+				bird.height * beakAnchorY +
+				bird.visualBob -
+				Math.max(2, bird.height * 0.015);
+			return {
+				x: beakX - carrySize * (bird.facing > 0 ? 0.18 : 0.82),
+				y: beakY - carrySize * 0.4,
+				rotation: bird.facing > 0 ? -26 : 26,
+			};
+		};
 
 		const applyBirdFrame = (bird) => {
 			const highlightScale =
@@ -2796,9 +2815,8 @@
 				state.selection.hoveredBirdId === bird.id ? "true" : "false";
 			bird.element.style.setProperty("--bird-ui-flip", `${bird.facing}`);
 			bird.element.style.transform = `translate3d(${bird.x}px, ${bird.y}px, 0) scaleX(${bird.facing}) scale(${highlightScale})`;
-			bird.element.style.zIndex = String(
-				Math.max(1, Math.round(bird.y + bird.footOffset)),
-			);
+			const birdZIndex = Math.max(1, Math.round(bird.y + bird.footOffset));
+			bird.element.style.zIndex = String(birdZIndex);
 			bird.element.style.setProperty(
 				"--bird-body-shift-x",
 				`${bird.visualShiftX}px`,
@@ -2808,11 +2826,9 @@
 				const carrySize =
 					getFoodBaseSize(bird.carryingFoodKind ?? "drumstick") *
 					(bird.carryingFoodScale ?? 1);
-				const carryX =
-					bird.x + bird.width * (bird.facing > 0 ? 0.58 : 0.22) - carrySize * 0.48;
-				const carryY = bird.y + bird.height * 0.46 - carrySize * 0.52;
-				const carryRotation = bird.facing > 0 ? -18 : 18;
-				bird.carryElement.style.transform = `translate3d(${carryX}px, ${carryY}px, 0) rotate(${carryRotation}deg)`;
+				const carryPose = getBirdCarryPose(bird, carrySize);
+				bird.carryElement.style.transform = `translate3d(${carryPose.x}px, ${carryPose.y}px, 0) rotate(${carryPose.rotation}deg)`;
+				bird.carryElement.style.zIndex = String(birdZIndex + 1);
 			}
 		};
 
