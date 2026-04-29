@@ -686,12 +686,18 @@
 		const FRIES_LOOSE_BITE_COUNT = 1;
 		const FRIES_SPILL_MIN = 5;
 		const FRIES_SPILL_MAX = 10;
-		const FRIES_SPILL_ARC_MIN = 0.18;
-		const FRIES_SPILL_ARC_MAX = 0.86;
-		const FRIES_SPILL_ANGLE_JITTER = 0.06;
-		const FRIES_SPILL_RADIUS_MIN = 7;
-		const FRIES_SPILL_RADIUS_MAX = 20;
-		const FRIES_SPILL_RADIUS_JITTER = 1.8;
+		const FRIES_SPILL_ARC_MIN = 0.28;
+		const FRIES_SPILL_ARC_MAX = 1.16;
+		const FRIES_SPILL_ANGLE_JITTER = 0.12;
+		const FRIES_SPILL_RADIUS_MIN = 18;
+		const FRIES_SPILL_RADIUS_MAX = 46;
+		const FRIES_SPILL_RADIUS_JITTER = 4.6;
+		const FRIES_SPILL_LANE_GAP_MIN = 6;
+		const FRIES_SPILL_LANE_GAP_MAX = 10.4;
+		const FRIES_SPILL_SPEED_MIN = 1.9;
+		const FRIES_SPILL_SPEED_MAX = 4.4;
+		const FRIES_SPILL_LIFT_MIN = 1;
+		const FRIES_SPILL_LIFT_MAX = 2.4;
 		const FRIES_EMPTY_BAG_EXIT_VY = 6.4;
 		const FRIES_DRAG_ACTIVATION_DISTANCE = 14;
 		const FRIES_HOLD_TO_MAX_MS = 1800;
@@ -3427,6 +3433,9 @@
 				const pieceSize = FRIES_LOOSE_BASE_SIZE * pieceScale;
 				const spreadProgress =
 					burstCount > 1 ? index / (burstCount - 1) : 0.5;
+				const laneOffset =
+					(index - (burstCount - 1) * 0.5) *
+					randomBetween(FRIES_SPILL_LANE_GAP_MIN, FRIES_SPILL_LANE_GAP_MAX);
 				const spreadAngleMagnitude = clamp(
 					lerp(FRIES_SPILL_ARC_MIN, FRIES_SPILL_ARC_MAX, spreadProgress) +
 						randomBetween(-FRIES_SPILL_ANGLE_JITTER, FRIES_SPILL_ANGLE_JITTER),
@@ -3434,6 +3443,9 @@
 					FRIES_SPILL_ARC_MAX,
 				);
 				const spreadAngle = spillDirection * spreadAngleMagnitude;
+				const lateralDirection =
+					Math.cos(spreadAngleMagnitude) * spillDirection;
+				const verticalLift = Math.sin(spreadAngleMagnitude);
 				const spreadRadius = clamp(
 					lerp(FRIES_SPILL_RADIUS_MIN, FRIES_SPILL_RADIUS_MAX, spreadProgress) +
 						randomBetween(-FRIES_SPILL_RADIUS_JITTER, FRIES_SPILL_RADIUS_JITTER),
@@ -3442,24 +3454,30 @@
 				);
 				const edgeX =
 					bagCenterX +
-					Math.cos(spreadAngle) * spreadRadius -
+					lateralDirection * spreadRadius +
+					laneOffset * 0.34 -
 					pieceSize * 0.5;
 				const edgeY =
 					bagCenterY -
-					Math.sin(Math.abs(spreadAngle)) * randomBetween(0.4, 2.2) +
-					randomBetween(-0.8, 0.8);
+					verticalLift * randomBetween(2.2, 5.6) -
+					laneOffset * 0.72 +
+					randomBetween(-1.8, 1.8);
 				createDroppedFoodItem({
 					foodKind: "fries-piece",
 					scale: pieceScale,
 					x: clamp(edgeX, 0, Math.max(0, window.innerWidth - pieceSize)),
 					y: edgeY,
 					vx:
-						Math.cos(spreadAngle) * randomBetween(0.9, 2.1) * forceScale +
+						lateralDirection *
+							randomBetween(FRIES_SPILL_SPEED_MIN, FRIES_SPILL_SPEED_MAX) *
+							forceScale +
+						laneOffset * 0.09 +
 						bag.vx * 0.12 +
-						randomBetween(-0.1, 0.1),
+						randomBetween(-0.2, 0.2),
 					vy:
-						-randomBetween(0.45, 1.35) * forceScale -
-						Math.sin(Math.abs(spreadAngle)) * randomBetween(0.08, 0.32),
+						-randomBetween(FRIES_SPILL_LIFT_MIN, FRIES_SPILL_LIFT_MAX) * forceScale -
+						verticalLift * randomBetween(0.28, 0.68) -
+						Math.abs(laneOffset) * 0.04,
 					bitesTotal: FRIES_LOOSE_BITE_COUNT,
 					bitesRemaining: FRIES_LOOSE_BITE_COUNT,
 					visualOffsetX: 0,
