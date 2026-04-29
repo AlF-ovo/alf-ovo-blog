@@ -754,13 +754,16 @@
 			[38, 56],
 		];
 		const GROUND_FOOD_WAIT_OFFSETS = [
-			[-112, 8],
-			[104, 8],
-			[-54, -18],
-			[44, -22],
-			[-10, -38],
-			[10, -44],
+			[-132, 10],
+			[126, 12],
+			[-84, -14],
+			[78, -18],
+			[-30, -38],
+			[24, -44],
 		];
+		const GROUND_FOOD_WAIT_SLOT_ORDER = [0, 1, 4, 5, 2, 3];
+		const GROUND_FOOD_WAIT_RING_GROWTH_X = 30;
+		const GROUND_FOOD_WAIT_RING_GROWTH_Y = 7;
 		const PERCHED_FRAME_INDEX = 0;
 		const FLIGHT_SEQUENCE = [1, 2, 3, 4, 5, 4, 3, 2];
 		const BLOG_THOUGHTS = [
@@ -2640,18 +2643,27 @@
 
 			const centerX = source.x + source.size * 0.5;
 			const centerY = source.y + source.size * 0.5;
-			const waitOffsets =
-				source.mode === "active" ? GROUND_FOOD_WAIT_OFFSETS : FOOD_WAIT_OFFSETS;
-			const [offsetX, offsetY] =
-				waitOffsets[bird.foodSlotIndex % waitOffsets.length];
+			const isGroundFood = source.mode === "active";
+			const waitOffsets = isGroundFood ? GROUND_FOOD_WAIT_OFFSETS : FOOD_WAIT_OFFSETS;
+			const slotOrder = isGroundFood ? GROUND_FOOD_WAIT_SLOT_ORDER : null;
+			const baseSlotIndex = bird.foodSlotIndex % waitOffsets.length;
+			const resolvedSlotIndex =
+				slotOrder?.[baseSlotIndex] ?? baseSlotIndex;
+			const ringIndex = Math.floor(bird.foodSlotIndex / waitOffsets.length);
+			let [offsetX, offsetY] = waitOffsets[resolvedSlotIndex];
+			if (isGroundFood && ringIndex > 0) {
+				const horizontalDirection = offsetX === 0 ? bird.facing : Math.sign(offsetX);
+				offsetX += horizontalDirection * ringIndex * GROUND_FOOD_WAIT_RING_GROWTH_X;
+				offsetY += ringIndex * GROUND_FOOD_WAIT_RING_GROWTH_Y;
+			}
 			const scaleFactor =
-				source.mode === "active"
+				isGroundFood
 					? 0.68 + source.scale * 0.28
 					: 0.7 + source.scale * 0.36;
 			return {
 				x: centerX + offsetX * scaleFactor - bird.width / 2,
 				y:
-					source.mode === "active"
+					isGroundFood
 						? source.y + source.size * 0.72 + offsetY * 0.42 - bird.footOffset
 						: centerY + offsetY * scaleFactor - bird.height / 2,
 			};
@@ -3451,7 +3463,7 @@
 				});
 			}
 			if (bag.bitesRemaining <= 0) {
-				startScrapSpentExit(bag, { direction: "down" });
+				sendScrapDownwardOffscreen(bag);
 			}
 		};
 		const spawnFriesBurst = (options = {}) => {
@@ -5136,7 +5148,7 @@
 			scrap.y = supportY - size;
 			if (isFloor && isFriesBagKind(scrap.foodKind) && !scrap.hasGroundBurst) {
 				burstFriesFromBagOnLanding(scrap, impactVy, { consumeAll: true });
-				if (scrap.mode === "spent") {
+				if (scrap.mode === "spent" || scrap.mode === "dropping") {
 					updateScrapFrame(scrap);
 					return;
 				}
@@ -5205,6 +5217,17 @@
 			scrap.rotationVelocity += direction * randomBetween(0.7, 1.6);
 			scrap.bounceOffsetY = 0;
 			scrap.bounceVelocityY = 0;
+		};
+		const sendScrapDownwardOffscreen = (scrap) => {
+			scrap.mode = "dropping";
+			scrap.bitesRemaining = 0;
+			scrap.floorBounceCount = 0;
+			scrap.vx = clamp(scrap.vx * 0.2, -0.35, 0.35);
+			scrap.vy = Math.max(6.8, Math.abs(scrap.vy) * 0.24 + 5.8);
+			scrap.rotationVelocity = clamp(scrap.rotationVelocity * 0.24, -0.45, 0.45);
+			scrap.bounceOffsetY = 0;
+			scrap.bounceVelocityY = 0;
+			updateScrapFrame(scrap);
 		};
 		const updateScraps = (now) => {
 			state.scraps.slice().forEach((scrap) => {
