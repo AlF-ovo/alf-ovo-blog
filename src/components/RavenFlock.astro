@@ -3,19 +3,6 @@
 ---
 
 <div id="raven-flock" class="raven-flock" aria-hidden="true">
-	<div id="raven-scarecrow" class="raven-scarecrow"></div>
-	<button
-		id="raven-scarecrow-button"
-		class="raven-scarecrow-button"
-		type="button"
-		aria-label="Toggle scarecrow"
-	></button>
-	<button
-		id="raven-nameplate-button"
-		class="raven-nameplate-button"
-		type="button"
-		aria-label="Select a raven"
-	></button>
 	<button
 		id="raven-fries-button"
 		class="raven-fries-button"
@@ -590,9 +577,6 @@
 		const drumstickElement = document.getElementById("raven-drumstick");
 		if (
 			!(root instanceof HTMLElement) ||
-			!(scarecrowElement instanceof HTMLElement) ||
-			!(scarecrowButtonElement instanceof HTMLElement) ||
-			!(nameplateButtonElement instanceof HTMLElement) ||
 			!(friesButtonElement instanceof HTMLElement) ||
 			!(drumstickElement instanceof HTMLElement)
 		) {
@@ -601,6 +585,8 @@
 
 		const TARGET_SELECTOR = [
 			".card-base",
+			".banner-container",
+			".markdown-content img",
 			".sidebar-widget",
 			".float-panel",
 			".dashboard-sidebar",
@@ -1037,22 +1023,30 @@
 				lastPointerAt: 0,
 			},
 		};
-		scarecrowElement.innerHTML = '<span class="raven-scarecrow__sprite"></span>';
-		const scarecrowSpriteHost = scarecrowElement.querySelector(".raven-scarecrow__sprite");
-		scarecrowButtonElement.innerHTML = '<span class="raven-scarecrow-button__sprite"></span>';
-		const scarecrowButtonSpriteHost = scarecrowButtonElement.querySelector(
-			".raven-scarecrow-button__sprite",
-		);
-		if (scarecrowSpriteHost instanceof HTMLElement) {
-			scarecrowSpriteHost.innerHTML = scarecrowButtonSvg;
+		let scarecrowButtonSpriteHost = null;
+		if (scarecrowElement instanceof HTMLElement) {
+			scarecrowElement.innerHTML = '<span class="raven-scarecrow__sprite"></span>';
+			const scarecrowSpriteHost = scarecrowElement.querySelector(".raven-scarecrow__sprite");
+			if (scarecrowSpriteHost instanceof HTMLElement) {
+				scarecrowSpriteHost.innerHTML = scarecrowButtonSvg;
+			}
+		}
+		if (scarecrowButtonElement instanceof HTMLElement) {
+			scarecrowButtonElement.innerHTML = '<span class="raven-scarecrow-button__sprite"></span>';
+			scarecrowButtonSpriteHost = scarecrowButtonElement.querySelector(
+				".raven-scarecrow-button__sprite",
+			);
 		}
 		if (scarecrowButtonSpriteHost instanceof HTMLElement) {
 			scarecrowButtonSpriteHost.innerHTML = scarecrowToggleButtonSvg(false);
 		}
-		nameplateButtonElement.innerHTML = '<span class="raven-nameplate-button__sprite"></span>';
-		const nameplateButtonSpriteHost = nameplateButtonElement.querySelector(
-			".raven-nameplate-button__sprite",
-		);
+		let nameplateButtonSpriteHost = null;
+		if (nameplateButtonElement instanceof HTMLElement) {
+			nameplateButtonElement.innerHTML = '<span class="raven-nameplate-button__sprite"></span>';
+			nameplateButtonSpriteHost = nameplateButtonElement.querySelector(
+				".raven-nameplate-button__sprite",
+			);
+		}
 		friesButtonElement.innerHTML = '<span class="raven-fries-button__sprite"></span>';
 		const friesButtonSpriteHost = friesButtonElement.querySelector(
 			".raven-fries-button__sprite",
@@ -1082,6 +1076,9 @@
 		drumstickGhostElement.dataset.mode = "idle";
 		drumstickGhostElement.dataset.visible = "false";
 		root.appendChild(drumstickGhostElement);
+		const drumstickGhostSpriteHost = drumstickGhostElement.querySelector(
+			".raven-drumstick__sprite",
+		);
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
 		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
@@ -1359,6 +1356,9 @@
 		const updateDrumstickGhostVisibility = () => {
 			const shouldShow =
 				state.food.mode === "dragging" && state.food.dragSourceScrapId !== null;
+			if (drumstickGhostSpriteHost instanceof HTMLElement) {
+				setSpriteHostMarkup(drumstickGhostSpriteHost, "drumstick");
+			}
 			drumstickGhostElement.dataset.visible = shouldShow ? "true" : "false";
 			drumstickGhostElement.style.transform = `translate3d(${state.food.homeX}px, ${state.food.homeY}px, 0) scale(${FOOD_MIN_SCALE})`;
 		};
@@ -1616,6 +1616,12 @@
 			};
 		};
 		const updateScarecrowButtonFrame = (options = {}) => {
+			if (
+				!(scarecrowElement instanceof HTMLElement) ||
+				!(scarecrowButtonElement instanceof HTMLElement)
+			) {
+				return;
+			}
 			const targetY = isScarecrowRaised() ? state.scarecrow.y : state.scarecrow.hiddenY;
 			if (options.animate === true) {
 				scarecrowElement.style.transition =
@@ -1665,6 +1671,9 @@
 			return state.selection.mode;
 		};
 		const updateNameplateButtonFrame = () => {
+			if (!(nameplateButtonElement instanceof HTMLElement)) {
+				return;
+			}
 			const mode = getNameplateVisualMode();
 			nameplateButtonElement.dataset.mode = mode;
 			updateNameplateButtonSprite(mode);
@@ -1726,30 +1735,48 @@
 			state.food.y = state.food.homeY;
 			applyFoodFrame();
 		};
-		const startMainFoodSpentExit = () => {
+		const startMainFoodSpentExit = (options = {}) => {
+			const exitDownward = options.direction === "down";
 			state.food.mode = "spent";
 			state.food.bitesRemaining = 0;
-			state.food.vy = -4.8;
+			state.food.vy = exitDownward ? 4.8 : -4.8;
 			state.food.visualOffsetX = 0;
 			state.food.visualOffsetY = 0;
 			state.food.impulseX = randomBetween(-0.7, 0.7);
 			state.food.impulseY = 0;
 			state.food.rotationVelocity += randomBetween(-2.1, 2.1);
-			state.food.bounceOffsetY = -6;
-			state.food.bounceVelocityY = -1.6;
+			state.food.bounceOffsetY = exitDownward ? 0 : -6;
+			state.food.bounceVelocityY = exitDownward ? 0 : -1.6;
+			state.food.dragPointerId = null;
+			state.food.dragSourceScrapId = null;
 			applyFoodFrame();
 			ensureAnimationLoop();
 		};
-		const startScrapSpentExit = (scrap) => {
+		const startScrapSpentExit = (scrap, options = {}) => {
+			const exitDownward = options.direction === "down";
 			scrap.mode = "spent";
 			scrap.bitesRemaining = 0;
 			scrap.vx = randomBetween(-0.8, 0.8);
-			scrap.vy = -4.6;
+			scrap.vy = exitDownward ? 4.6 : -4.6;
 			scrap.rotationVelocity += randomBetween(-2.2, 2.2);
-			scrap.bounceOffsetY = -6;
-			scrap.bounceVelocityY = -1.5;
+			scrap.bounceOffsetY = exitDownward ? 0 : -6;
+			scrap.bounceVelocityY = exitDownward ? 0 : -1.5;
 			updateScrapFrame(scrap);
 			ensureAnimationLoop();
+		};
+		const dismissFoodForScroll = () => {
+			if (state.food.dragPointerId !== null) {
+				releaseFoodPointerCapture(state.food.dragPointerId);
+			}
+			if (state.food.mode !== "idle" && state.food.mode !== "spent") {
+				startMainFoodSpentExit({ direction: "down" });
+			}
+			state.scraps.forEach((scrap) => {
+				if (scrap.mode === "spent" || scrap.mode === "dropping") {
+					return;
+				}
+				startScrapSpentExit(scrap, { direction: "down" });
+			});
 		};
 
 		const isVisibleTarget = (element) => {
@@ -3309,6 +3336,9 @@
 			if (typeof pointerId !== "number") {
 				return;
 			}
+			if (!(nameplateButtonElement instanceof HTMLElement)) {
+				return;
+			}
 			try {
 				if (nameplateButtonElement.hasPointerCapture(pointerId)) {
 					nameplateButtonElement.releasePointerCapture(pointerId);
@@ -4762,7 +4792,7 @@
 			const size = getScrapSize(scrap);
 			scrap.y = supportY - size;
 			if (isFloor && isFriesBagKind(scrap.foodKind) && !scrap.hasGroundBurst) {
-				burstFriesFromBagOnLanding(scrap, impactVy);
+				burstFriesFromBagOnLanding(scrap, impactVy, { consumeAll: true });
 			}
 			if (isFloor) {
 				const edgeInset = getBottomExitInset(size);
@@ -5095,6 +5125,7 @@
 				startEscape(bird);
 				changed = true;
 			});
+			dismissFoodForScroll();
 			if (changed) {
 				ensureAnimationLoop();
 			}
@@ -5175,8 +5206,8 @@
 			foodDetected: hasChickenLegs(),
 		});
 
-		scarecrowButtonElement.addEventListener("pointerdown", handleScarecrowButtonPointerDown);
-		nameplateButtonElement.addEventListener("pointerdown", handleNameplatePointerDown);
+		scarecrowButtonElement?.addEventListener("pointerdown", handleScarecrowButtonPointerDown);
+		nameplateButtonElement?.addEventListener("pointerdown", handleNameplatePointerDown);
 		friesButtonElement.addEventListener("pointerdown", handleFriesButtonPointerDown);
 		drumstickElement.addEventListener("pointerdown", handleDrumstickPointerDown);
 		root.addEventListener("pointerdown", handleScrapPointerDown);
