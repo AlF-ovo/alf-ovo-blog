@@ -32,7 +32,7 @@ export const siteConfig: SiteConfig = {
 	backgroundMusic: {
 		enable: true,
 		title: "Music",
-		autoplay: true,
+		autoplay: false,
 		loop: true,
 		defaultTrackId: "cold-orbit",
 		tracks: [

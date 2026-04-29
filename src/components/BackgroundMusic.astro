@@ -1187,9 +1187,8 @@ const systemPanels = [
 			exposeWeatherState();
 		});
 
-		const rememberedPlayState = getRememberedValue(playingKey);
 		exposeWeatherState();
-		if (shouldAutoplay || rememberedPlayState === "playing") {
+		if (shouldAutoplay) {
 			void playCurrentTrack(shouldAutoplay);
 		}
 	};
