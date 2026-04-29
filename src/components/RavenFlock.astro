@@ -697,6 +697,9 @@
 		const FRIES_HOLD_TO_MAX_MS = 1800;
 		const FRIES_DIRECT_DROP_VY_MIN = 2.2;
 		const FRIES_DIRECT_DROP_VY_MAX = 3.8;
+		const FRIES_DIRECT_DROP_VX_SCALE = 0.11;
+		const FRIES_DIRECT_DROP_VY_SCALE = 0.06;
+		const FRIES_DIRECT_DROP_LEAD_MAX = 14;
 		const THOUGHT_LINE_LIFETIME_MIN_MS = 1200;
 		const THOUGHT_LINE_LIFETIME_MAX_MS = 1800;
 		const SCARECROW_GAP = 18;
@@ -3466,25 +3469,36 @@
 			const size = FRIES_BAG_BASE_SIZE * burstScale;
 			const hasDirectDrop =
 				Number.isFinite(options.directX) && Number.isFinite(options.directY);
+			const directDropVx = clamp(
+				(options.pointerVelocityX ?? 0) * FRIES_DIRECT_DROP_VX_SCALE,
+				-3.4,
+				3.4,
+			);
+			const directDropVy = clamp(
+				Math.max(0, (options.pointerVelocityY ?? 0) * FRIES_DIRECT_DROP_VY_SCALE) +
+					randomBetween(FRIES_DIRECT_DROP_VY_MIN, FRIES_DIRECT_DROP_VY_MAX),
+				1.8,
+				4.8,
+			);
+			const directDropLeadX = clamp(
+				directDropVx * 5.5,
+				-FRIES_DIRECT_DROP_LEAD_MAX,
+				FRIES_DIRECT_DROP_LEAD_MAX,
+			);
 			const burstSpawn = hasDirectDrop
 				? {
 						x: clamp(
-							options.directX - size * 0.5,
+							options.directX - size * 0.5 + directDropLeadX,
 							0,
 							Math.max(0, window.innerWidth - size),
 						),
 						y: clamp(
-							options.directY - size * 0.5,
+							options.directY - size * 0.74,
 							0,
 							Math.max(0, getScrapFloorY(size) - size * 0.2),
 						),
-						vx: clamp((options.pointerVelocityX ?? 0) * 0.08, -2.2, 2.2),
-						vy: clamp(
-							Math.max(0, (options.pointerVelocityY ?? 0) * 0.08) +
-								randomBetween(FRIES_DIRECT_DROP_VY_MIN, FRIES_DIRECT_DROP_VY_MAX),
-							1.8,
-							5.2,
-						),
+						vx: directDropVx,
+						vy: directDropVy,
 						restX: null,
 					}
 				: chooseRandomFriesBurstSpawn(size);
@@ -3499,10 +3513,16 @@
 				bitesRemaining: Math.max(FRIES_BAG_BITE_COUNT, burstCount),
 				visualOffsetX: 0,
 				visualOffsetY: 0,
-				impulseX: randomBetween(-0.16, 0.2),
+				impulseX: hasDirectDrop
+					? clamp(directDropVx * 0.08, -0.22, 0.22)
+					: randomBetween(-0.16, 0.2),
 				impulseY: 0,
-				visualRotation: randomBetween(-14, 14),
-				rotationVelocity: randomBetween(-2.1, 2.1),
+				visualRotation: hasDirectDrop
+					? clamp(-directDropVx * 3.4, -14, 14)
+					: randomBetween(-14, 14),
+				rotationVelocity: hasDirectDrop
+					? clamp(-directDropVx * 0.42, -1.8, 1.8)
+					: randomBetween(-2.1, 2.1),
 				contestDelayMin: 320,
 				contestDelayMax: 620,
 				restX: burstSpawn.restX,
@@ -4178,23 +4198,23 @@
 				if (progress >= 1) {
 					bird.perchAction = "idle";
 				} else if (bird.perchAction === "hop") {
-					bird.visualBob -= Math.round(Math.sin(progress * Math.PI) * 8);
-					bird.visualShiftX +=
-						Math.round(Math.sin(progress * Math.PI) * 2) +
-						Math.round(Math.sin(progress * Math.PI) * 6) * bird.facing;
+					const hopLift = Math.sin(progress * Math.PI);
+					const hopTravel = easeOutCubic(progress);
+					bird.visualBob -= Math.round(hopLift * 8);
+					bird.visualShiftX += Math.round(hopTravel * 8) * bird.facing;
 				} else if (bird.perchAction === "turn-hop") {
-					bird.visualBob -= Math.round(Math.sin(progress * Math.PI) * 10);
-					bird.visualShiftX +=
-						Math.round(Math.cos(progress * Math.PI) * 3) +
-						Math.round(Math.sin(progress * Math.PI) * 4) * bird.facing;
+					const hopLift = Math.sin(progress * Math.PI);
+					const hopTravel = easeOutCubic(progress);
+					bird.visualBob -= Math.round(hopLift * 10);
+					bird.visualShiftX += Math.round(hopTravel * 6) * bird.facing;
 				} else if (bird.perchAction === "preen") {
 					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI * 3) * 3);
 					bird.visualBob += Math.round(Math.sin(progress * Math.PI * 2) * 2 - 2);
 				} else if (bird.perchAction === "chief-hop") {
-					bird.visualBob -= Math.round(Math.sin(progress * Math.PI) * 9);
-					bird.visualShiftX +=
-						Math.round(Math.sin(progress * Math.PI) * 2) +
-						Math.round(Math.sin(progress * Math.PI * 2) * 3) * bird.facing;
+					const hopLift = Math.sin(progress * Math.PI);
+					const hopTravel = easeOutCubic(progress);
+					bird.visualBob -= Math.round(hopLift * 9);
+					bird.visualShiftX += Math.round(hopTravel * 7) * bird.facing;
 				} else if (bird.perchAction === "crown-preen") {
 					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI * 2.6) * 2);
 					bird.visualBob += Math.round(Math.sin(progress * Math.PI * 2) * 3 - 3);
