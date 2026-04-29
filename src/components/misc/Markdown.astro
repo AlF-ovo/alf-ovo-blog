@@ -14,30 +14,94 @@ const className = Astro.props.class;
 </div>
 
 <script>
-document.addEventListener("click", function (e: MouseEvent) {
-    const target = e.target as Element | null;
-    if (target && target.classList.contains("copy-btn")) {
-        const preEle = target.closest("pre");
-        const codeEle = preEle?.querySelector("code");
-        const code = Array.from(codeEle?.querySelectorAll(".code:not(summary *)") ?? [])
-            .map(el => el.textContent)
-            .map(t => t === "\n" ? "" : t)
-            .join("\n");
-        navigator.clipboard.writeText(code);
+const MARKDOWN_COPY_SETUP_KEY = "alfMarkdownCopySetup";
+const COPY_FEEDBACK_DURATION_MS = 1000;
 
-        const timeoutId = target.getAttribute("data-timeout-id");
-        if (timeoutId) {
-            clearTimeout(parseInt(timeoutId));
-        }
+function clearCopyFeedback(button: HTMLElement) {
+	const timeoutId = button.getAttribute("data-timeout-id");
+	if (timeoutId) {
+		clearTimeout(Number.parseInt(timeoutId, 10));
+		button.removeAttribute("data-timeout-id");
+	}
 
-        target.classList.add("success");
+	button.classList.remove("success");
+}
 
-        // 设置新的timeout并保存ID到按钮的自定义属性中
-        const newTimeoutId = setTimeout(() => {
-            target.classList.remove("success");
-        }, 1000);
+function scheduleCopyFeedbackReset(button: HTMLElement) {
+	const timeoutId = window.setTimeout(() => {
+		button.classList.remove("success");
+		button.removeAttribute("data-timeout-id");
+	}, COPY_FEEDBACK_DURATION_MS);
 
-        target.setAttribute("data-timeout-id", newTimeoutId.toString());
-    }
-});
+	button.setAttribute("data-timeout-id", timeoutId.toString());
+}
+
+function fallbackCopyText(text: string): boolean {
+	const textarea = document.createElement("textarea");
+	textarea.value = text;
+	textarea.setAttribute("readonly", "true");
+	textarea.style.position = "fixed";
+	textarea.style.top = "0";
+	textarea.style.left = "-9999px";
+	textarea.style.opacity = "0";
+
+	document.body.appendChild(textarea);
+	textarea.focus();
+	textarea.select();
+
+	let copied = false;
+	try {
+		copied = document.execCommand("copy");
+	} catch (_error) {
+		copied = false;
+	}
+
+	textarea.remove();
+	return copied;
+}
+
+async function copyText(text: string): Promise<boolean> {
+	if (navigator.clipboard?.writeText) {
+		try {
+			await navigator.clipboard.writeText(text);
+			return true;
+		} catch (_error) {
+			// Fall back to execCommand below.
+		}
+	}
+
+	return fallbackCopyText(text);
+}
+
+const markdownCopyWindow = window as typeof window & Record<string, unknown>;
+
+if (!markdownCopyWindow[MARKDOWN_COPY_SETUP_KEY]) {
+	markdownCopyWindow[MARKDOWN_COPY_SETUP_KEY] = true;
+
+	document.addEventListener("click", async (e: MouseEvent) => {
+		const target = e.target as Element | null;
+		const button = target?.closest(".copy-btn");
+		if (!(button instanceof HTMLElement)) {
+			return;
+		}
+
+		const preEle = button.closest("pre");
+		const codeEle = preEle?.querySelector("code");
+		const code = Array.from(codeEle?.querySelectorAll(".code:not(summary *)") ?? [])
+			.map((el) => el.textContent)
+			.map((text) => (text === "\n" ? "" : text))
+			.join("\n");
+
+		const copied = await copyText(code);
+		if (!copied) {
+			clearCopyFeedback(button);
+			console.error("Failed to copy code block contents.");
+			return;
+		}
+
+		clearCopyFeedback(button);
+		button.classList.add("success");
+		scheduleCopyFeedbackReset(button);
+	});
+}
 </script>
