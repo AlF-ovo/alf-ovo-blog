@@ -656,8 +656,15 @@
 		const FRIES_LOOSE_BASE_SIZE = FRIES_BAG_BASE_SIZE * 0.62;
 		const FRIES_BAG_BITE_COUNT = 5;
 		const FRIES_LOOSE_BITE_COUNT = 2;
-		const FRIES_SPILL_MIN = 1;
-		const FRIES_SPILL_MAX = 3;
+		const FRIES_SPILL_MIN = 4;
+		const FRIES_SPILL_MAX = 7;
+		const FRIES_SPILL_ARC_MIN = 0.18;
+		const FRIES_SPILL_ARC_MAX = 0.72;
+		const FRIES_SPILL_ANGLE_JITTER = 0.06;
+		const FRIES_SPILL_RADIUS_MIN = 5;
+		const FRIES_SPILL_RADIUS_MAX = 14;
+		const FRIES_SPILL_RADIUS_JITTER = 1.4;
+		const FRIES_EMPTY_BAG_EXIT_VY = 6.4;
 		const SCARECROW_GAP = 18;
 		const SCARECROW_BUTTON_GAP = 10;
 		const SCARECROW_BODY_HEIGHT = 83;
@@ -958,6 +965,7 @@
 			lastHadChickenLegs: false,
 			lastFriesBurstAt: 0,
 			foodlessRetainTarget: 0,
+			foodlessRetainedBirdIds: [],
 			scarecrow: {
 				raised: false,
 				x: 0,
@@ -1087,7 +1095,14 @@
 		const easeInCubic = (progress) => progress ** 3;
 		const easeInOutSine = (progress) =>
 			-(Math.cos(Math.PI * progress) - 1) / 2;
-		const shuffle = (items) => [...items].sort(() => Math.random() - 0.5);
+		const shuffle = (items) => {
+			const result = [...items];
+			for (let index = result.length - 1; index > 0; index -= 1) {
+				const swapIndex = Math.floor(Math.random() * (index + 1));
+				[result[index], result[swapIndex]] = [result[swapIndex], result[index]];
+			}
+			return result;
+		};
 		const getBirdById = (birdId) =>
 			typeof birdId === "number"
 				? state.birds.find((bird) => bird.id === birdId) ?? null
@@ -1533,7 +1548,22 @@
 			const dx = fromX - centerX;
 			const dy = fromY - centerY;
 			const distance = Math.max(1, Math.hypot(dx, dy));
+			const isAnchoredSource = source.kind === "main" || source.mode === "active";
 			const strength = (success ? 1.8 : 1) * clamp(sourceScale, 0.82, 1.58);
+			if (isAnchoredSource) {
+				foodLike.visualOffsetX *= 0.1;
+				foodLike.visualOffsetY *= 0.16;
+				foodLike.impulseX *= 0.08;
+				foodLike.impulseY *= 0.1;
+				foodLike.visualRotation *= 0.08;
+				foodLike.rotationVelocity *= 0.08;
+				foodLike.bounceVelocityY = Math.min(
+					foodLike.bounceVelocityY,
+					(success ? -1.05 : -0.55) * clamp(sourceScale, 0.82, 1.18),
+				);
+				ensureAnimationLoop();
+				return;
+			}
 			foodLike.impulseX += (dx / distance) * randomBetween(2.1, 3.5) * strength;
 			foodLike.impulseY +=
 				(dy / distance) * randomBetween(1.1, 2) * strength - 0.5 * strength;
@@ -1754,13 +1784,25 @@
 		};
 		const startScrapSpentExit = (scrap, options = {}) => {
 			const exitDownward = options.direction === "down";
+			const isEmptyFriesBag = exitDownward && isFriesBagKind(scrap.foodKind);
 			scrap.mode = "spent";
 			scrap.bitesRemaining = 0;
-			scrap.vx = randomBetween(-0.8, 0.8);
-			scrap.vy = exitDownward ? 4.6 : -4.6;
-			scrap.rotationVelocity += randomBetween(-2.2, 2.2);
+			scrap.vx = isEmptyFriesBag
+				? randomBetween(-0.14, 0.14)
+				: randomBetween(-0.8, 0.8);
+			scrap.vy = exitDownward ? (isEmptyFriesBag ? FRIES_EMPTY_BAG_EXIT_VY : 4.6) : -4.6;
+			scrap.rotationVelocity += isEmptyFriesBag
+				? randomBetween(-0.22, 0.22)
+				: randomBetween(-2.2, 2.2);
 			scrap.bounceOffsetY = exitDownward ? 0 : -6;
 			scrap.bounceVelocityY = exitDownward ? 0 : -1.5;
+			if (isEmptyFriesBag) {
+				scrap.visualOffsetX = 0;
+				scrap.visualOffsetY = 0;
+				scrap.impulseX = 0;
+				scrap.impulseY = 0;
+				scrap.visualRotation = clamp(scrap.visualRotation, -8, 8);
+			}
 			updateScrapFrame(scrap);
 			ensureAnimationLoop();
 		};
@@ -3246,35 +3288,60 @@
 			const spillDirection =
 				(bag.visualRotation || bag.rotationVelocity || bag.vx || 0) >= 0 ? 1 : -1;
 			const forceScale = clamp(impactVy / 7.5, 0.85, 1.35);
+			const bagCenterX = bag.x + bagSize * 0.5;
+			const bagCenterY = bag.y + bagSize * randomBetween(0.38, 0.52);
 			for (let index = 0; index < burstCount; index += 1) {
 				const pieceScale = randomBetween(0.94, 1.08);
 				const pieceSize = FRIES_LOOSE_BASE_SIZE * pieceScale;
+				const spreadProgress =
+					burstCount > 1 ? index / (burstCount - 1) : 0.5;
+				const spreadAngleMagnitude = clamp(
+					lerp(FRIES_SPILL_ARC_MIN, FRIES_SPILL_ARC_MAX, spreadProgress) +
+						randomBetween(-FRIES_SPILL_ANGLE_JITTER, FRIES_SPILL_ANGLE_JITTER),
+					FRIES_SPILL_ARC_MIN,
+					FRIES_SPILL_ARC_MAX,
+				);
+				const spreadAngle = spillDirection * spreadAngleMagnitude;
+				const spreadRadius = clamp(
+					lerp(FRIES_SPILL_RADIUS_MIN, FRIES_SPILL_RADIUS_MAX, spreadProgress) +
+						randomBetween(-FRIES_SPILL_RADIUS_JITTER, FRIES_SPILL_RADIUS_JITTER),
+					FRIES_SPILL_RADIUS_MIN,
+					FRIES_SPILL_RADIUS_MAX + FRIES_SPILL_RADIUS_JITTER,
+				);
 				const edgeX =
-					bag.x +
-					(spillDirection > 0 ? bagSize * 0.56 : bagSize * 0.08) +
-					spillDirection * index * randomBetween(1.4, 3.2);
-				const edgeY = bag.y + bagSize * randomBetween(0.3, 0.56);
+					bagCenterX +
+					Math.cos(spreadAngle) * spreadRadius -
+					pieceSize * 0.5;
+				const edgeY =
+					bagCenterY -
+					Math.sin(Math.abs(spreadAngle)) * randomBetween(0.4, 2.2) +
+					randomBetween(-0.8, 0.8);
 				createDroppedFoodItem({
 					foodKind: "fries-piece",
 					scale: pieceScale,
 					x: clamp(edgeX, 0, Math.max(0, window.innerWidth - pieceSize)),
 					y: edgeY,
 					vx:
-						spillDirection * randomBetween(0.8, 2.2) * forceScale +
-						bag.vx * 0.22 +
-						randomBetween(-0.12, 0.12),
-					vy: -randomBetween(1.3, 3.1) * forceScale,
+						Math.cos(spreadAngle) * randomBetween(0.9, 2.1) * forceScale +
+						bag.vx * 0.12 +
+						randomBetween(-0.1, 0.1),
+					vy:
+						-randomBetween(0.45, 1.35) * forceScale -
+						Math.sin(Math.abs(spreadAngle)) * randomBetween(0.08, 0.32),
 					bitesTotal: FRIES_LOOSE_BITE_COUNT,
 					bitesRemaining: FRIES_LOOSE_BITE_COUNT,
 					visualOffsetX: 0,
 					visualOffsetY: 0,
-					impulseX: spillDirection * randomBetween(0.08, 0.24),
+					impulseX: Math.cos(spreadAngle) * randomBetween(0.03, 0.1),
 					impulseY: 0,
 					visualRotation: randomBetween(-8, 8),
 					rotationVelocity: randomBetween(-1.2, 1.2),
 					contestDelayMin: 220,
 					contestDelayMax: 420,
 				});
+			}
+			if (bag.bitesRemaining <= 0) {
+				startScrapSpentExit(bag, { direction: "down" });
 			}
 		};
 		const spawnFriesBurst = () => {
@@ -3651,7 +3718,9 @@
 			}
 
 			if (source.kind === "scrap" && foodEntity.bitesRemaining === 0) {
-				startScrapSpentExit(foodEntity);
+				startScrapSpentExit(foodEntity, {
+					direction: isFriesBagKind(foodEntity.foodKind) ? "down" : undefined,
+				});
 				reconcileFoodDrivenFlock();
 			}
 
@@ -4050,6 +4119,7 @@
 			if (hasChickenLegs()) {
 				state.lastHadChickenLegs = true;
 				state.foodlessRetainTarget = 0;
+				state.foodlessRetainedBirdIds = [];
 			} else {
 				if (!state.lastHadChickenLegs && state.foodlessRetainTarget === 0) {
 					state.birds.forEach((bird) => {
@@ -4068,15 +4138,18 @@
 				if (state.lastHadChickenLegs) {
 					state.lastHadChickenLegs = false;
 					state.foodlessRetainTarget = 7 + (Math.random() < 0.5 ? 0 : 1);
+					state.foodlessRetainedBirdIds = shuffle(
+						state.birds
+							.filter((bird) => bird.state !== "escaping")
+							.map((bird) => bird.id),
+					).slice(0, state.foodlessRetainTarget);
 				}
 				const settledBirds = state.birds
 					.filter((bird) => bird.state !== "escaping")
 					.sort((left, right) => left.id - right.id);
-				const retainedBirds = new Set(
-					settledBirds.slice(0, Math.min(state.foodlessRetainTarget, settledBirds.length)),
-				);
+				const retainedBirdIds = new Set(state.foodlessRetainedBirdIds);
 				settledBirds.forEach((bird) => {
-					if (retainedBirds.has(bird)) {
+					if (retainedBirdIds.has(bird.id)) {
 						if (
 							bird.state === "food-hover" ||
 							bird.state === "food-approaching" ||
@@ -4276,6 +4349,10 @@
 			now = Date.now(),
 			instantPerch = false,
 		} = {}) => {
+			if (document.hidden) {
+				state.nextSpawnAt = now + getSpawnIntervalMs();
+				return;
+			}
 			if (isScarecrowRaised()) {
 				state.nextSpawnAt = now + SPAWN_INTERVAL_MS;
 				return;
@@ -4793,6 +4870,10 @@
 			scrap.y = supportY - size;
 			if (isFloor && isFriesBagKind(scrap.foodKind) && !scrap.hasGroundBurst) {
 				burstFriesFromBagOnLanding(scrap, impactVy, { consumeAll: true });
+				if (scrap.mode === "spent") {
+					updateScrapFrame(scrap);
+					return;
+				}
 			}
 			if (isFloor) {
 				const edgeInset = getBottomExitInset(size);
@@ -5077,23 +5158,35 @@
 			event.stopPropagation();
 			const roll = Math.random();
 			const probabilities = getClickInteractionProbabilities(bird);
+			const relocateThreshold = probabilities.relocateProbability;
+			const escapeThreshold = Math.min(
+				1,
+				relocateThreshold + probabilities.escapeProbability,
+			);
+			const heartThreshold = Math.min(
+				1,
+				escapeThreshold + probabilities.heartProbability,
+			);
 			const alternateLandingSpot = chooseLandingSpot({
 				excludeBird: bird,
 				excludeElement:
 					bird.perch?.element instanceof HTMLElement ? bird.perch.element : null,
 			});
 
-			if (roll < probabilities.relocateProbability && alternateLandingSpot) {
+			if (roll < relocateThreshold && alternateLandingSpot) {
 				sendBirdToPanel(bird, alternateLandingSpot);
 				ensureAnimationLoop();
 				return;
 			}
 
-			if (
-				roll <
-				probabilities.relocateProbability + probabilities.escapeProbability
-			) {
+			if (roll < escapeThreshold) {
 				startEscape(bird);
+				ensureAnimationLoop();
+				return;
+			}
+
+			if (roll < heartThreshold) {
+				vanishBirdWithHearts(bird);
 				ensureAnimationLoop();
 				return;
 			}
@@ -5202,7 +5295,7 @@
 		};
 		window.__alfRavenWeatherState = () => ({
 			birdCount: state.birds.filter((bird) => bird.state !== "escaping").length,
-			maxBirdCount: MAX_FOOD_BIRDS,
+			maxBirdCount: getMaxBirdCount(),
 			foodDetected: hasChickenLegs(),
 		});
 
@@ -5239,8 +5332,10 @@
 			}
 			state.scraps.forEach((scrap) => {
 				const scrapSize = getScrapSize(scrap);
-				scrap.x = clamp(scrap.x, 0, window.innerWidth - scrapSize);
-				scrap.y = clamp(scrap.y, 0, getScrapFloorY(scrapSize));
+				if (scrap.mode === "active") {
+					scrap.x = clamp(scrap.x, 0, window.innerWidth - scrapSize);
+					scrap.y = clamp(scrap.y, 0, getScrapFloorY(scrapSize));
+				}
 				updateScrapFrame(scrap);
 			});
 			const selectedBird = getSelectedBird();
