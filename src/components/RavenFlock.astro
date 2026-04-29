@@ -629,11 +629,12 @@
 		const BASE_BIRD_HEIGHT = 72;
 		const BASE_FOOT_OFFSET_Y = 58;
 		const VIEWPORT_PADDING = 12;
-		const BASE_MAX_BIRDS = 10;
-		const MAX_FOOD_BIRDS = 14;
-		const FOOD_BIRDS_PER_DRUMSTICK = 2;
-		const SPAWN_INTERVAL_MS = 7000;
-		const FOOD_SPAWN_INTERVAL_MS = 4200;
+		const MIN_DYNAMIC_MAX_BIRDS = 3;
+		const MAX_DYNAMIC_MAX_BIRDS = 10;
+		const FLOCK_LIMIT_RETARGET_MIN_MS = 28000;
+		const FLOCK_LIMIT_RETARGET_MAX_MS = 52000;
+		const SPAWN_INTERVAL_MS = 10000;
+		const FOOD_SPAWN_INTERVAL_MS = 6200;
 		const SPAWN_HEARTBEAT_MS = 4000;
 		const INITIAL_SPAWN_MIN_MS = 3000;
 		const INITIAL_SPAWN_MAX_MS = 5000;
@@ -667,13 +668,13 @@
 		const FOOD_CONTEST_MIN_MS = 760;
 		const FOOD_CONTEST_MAX_MS = 1380;
 		const FOOD_RESET_DELAY_MS = 520;
-		const FOOD_HOVER_SHIFT_MIN_MS = 420;
-		const FOOD_HOVER_SHIFT_MAX_MS = 1380;
+		const FOOD_HOVER_SHIFT_MIN_MS = 280;
+		const FOOD_HOVER_SHIFT_MAX_MS = 920;
 		const SATIATED_CIRCLE_MIN_MS = 5000;
 		const SATIATED_CIRCLE_MAX_MS = 6000;
 		const SATIATED_PERCH_MS = 15000;
-		const PERCH_ACTION_MIN_MS = 2200;
-		const PERCH_ACTION_MAX_MS = 5600;
+		const PERCH_ACTION_MIN_MS = 1500;
+		const PERCH_ACTION_MAX_MS = 3600;
 		const FOOD_BOUNCE_GRAVITY = 0.74;
 		const FOOD_BOUNCE_DAMPING = 0.52;
 		const FOOD_VISUAL_DRAG = 0.78;
@@ -1013,6 +1014,12 @@
 			lastFriesBurstAt: 0,
 			foodlessRetainTarget: 0,
 			foodlessRetainedBirdIds: [],
+			flockLimit: {
+				from: 6,
+				to: 6,
+				startedAt: Date.now(),
+				duration: 36000,
+			},
 			scarecrow: {
 				raised: false,
 				x: 0,
@@ -1163,8 +1170,63 @@
 		const lerp = (start, end, progress) => start + (end - start) * progress;
 		const easeOutCubic = (progress) => 1 - (1 - progress) ** 3;
 		const easeInCubic = (progress) => progress ** 3;
+		const easeOutSine = (progress) => Math.sin((progress * Math.PI) / 2);
 		const easeInOutSine = (progress) =>
 			-(Math.cos(Math.PI * progress) - 1) / 2;
+		const getRandomDynamicMaxBirdCount = (
+			min = MIN_DYNAMIC_MAX_BIRDS,
+			max = MAX_DYNAMIC_MAX_BIRDS,
+		) => Math.round(randomBetween(min, max));
+		const getNextFlockLimitTarget = (currentTarget) => {
+			let nextTarget = getRandomDynamicMaxBirdCount();
+			if (nextTarget === currentTarget) {
+				nextTarget = clamp(
+					nextTarget + (Math.random() < 0.5 ? -1 : 1),
+					MIN_DYNAMIC_MAX_BIRDS,
+					MAX_DYNAMIC_MAX_BIRDS,
+				);
+			}
+			return nextTarget;
+		};
+		const seedFlockLimitCycle = (now = Date.now()) => {
+			const baseLimit = getRandomDynamicMaxBirdCount(4, 7);
+			state.flockLimit.from = baseLimit;
+			state.flockLimit.to = getNextFlockLimitTarget(baseLimit);
+			state.flockLimit.startedAt = now;
+			state.flockLimit.duration = randomBetween(
+				FLOCK_LIMIT_RETARGET_MIN_MS,
+				FLOCK_LIMIT_RETARGET_MAX_MS,
+			);
+		};
+		const getDynamicFlockLimit = (now = Date.now()) => {
+			if (state.flockLimit.duration <= 0) {
+				seedFlockLimitCycle(now);
+			}
+			let progress = clamp(
+				(now - state.flockLimit.startedAt) / Math.max(1, state.flockLimit.duration),
+				0,
+				1,
+			);
+			while (progress >= 1) {
+				const settledLimit = state.flockLimit.to;
+				state.flockLimit.from = settledLimit;
+				state.flockLimit.to = getNextFlockLimitTarget(settledLimit);
+				state.flockLimit.startedAt = now;
+				state.flockLimit.duration = randomBetween(
+					FLOCK_LIMIT_RETARGET_MIN_MS,
+					FLOCK_LIMIT_RETARGET_MAX_MS,
+				);
+				progress = 0;
+			}
+			return Math.round(
+				lerp(
+					state.flockLimit.from,
+					state.flockLimit.to,
+					easeInOutSine(progress),
+				),
+			);
+		};
+		seedFlockLimitCycle();
 		const shuffle = (items) => {
 			const result = [...items];
 			for (let index = result.length - 1; index > 0; index -= 1) {
@@ -1331,12 +1393,21 @@
 				.filter((scrap) => scrap.mode !== "dropping" && scrap.bitesRemaining > 0)
 				.reduce((total, scrap) => total + getFoodAttractionWeight(scrap), 0);
 		const hasChickenLegs = () => getChickenLegCount() > 0.01;
-		const getMaxBirdCount = () =>
-			clamp(
-				BASE_MAX_BIRDS + Math.ceil(getChickenLegCount() * FOOD_BIRDS_PER_DRUMSTICK),
-				BASE_MAX_BIRDS,
-				MAX_FOOD_BIRDS,
+		const getMaxBirdCount = (now = Date.now()) => {
+			const dynamicLimit = getDynamicFlockLimit(now);
+			const foodBonus = hasChickenLegs()
+				? clamp(
+						Math.ceil(Math.max(0, getChickenLegCount() - 0.25)),
+						0,
+						MAX_DYNAMIC_MAX_BIRDS - dynamicLimit,
+					)
+				: 0;
+			return clamp(
+				dynamicLimit + foodBonus,
+				MIN_DYNAMIC_MAX_BIRDS,
+				MAX_DYNAMIC_MAX_BIRDS,
 			);
+		};
 		const getFoodSources = () => {
 			const sources = [];
 			if (isMainFoodDetected()) {
@@ -1444,7 +1515,7 @@
 			if (foodWeight <= 0.01) {
 				return SPAWN_INTERVAL_MS;
 			}
-			return Math.max(2200, FOOD_SPAWN_INTERVAL_MS - Math.max(0, foodWeight - 1) * 720);
+			return Math.max(3600, FOOD_SPAWN_INTERVAL_MS - Math.max(0, foodWeight - 1) * 640);
 		};
 		const updateDrumstickVisibility = () => {
 			drumstickElement.dataset.visible = "true";
@@ -1465,10 +1536,10 @@
 			}
 			const densityBonus = Math.min(2, Math.max(0, Math.floor(getChickenLegCount()) - 1));
 			const roll = Math.random();
-			if (roll < 0.28 + densityBonus * 0.08) {
+			if (roll < 0.16 + densityBonus * 0.05) {
 				return 3;
 			}
-			if (roll < 0.74 + densityBonus * 0.1) {
+			if (roll < 0.56 + densityBonus * 0.08) {
 				return 2;
 			}
 			return 1;
@@ -2769,22 +2840,22 @@
 		};
 		const getFlightDurationScale = (nextState) => {
 			if (nextState === "food-dash") {
-				return 1.3;
+				return 1.38;
 			}
 			if (nextState === "bird-attack") {
-				return 1.22;
+				return 1.3;
 			}
 			if (nextState === "escaping") {
-				return 1.58;
+				return 1.7;
 			}
 			if (
 				nextState === "approaching" ||
 				nextState === "relocating" ||
 				nextState === "food-approaching"
 			) {
-				return 1.46;
+				return 1.56;
 			}
-			return 1.35;
+			return 1.42;
 		};
 
 		const beginFlightSegment = (bird, options) => {
@@ -2910,9 +2981,9 @@
 			bird.element.dataset.state = "sky-circling";
 			bird.circlingCenterX = centerX;
 			bird.circlingCenterY = centerY;
-			bird.circlingRadiusX = randomBetween(88, 168);
-			bird.circlingRadiusY = randomBetween(22, 54);
-			bird.circlingSpeed = randomBetween(0.0014, 0.0022);
+			bird.circlingRadiusX = randomBetween(80, 152);
+			bird.circlingRadiusY = randomBetween(20, 46);
+			bird.circlingSpeed = randomBetween(0.0018, 0.0027);
 			bird.circlingDirection = Math.random() < 0.5 ? -1 : 1;
 			bird.satedUntil =
 				performance.now() +
@@ -2924,10 +2995,10 @@
 		const startSatedBehavior = (bird, source = null) => {
 			const carryableSource = findCarryableFoodSource(source);
 			const behaviorPool = isSelectedBird(bird)
-				? ["sky-circling", "panel-perched"]
+				? ["sky-circling", "sky-circling", "panel-perched"]
 				: carryableSource
-					? ["carry-away", "sky-circling", "panel-perched"]
-					: ["sky-circling", "panel-perched"];
+					? ["carry-away", "sky-circling", "sky-circling", "panel-perched"]
+					: ["sky-circling", "sky-circling", "panel-perched"];
 			const behavior =
 				behaviorPool[Math.floor(Math.random() * behaviorPool.length)] ?? "sky-circling";
 			const sourceFoodKind = source?.foodKind ?? "drumstick";
@@ -4174,12 +4245,17 @@
 
 		const updateMovingBird = (bird, now) => {
 			const progress = clamp((now - bird.startedAt) / bird.duration, 0, 1);
-			const eased =
-				bird.state === "escaping" ? easeInCubic(progress) : easeOutCubic(progress);
+			const horizontalProgress = easeInOutSine(progress);
+			const verticalProgress =
+				bird.state === "escaping"
+					? easeOutSine(progress)
+					: progress < 0.5
+						? easeOutSine(progress * 2) * 0.5
+						: 0.5 + easeInCubic((progress - 0.5) * 2) * 0.5;
 
-			bird.x = lerp(bird.source.x, bird.destination.x, easeInOutSine(progress));
+			bird.x = lerp(bird.source.x, bird.destination.x, horizontalProgress);
 			bird.y =
-				lerp(bird.source.y, bird.destination.y, eased) -
+				lerp(bird.source.y, bird.destination.y, verticalProgress) -
 				Math.sin(progress * Math.PI) * bird.arcHeight;
 			bird.visualShiftX = 0;
 			bird.visualBob = 0;
@@ -4364,7 +4440,12 @@
 				}
 				if (state.lastHadChickenLegs) {
 					state.lastHadChickenLegs = false;
-					state.foodlessRetainTarget = 7 + (Math.random() < 0.5 ? 0 : 1);
+					const currentMaxBirdCount = getMaxBirdCount();
+					state.foodlessRetainTarget = clamp(
+						Math.round(currentMaxBirdCount * randomBetween(0.68, 0.92)),
+						MIN_DYNAMIC_MAX_BIRDS,
+						currentMaxBirdCount,
+					);
 					state.foodlessRetainedBirdIds = shuffle(
 						state.birds
 							.filter((bird) => bird.state !== "escaping")
@@ -4512,9 +4593,9 @@
 				circlingRadiusY: 0,
 				circlingSpeed: 0,
 				circlingDirection: 1,
-				dashDurationFactor: randomBetween(0.84, 1.18),
+				dashDurationFactor: randomBetween(0.96, 1.28),
 				dashArcFactor: randomBetween(0.8, 1.35),
-				hoverTightness: randomBetween(0.09, 0.16),
+				hoverTightness: randomBetween(0.075, 0.13),
 				greed: randomBetween(0, 1),
 				role: "normal",
 				baseScale: sizeScale,
