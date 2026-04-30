@@ -660,6 +660,9 @@
 		const FOOD_INSPECT_MAX_MS = 1080;
 		const FOOD_RECONSIDER_MIN_MS = 900;
 		const FOOD_RECONSIDER_MAX_MS = 2200;
+		const FLOCK_REACTION_RADIUS = 220;
+		const FLOCK_REACTION_DELAY_MIN_MS = 100;
+		const FLOCK_REACTION_DELAY_MAX_MS = 400;
 		const THOUGHT_INTERVAL_MIN_MS = 12000;
 		const THOUGHT_INTERVAL_MAX_MS = 22000;
 		const FOOD_HOME_SIZE = 44;
@@ -3932,6 +3935,9 @@
 			bird.perchAction = "idle";
 			bird.perchActionStartedAt = 0;
 			bird.perchActionDuration = 0;
+			bird.pendingPerchReaction = null;
+			bird.pendingPerchReactionAt = 0;
+			bird.pendingPerchReactionFacing = 0;
 			bird.nextPerchActionAt =
 				performance.now() + randomBetween(PERCH_ACTION_MIN_MS, PERCH_ACTION_MAX_MS);
 			rememberBirdPerchElement(bird, bird.perch?.element ?? null);
@@ -3939,29 +3945,147 @@
 			setBirdFrame(bird, PERCHED_FRAME_INDEX);
 			applyBirdFrame(bird);
 		};
-		const beginPerchAction = (bird, now) => {
-			const actions = isAlfBird(bird)
-				? ["chief-hop", "crown-preen", "inspect"]
-				: bird.personalityKey === "skittish"
-					? ["inspect", "turn-hop", "preen"]
-					: bird.personalityKey === "bold"
-						? ["hop", "turn-hop", "hop", "preen"]
-						: bird.personalityKey === "greedy"
-							? ["hop", "inspect", "preen"]
-							: ["hop", "turn-hop", "preen", "inspect"];
-			bird.perchAction = actions[Math.floor(Math.random() * actions.length)] ?? "hop";
+		const getPerchActionDuration = (action) => {
+			switch (action) {
+				case "head-tilt":
+					return randomBetween(360, 620);
+				case "sidestep":
+					return randomBetween(320, 560);
+				case "wing-shiver":
+					return randomBetween(260, 460);
+				case "double-preen":
+					return randomBetween(620, 980);
+				case "inspect":
+					return randomBetween(440, 760);
+				case "hop":
+				case "turn-hop":
+				case "chief-hop":
+					return randomBetween(420, 760);
+				default:
+					return randomBetween(520, 980);
+			}
+		};
+		const startPerchAction = (bird, action, now, options = {}) => {
+			const hasFacingOverride =
+				Number.isFinite(options.facing) && options.facing !== 0;
+			bird.perchAction = action;
 			bird.perchActionStartedAt = now;
-			bird.perchActionDuration = randomBetween(520, 980);
+			bird.perchActionDuration = options.duration ?? getPerchActionDuration(action);
 			bird.nextPerchActionAt =
 				now +
 				bird.perchActionDuration +
-				randomBetween(PERCH_ACTION_MIN_MS, PERCH_ACTION_MAX_MS);
-			if (bird.perchAction === "turn-hop") {
+				randomBetween(
+					options.nextActionDelayMin ?? PERCH_ACTION_MIN_MS,
+					options.nextActionDelayMax ?? PERCH_ACTION_MAX_MS,
+				);
+			if (hasFacingOverride) {
+				bird.facing = options.facing >= 0 ? 1 : -1;
+			}
+			if (options.flipFacing === true) {
 				bird.facing *= -1;
 			}
-			if (bird.perchAction === "inspect") {
+			if (action === "turn-hop") {
+				bird.facing *= -1;
+			}
+			if (action === "inspect" && !hasFacingOverride) {
 				bird.facing *= Math.random() < 0.5 ? -1 : 1;
 			}
+		};
+		const queuePerchReaction = (bird, now, options = {}) => {
+			if (
+				!bird ||
+				bird.state !== "panel-perched" ||
+				isSelectedBird(bird) ||
+				isAlfBird(bird)
+			) {
+				return false;
+			}
+			bird.pendingPerchReaction =
+				options.action ?? ["inspect", "head-tilt", "sidestep"][Math.floor(Math.random() * 3)];
+			bird.pendingPerchReactionAt =
+				now +
+				(options.delay ??
+					randomBetween(FLOCK_REACTION_DELAY_MIN_MS, FLOCK_REACTION_DELAY_MAX_MS));
+			bird.pendingPerchReactionFacing =
+				Number.isFinite(options.focusX) && options.focusX !== null
+					? options.focusX >= bird.x + bird.width * 0.5
+						? 1
+						: -1
+					: 0;
+			bird.nextPerchActionAt =
+				bird.nextPerchActionAt > 0
+					? Math.min(bird.nextPerchActionAt, bird.pendingPerchReactionAt)
+					: bird.pendingPerchReactionAt;
+			return true;
+		};
+		const triggerFlockReaction = (anchorBird, options = {}) => {
+			if (!anchorBird) {
+				return;
+			}
+			const now = performance.now();
+			const originX = options.originX ?? anchorBird.x + anchorBird.width * 0.5;
+			const originY = options.originY ?? anchorBird.y + anchorBird.height * 0.5;
+			const nearbyBirds = state.birds
+				.filter((bird) => {
+					if (
+						bird === anchorBird ||
+						bird.state !== "panel-perched" ||
+						isSelectedBird(bird) ||
+						isAlfBird(bird)
+					) {
+						return false;
+					}
+					return (
+						Math.hypot(
+							bird.x + bird.width * 0.5 - originX,
+							bird.y + bird.height * 0.5 - originY,
+						) <= (options.radius ?? FLOCK_REACTION_RADIUS)
+					);
+				})
+				.sort(
+					(left, right) =>
+						Math.hypot(left.x + left.width * 0.5 - originX, left.y + left.height * 0.5 - originY) -
+						Math.hypot(
+							right.x + right.width * 0.5 - originX,
+							right.y + right.height * 0.5 - originY,
+						),
+				);
+			if (nearbyBirds.length === 0) {
+				return;
+			}
+			const reactionPool =
+				options.reason === "food"
+					? ["inspect", "head-tilt", "sidestep", "double-preen"]
+					: ["inspect", "head-tilt", "sidestep", "wing-shiver", "turn-hop"];
+			const targetCount = clamp(
+				Math.round(randomBetween(1, Math.min(3, nearbyBirds.length))),
+				1,
+				Math.min(3, nearbyBirds.length),
+			);
+			nearbyBirds.slice(0, targetCount).forEach((bird, index) => {
+				const reactionAction =
+					reactionPool[Math.floor(Math.random() * reactionPool.length)] ?? "inspect";
+				queuePerchReaction(bird, now, {
+					action: reactionAction,
+					delay:
+						randomBetween(FLOCK_REACTION_DELAY_MIN_MS, FLOCK_REACTION_DELAY_MAX_MS) +
+						index * randomBetween(35, 90),
+					focusX: options.focusX ?? originX,
+				});
+			});
+		};
+		const beginPerchAction = (bird, now) => {
+			const actions = isAlfBird(bird)
+				? ["chief-hop", "crown-preen", "inspect", "head-tilt"]
+				: bird.personalityKey === "skittish"
+					? ["inspect", "turn-hop", "head-tilt", "sidestep", "preen"]
+					: bird.personalityKey === "bold"
+						? ["hop", "turn-hop", "hop", "preen", "wing-shiver", "sidestep"]
+						: bird.personalityKey === "greedy"
+							? ["hop", "inspect", "preen", "sidestep", "double-preen"]
+							: ["hop", "turn-hop", "preen", "inspect", "head-tilt", "double-preen"];
+			const action = actions[Math.floor(Math.random() * actions.length)] ?? "hop";
+			startPerchAction(bird, action, now);
 		};
 		const resolvePerchedCrowding = (bird, now) => {
 			const crowdedNeighbor = state.birds.find(
@@ -4093,11 +4217,14 @@
 			bird.alertStartedAt = 0;
 			bird.inspectUntil = 0;
 			bird.inspectStartedAt = 0;
-			bird.perchAction = "inspect";
-			bird.perchActionStartedAt = now;
-			bird.perchActionDuration = randomBetween(280, 640);
-			bird.nextPerchActionAt =
-				now + randomBetween(PERCH_ACTION_MIN_MS * 0.85, PERCH_ACTION_MAX_MS * 0.95);
+			bird.pendingPerchReaction = null;
+			bird.pendingPerchReactionAt = 0;
+			bird.pendingPerchReactionFacing = 0;
+			startPerchAction(bird, "inspect", now, {
+				duration: randomBetween(280, 640),
+				nextActionDelayMin: PERCH_ACTION_MIN_MS * 0.85,
+				nextActionDelayMax: PERCH_ACTION_MAX_MS * 0.95,
+			});
 			setBirdFrame(bird, PERCHED_FRAME_INDEX);
 			applyBirdFrame(bird);
 		};
@@ -4344,6 +4471,11 @@
 			bird.growthScale = clamp(1 + bird.foodEatenCount * 0.065, 1, 1.28);
 			updateBirdDimensions(bird);
 			spawnHeartBurst(bird);
+			triggerFlockReaction(bird, {
+				reason: "food",
+				radius: FLOCK_REACTION_RADIUS + 28,
+				focusX: source.x + source.size * 0.5,
+			});
 			applyFoodSourceImpulse(
 				source,
 				bird.x + bird.width * 0.48,
@@ -4824,14 +4956,28 @@
 			if (resolvePerchedCrowding(bird, now)) {
 				return;
 			}
-			if (now >= bird.nextPerchActionAt) {
-				beginPerchAction(bird, now);
-			}
 			const swayPhase = now * 0.0018 + bird.idlePhase;
 			bird.visualShiftX = Math.round(Math.sin(swayPhase * 0.58) * 1);
 			bird.visualBob = Math.round(
 				Math.sin(swayPhase) * 1 + Math.sin(swayPhase * 0.47) * 0.4,
 			);
+			if (
+				bird.perchAction === "idle" &&
+				bird.pendingPerchReaction &&
+				now >= bird.pendingPerchReactionAt
+			) {
+				startPerchAction(bird, bird.pendingPerchReaction, now, {
+					facing: bird.pendingPerchReactionFacing,
+					nextActionDelayMin: PERCH_ACTION_MIN_MS * 0.8,
+					nextActionDelayMax: PERCH_ACTION_MAX_MS * 0.9,
+				});
+				bird.pendingPerchReaction = null;
+				bird.pendingPerchReactionAt = 0;
+				bird.pendingPerchReactionFacing = 0;
+			}
+			if (bird.perchAction === "idle" && now >= bird.nextPerchActionAt) {
+				beginPerchAction(bird, now);
+			}
 			if (bird.perchAction !== "idle") {
 				const elapsed = now - bird.perchActionStartedAt;
 				const progress = clamp(elapsed / Math.max(1, bird.perchActionDuration), 0, 1);
@@ -4861,6 +5007,25 @@
 				} else if (bird.perchAction === "inspect") {
 					bird.visualShiftX += Math.round(Math.cos(progress * Math.PI * 2) * 2);
 					bird.visualBob -= Math.round(Math.sin(progress * Math.PI) * 4);
+				} else if (bird.perchAction === "head-tilt") {
+					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI * 2.6) * 2);
+					bird.visualBob -= Math.round(Math.abs(Math.sin(progress * Math.PI * 1.6)) * 3);
+				} else if (bird.perchAction === "sidestep") {
+					const sidestepTravel =
+						progress < 0.5
+							? easeOutCubic(progress * 2)
+							: 1 - easeInOutQuad((progress - 0.5) * 2);
+					bird.visualShiftX += Math.round((sidestepTravel - 0.5) * 10) * bird.facing;
+					bird.visualBob -= Math.round(Math.sin(progress * Math.PI) * 3);
+				} else if (bird.perchAction === "wing-shiver") {
+					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI * 10) * 2);
+					bird.visualBob += Math.round(Math.cos(progress * Math.PI * 6) * 2 - 1);
+				} else if (bird.perchAction === "double-preen") {
+					const firstDip = Math.sin(clamp(progress * 2, 0, 1) * Math.PI);
+					const secondDip = Math.sin(clamp((progress - 0.28) / 0.72, 0, 1) * Math.PI);
+					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI * 4) * 2);
+					bird.visualBob +=
+						Math.round(firstDip * 2 - 2) + Math.round(secondDip * 2 - 2);
 				}
 			}
 
@@ -5084,6 +5249,9 @@
 				perchAction: "idle",
 				perchActionStartedAt: 0,
 				perchActionDuration: 0,
+				pendingPerchReaction: null,
+				pendingPerchReactionAt: 0,
+				pendingPerchReactionFacing: 0,
 				nextPerchActionAt: 0,
 				appetite: "hungry",
 				cravingKind: pickRandomCravingKind(),
@@ -6099,6 +6267,12 @@
 
 			event.preventDefault();
 			event.stopPropagation();
+			triggerFlockReaction(bird, {
+				reason: "click",
+				focusX: event.clientX,
+				originX: bird.x + bird.width * 0.5,
+				originY: bird.y + bird.height * 0.5,
+			});
 			const roll = Math.random();
 			const probabilities = getClickInteractionProbabilities(bird);
 			const relocateThreshold = probabilities.relocateProbability;
