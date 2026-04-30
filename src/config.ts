@@ -90,7 +90,7 @@ export const navBarConfig: NavBarConfig = {
 export const profileConfig: ProfileConfig = {
 	avatar: "assets/images/alf-avatar.png",
 	name: "AlF",
-	bio: "不要崇拜哥，哥只是三角洲巅峰125星",
+	bio: "记录正在发生的思考，也记录正在成形的作品。",
 	quote: "在终端、断点和未写完的笔记之间继续前进。",
 	links: [
 		{
