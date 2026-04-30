@@ -2364,8 +2364,10 @@
 			}
 			return clamp(perchX, minX, maxX);
 		};
+		const getBirdPerchElement = (bird) =>
+			bird.perch?.element instanceof HTMLElement ? bird.perch.element : null;
 		const syncBirdPerchPosition = (bird) => {
-			const perchElement = bird.perch?.element;
+			const perchElement = getBirdPerchElement(bird);
 			if (!(perchElement instanceof HTMLElement)) {
 				return false;
 			}
@@ -4961,8 +4963,14 @@
 				startEscape(bird, { force: true });
 				return;
 			}
+			const perchElement = getBirdPerchElement(bird);
+			if (!(perchElement instanceof HTMLElement)) {
+				startEscape(bird);
+				return;
+			}
+			const perchVisible = isVisibleTarget(perchElement);
 			if (
-				!isVisibleTarget(bird.perch.element) &&
+				!perchVisible &&
 				now < state.targetChangeGraceUntil
 			) {
 				setBirdFrame(bird, PERCHED_FRAME_INDEX);
@@ -4970,7 +4978,7 @@
 				return;
 			}
 
-			if (!isVisibleTarget(bird.perch.element) || (isBirdHungry(bird) && now >= bird.leaveAt)) {
+			if (!perchVisible || (isBirdHungry(bird) && now >= bird.leaveAt)) {
 				startEscape(bird);
 				return;
 			}
@@ -4997,7 +5005,10 @@
 				return;
 			}
 
-			syncBirdPerchPosition(bird);
+			if (!syncBirdPerchPosition(bird)) {
+				startEscape(bird);
+				return;
+			}
 			if (resolvePerchedCrowding(bird, now)) {
 				return;
 			}
@@ -6286,9 +6297,10 @@
 				if (isSelectedBird(bird)) {
 					return;
 				}
+				const perchElement = getBirdPerchElement(bird);
 				if (
 					bird.state === "panel-perched" &&
-					!isVisibleTarget(bird.perch.element) &&
+					(!(perchElement instanceof HTMLElement) || !isVisibleTarget(perchElement)) &&
 					performance.now() >= state.targetChangeGraceUntil
 				) {
 					startEscape(bird);
@@ -6413,52 +6425,79 @@
 			}
 
 			state.birds.slice().forEach((bird) => {
-				maybeSpeakAsAlfBird(bird, now);
-				if (bird.state === "selected-docked") {
-					dockSelectedBirdForScroll(bird);
-					return;
-				}
-				if (updatePreviewLockedBird(bird, now)) {
-					return;
-				}
-				if (bird.state === "alf-supplying") {
-					updateAlfSupplyingBird(bird, now);
-					return;
-				}
-				if (
-					bird.state === "approaching" ||
-					bird.state === "relocating" ||
-					bird.state === "escaping" ||
-					bird.state === "food-approaching" ||
-					bird.state === "food-dash" ||
-					bird.state === "bird-attack"
-				) {
-					updateMovingBird(bird, now);
-					return;
-				}
+				try {
+					maybeSpeakAsAlfBird(bird, now);
+					if (bird.state === "selected-docked") {
+						dockSelectedBirdForScroll(bird);
+						return;
+					}
+					if (updatePreviewLockedBird(bird, now)) {
+						return;
+					}
+					if (bird.state === "alf-supplying") {
+						updateAlfSupplyingBird(bird, now);
+						return;
+					}
+					if (
+						bird.state === "approaching" ||
+						bird.state === "relocating" ||
+						bird.state === "escaping" ||
+						bird.state === "food-approaching" ||
+						bird.state === "food-dash" ||
+						bird.state === "bird-attack"
+					) {
+						updateMovingBird(bird, now);
+						return;
+					}
 
-				if (bird.state === "panel-perched") {
-					updatePanelPerchedBird(bird, now);
-					return;
-				}
+					if (bird.state === "panel-perched") {
+						updatePanelPerchedBird(bird, now);
+						return;
+					}
 
-				if (bird.state === "alerting") {
-					updateAlertingBird(bird, now);
-					return;
-				}
+					if (bird.state === "alerting") {
+						updateAlertingBird(bird, now);
+						return;
+					}
 
-				if (bird.state === "inspecting-food") {
-					updateInspectingFoodBird(bird, now);
-					return;
-				}
+					if (bird.state === "inspecting-food") {
+						updateInspectingFoodBird(bird, now);
+						return;
+					}
 
-				if (bird.state === "food-hover") {
-					updateFoodHoverBird(bird, now);
-					return;
-				}
+					if (bird.state === "food-hover") {
+						updateFoodHoverBird(bird, now);
+						return;
+					}
 
-				if (bird.state === "sky-circling") {
-					updateSkyCirclingBird(bird, now);
+					if (bird.state === "sky-circling") {
+						updateSkyCirclingBird(bird, now);
+					}
+				} catch (error) {
+					console.error("[RavenFlock] bird update failed", {
+						birdId: bird.id,
+						state: bird.state,
+						error,
+					});
+					if (state.birds.includes(bird)) {
+						try {
+							if (bird.state === "escaping") {
+								removeBird(bird);
+								return;
+							}
+							bird.perch = null;
+							bird.actionPayload = null;
+							bird.foodTargetKey = null;
+							startEscape(bird, { force: true });
+						} catch (recoveryError) {
+							console.error("[RavenFlock] bird recovery failed", {
+								birdId: bird.id,
+								state: bird.state,
+								recoveryError,
+							});
+							removeBird(bird);
+						}
+					}
 				}
 			});
 
