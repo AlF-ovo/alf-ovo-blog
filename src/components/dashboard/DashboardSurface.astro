@@ -58,59 +58,59 @@ const {
 }: Props = Astro.props;
 
 const dashboardHeroQuotes = [
-	"Keep the logs clean and the routes short.",
-	"Small changes compound faster than rewrites.",
-	"Ship the page, then tune the edges.",
-	"Make the structure obvious before making it clever.",
-	"The home page should answer first and decorate second.",
-	"Fast navigation is a feature, not a detail.",
+	"先把记录写清楚，再谈形式怎么更漂亮。",
+	"小步快改，往往比大改版更能积累站点气质。",
+	"页面先能用，再慢慢把边角打磨出来。",
+	"结构先足够直白，之后再考虑做得巧一点。",
+	"首页应该先回答“这里有什么”，再考虑装饰感。",
+	"导航够快，本身就是体验的一部分。",
 ];
 
 const dashboardHints = {
 	write: {
-		title: "Write Flow",
-		content: `1. Create long posts with: pnpm new-post -- your-slug
-2. Create short notes with: pnpm new-post -- your-note --type note
-3. Prefer folder-based content:
+		title: "写作流程",
+		content: `1. 新建长文：pnpm new-post -- your-slug
+2. 新建短笔记：pnpm new-post -- your-note --type note
+3. 优先使用目录式内容结构：
    src/content/posts/your-slug/index.md
    src/content/notes/your-note/index.md
-4. Keep images and attachments next to index.md
-5. Fill title, description, tags, category, categoryPath, and series early
-6. Run pnpm build before publishing`,
+4. 图片和附件尽量跟 index.md 放在一起
+5. 尽早补齐 title、description、tags、category、categoryPath、series
+6. 发布前跑一次 pnpm build`,
 	},
 	organize: {
-		title: "Structure Rules",
-		content: `1. Keep category as the top-level bucket
-2. Use categoryPath for nested navigation paths
-3. Use series for connected writeups
-4. Keep long-form in posts and short-form in notes
-5. Prefer colocated assets over dumping into public
-6. Preserve searchable titles, excerpts, and taxonomy`,
+		title: "结构约定",
+		content: `1. category 负责一级归类
+2. categoryPath 用来补足层级路径
+3. series 用来聚合同一系列内容
+4. 长文放 posts，短内容放 notes
+5. 资源优先跟内容同目录，不要无脑堆进 public
+6. 标题、摘要和分类信息要尽量保持可检索`,
 	},
 };
 
 const dashboardSearchItems = [
 	{
 		title: dashboardMetrics.lastUpdatedEntry.title,
-		type: `Latest update - ${dashboardMetrics.lastUpdatedEntry.kindLabel}`,
+		type: `最近更新 - ${dashboardMetrics.lastUpdatedEntry.kindLabel}`,
 		description: dashboardMetrics.lastUpdatedEntry.excerpt,
 		url: dashboardMetrics.lastUpdatedEntry.url,
 	},
 	{
 		title: dashboardMetrics.latestPost.title,
-		type: `Latest post - ${dashboardMetrics.latestPost.kindLabel}`,
+		type: `最新文章 - ${dashboardMetrics.latestPost.kindLabel}`,
 		description: dashboardMetrics.latestPost.excerpt,
 		url: dashboardMetrics.latestPost.url,
 	},
 	{
 		title: dashboardMetrics.latestNote.title,
-		type: `Latest note - ${dashboardMetrics.latestNote.kindLabel}`,
+		type: `最新笔记 - ${dashboardMetrics.latestNote.kindLabel}`,
 		description: dashboardMetrics.latestNote.excerpt,
 		url: dashboardMetrics.latestNote.url,
 	},
 	...recentUpdates.map((item) => ({
 		title: item.title,
-		type: `Recent - ${item.kindLabel}`,
+		type: `最近 - ${item.kindLabel}`,
 		description: item.description,
 		time: item.time,
 		url: item.url,
@@ -150,7 +150,7 @@ const getChartMetrics = (points: ActivityPoint[]): ActivityMetric[] => {
 };
 
 const summarizeDataset = (dataset: (typeof chartDatasets)["week"]) =>
-	`${dataset.label}: ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} published, ${dataset.points.reduce((sum, point) => sum + point.update, 0)} updated, ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} deleted.`;
+	`${dataset.label}：发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 次，修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次。`;
 
 const defaultRange = "week";
 const defaultDataset = chartDatasets[defaultRange];
@@ -161,7 +161,7 @@ const defaultSummary = summarizeDataset(defaultDataset);
 <div class:list={["dashboard-shell", { "dashboard-shell--compact": compact, "dashboard-shell--sidebarless": !showSidebar }]}>
 	<div class="dashboard-main">
 		<DashboardTopbar profileName={profileConfig.name} />
-		<DashboardHero greeting={`Welcome, ${profileConfig.name}`} />
+		<DashboardHero greeting={`欢迎回来，${profileConfig.name}`} />
 		<DashboardMetricsGrid metrics={dashboardMetrics} />
 
 		<div class="dashboard-grid">
@@ -183,10 +183,10 @@ const defaultSummary = summarizeDataset(defaultDataset);
 	<section class="dashboard-hint-card" data-dashboard-hint-root role="dialog" aria-modal="true" aria-labelledby="dashboard-hint-title">
 		<div class="dashboard-hint-head">
 			<div>
-				<p class="dashboard-panel-eyebrow">Hint</p>
-				<h3 class="dashboard-hint-title" id="dashboard-hint-title" data-dashboard-hint-title>Content Hint</h3>
+				<p class="dashboard-panel-eyebrow">提示</p>
+				<h3 class="dashboard-hint-title" id="dashboard-hint-title" data-dashboard-hint-title>内容提示</h3>
 			</div>
-			<button class="dashboard-hint-close" type="button" aria-label="Close hint" data-dashboard-hint-close>
+			<button class="dashboard-hint-close" type="button" aria-label="关闭提示" data-dashboard-hint-close>
 				x
 			</button>
 		</div>
@@ -215,7 +215,7 @@ const defaultSummary = summarizeDataset(defaultDataset);
 	const buildAreaPath = (metrics, key) => `M 0 100 ${metrics.map((point) => `L ${point.x} ${point[key]}`).join(" ")} L 100 100 Z`;
 	const buildLinePath = (metrics, key) => `M ${metrics.map((point) => `${point.x} ${point[key]}`).join(" L ")}`;
 	const summarizeDataset = (dataset) =>
-		`${dataset.label}: ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} published, ${dataset.points.reduce((sum, point) => sum + point.update, 0)} updated, ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} deleted.`;
+		`${dataset.label}：发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 次，修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次。`;
 
 	const initDashboardTypewriter = () => {
 		const node = document.querySelector("[data-dashboard-typewriter]");
@@ -324,7 +324,7 @@ const defaultSummary = summarizeDataset(defaultDataset);
 
 			const meta = document.createElement("div");
 			meta.className = "dashboard-search-result-meta";
-			meta.textContent = `${item.type}${item.time ? ` - ${item.time}` : ""}`;
+			meta.textContent = `${item.type}${item.time ? ` · ${item.time}` : ""}`;
 
 			const title = document.createElement("div");
 			title.className = "dashboard-search-result-title";

@@ -38,6 +38,10 @@ function scheduleCopyFeedbackReset(button: HTMLElement) {
 
 function fallbackCopyText(text: string): boolean {
 	const textarea = document.createElement("textarea");
+	const selection = document.getSelection();
+	const activeElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+	const range =
+		selection && selection.rangeCount > 0 ? selection.getRangeAt(0).cloneRange() : null;
 	textarea.value = text;
 	textarea.setAttribute("readonly", "true");
 	textarea.style.position = "fixed";
@@ -51,12 +55,23 @@ function fallbackCopyText(text: string): boolean {
 
 	let copied = false;
 	try {
-		copied = document.execCommand("copy");
+		const legacyExecCommand = (document as unknown as Record<string, unknown>)["execCommand"];
+		copied =
+			typeof legacyExecCommand === "function"
+				? Boolean(legacyExecCommand.call(document, "copy"))
+				: false;
 	} catch (_error) {
 		copied = false;
 	}
 
 	textarea.remove();
+	if (selection) {
+		selection.removeAllRanges();
+		if (range) {
+			selection.addRange(range);
+		}
+	}
+	activeElement?.focus();
 	return copied;
 }
 

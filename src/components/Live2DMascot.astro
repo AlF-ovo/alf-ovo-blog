@@ -27,8 +27,8 @@ const expressionNames = [
 	data-expression-names={JSON.stringify(expressionNames)}
 	aria-live="polite"
 >
-	<section class="live2d-mascot__panel" aria-label="Live2D mascot">
-		<div class="live2d-mascot__status" data-live2d-status>Mascot loading</div>
+	<section class="live2d-mascot__panel" aria-label="Live2D 看板娘">
+		<div class="live2d-mascot__status" data-live2d-status>看板娘加载中</div>
 		<canvas
 			class="live2d-mascot__canvas"
 			data-live2d-canvas
@@ -456,7 +456,7 @@ const expressionNames = [
 			}
 
 			state.initPromise = (async () => {
-				setStatus("Mascot loading");
+				setStatus("看板娘加载中");
 
 				await ensureScript(pixiUrl, () => Boolean(window.PIXI?.Application));
 				await ensureCubismCore();
@@ -497,7 +497,7 @@ const expressionNames = [
 			})().catch((error) => {
 				state.initPromise = null;
 				console.error("Live2D mascot failed to initialize", error);
-				setStatus("Mascot load failed", "error");
+				setStatus("看板娘加载失败", "error");
 				throw error;
 			});
 

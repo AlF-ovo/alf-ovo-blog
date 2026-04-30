@@ -4,7 +4,7 @@ const { profileName } = Astro.props;
 
 <header class="dashboard-topbar">
 	<div>
-		<p class="dashboard-topbar-label">Blog Dashboard</p>
+		<p class="dashboard-topbar-label">博客总览</p>
 		<h2 class="dashboard-topbar-title">内容总览与维护入口</h2>
 	</div>
 	<div class="dashboard-topbar-actions">
@@ -26,7 +26,7 @@ const { profileName } = Astro.props;
 			<div class="dashboard-profile-avatar">{profileName?.slice(0, 1) || "A"}</div>
 			<div>
 				<p class="dashboard-profile-name">{profileName}</p>
-				<p class="dashboard-profile-role">Writer / Maintainer</p>
+				<p class="dashboard-profile-role">写作者 / 维护者</p>
 			</div>
 		</div>
 	</div>

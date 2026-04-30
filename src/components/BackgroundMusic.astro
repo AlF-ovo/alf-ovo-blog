@@ -44,10 +44,10 @@ const defaultTrack =
 	null;
 
 const systemPanels = [
-	{ id: "audio", label: "Audio", icon: "fa6-solid:wave-square" },
-	{ id: "playlist", label: "Playlist", icon: "fa6-solid:list" },
-	{ id: "mascot", label: "Mascot", icon: "fa6-solid:user-astronaut" },
-	{ id: "display", label: "Display", icon: "fa6-solid:image" },
+	{ id: "audio", label: "音频", icon: "fa6-solid:wave-square" },
+	{ id: "playlist", label: "曲目", icon: "fa6-solid:list" },
+	{ id: "mascot", label: "看板娘", icon: "fa6-solid:user-astronaut" },
+	{ id: "display", label: "显示", icon: "fa6-solid:image" },
 ];
 ---
 
@@ -76,7 +76,7 @@ const systemPanels = [
 				id={drawerToggleId}
 				type="button"
 				class="system-control-launch"
-				aria-label="Open system panel"
+				aria-label="打开系统面板"
 				aria-controls={drawerId}
 				aria-expanded="false"
 			>
@@ -85,17 +85,17 @@ const systemPanels = [
 				</span>
 			</button>
 
-			<section id={drawerId} class="system-control-drawer" hidden aria-label="System panel">
+			<section id={drawerId} class="system-control-drawer" hidden aria-label="系统面板">
 				<div class="system-control-header">
 					<div>
-						<p class="system-control-heading">System</p>
+						<p class="system-control-heading">系统</p>
 						<p id={statusId} class="system-control-status">
-							{normalizedTracks.length > 0 ? "Ready" : "No tracks configured"}
+							{normalizedTracks.length > 0 ? "已就绪" : "还没有可用曲目"}
 						</p>
 					</div>
 				</div>
 
-				<div class="system-control-modes" role="tablist" aria-label="System controls">
+				<div class="system-control-modes" role="tablist" aria-label="系统控制">
 					{
 						systemPanels.map((panel) => (
 							<button
@@ -116,7 +116,7 @@ const systemPanels = [
 				</div>
 
 				<p id={panelHintId} class="system-control-panel-hint">
-					Select an icon to open its controls.
+					点一个图标，展开对应的控制项。
 				</p>
 
 				<section
@@ -128,14 +128,14 @@ const systemPanels = [
 					<div class="system-control-section">
 						<div class="system-control-section__row">
 							<div>
-								<p class="system-control-section__title">Playback</p>
-								<p class="system-control-section__copy">Pause or resume the current background fragment.</p>
+								<p class="system-control-section__title">播放</p>
+								<p class="system-control-section__copy">暂停或继续当前背景音乐。</p>
 							</div>
 							<button
 								id={toggleId}
 								type="button"
 								class="system-control-play"
-								aria-label="Toggle background music"
+								aria-label="切换背景音乐播放状态"
 								aria-pressed="false"
 								disabled={normalizedTracks.length === 0}
 							>
@@ -152,8 +152,8 @@ const systemPanels = [
 					<div class="system-control-section">
 						<div class="system-control-section__row">
 							<div>
-								<p class="system-control-section__title">Volume</p>
-								<p class="system-control-section__copy">Adjust the current music loudness.</p>
+								<p class="system-control-section__title">音量</p>
+								<p class="system-control-section__copy">调整当前背景音乐的音量。</p>
 							</div>
 							<span id={volumeValueId} class="system-control-value">20%</span>
 						</div>
@@ -165,7 +165,7 @@ const systemPanels = [
 							max="100"
 							step="1"
 							value="20"
-							aria-label="Music volume"
+							aria-label="音乐音量"
 						/>
 					</div>
 				</section>
@@ -179,8 +179,8 @@ const systemPanels = [
 					<div class="system-control-section">
 						<div class="system-control-section__row">
 							<div>
-								<p class="system-control-section__title">Wallpaper opacity</p>
-								<p class="system-control-section__copy">Adjust the transparency of the foreground UI while the wallpaper stays fully visible.</p>
+								<p class="system-control-section__title">前景透明度</p>
+								<p class="system-control-section__copy">调整前景界面的透明度，壁纸保持完整显示。</p>
 							</div>
 							<span id={foregroundOpacityValueId} class="system-control-value">80%</span>
 						</div>
@@ -192,7 +192,7 @@ const systemPanels = [
 							max="100"
 							step="1"
 							value="80"
-							aria-label="Foreground opacity"
+							aria-label="前景透明度"
 						/>
 					</div>
 				</section>
@@ -206,25 +206,25 @@ const systemPanels = [
 					<div class="system-control-section">
 						<div class="system-control-section__row">
 							<div>
-								<p class="system-control-section__title">Mascot visibility</p>
-								<p class="system-control-section__copy">Hide or restore the Live2D mascot from here.</p>
+								<p class="system-control-section__title">看板娘显示</p>
+								<p class="system-control-section__copy">在这里隐藏或恢复 Live2D 看板娘。</p>
 							</div>
-							<span id={mascotVisibilityValueId} class="system-control-value">Visible</span>
+							<span id={mascotVisibilityValueId} class="system-control-value">显示中</span>
 						</div>
 						<button
 							id={mascotVisibilityId}
 							type="button"
 							class="system-control-action"
 						>
-							Hide mascot
+							隐藏看板娘
 						</button>
 					</div>
 
 					<div class="system-control-section">
 						<div class="system-control-section__row">
 							<div>
-								<p class="system-control-section__title">Mascot size</p>
-								<p class="system-control-section__copy">Resize the Live2D mascot without affecting the rest of the layout.</p>
+								<p class="system-control-section__title">看板娘大小</p>
+								<p class="system-control-section__copy">单独调整 Live2D 看板娘尺寸，不影响其余布局。</p>
 							</div>
 							<span id={mascotScaleValueId} class="system-control-value">100%</span>
 						</div>
@@ -236,7 +236,7 @@ const systemPanels = [
 							max="150"
 							step="1"
 							value="100"
-							aria-label="Mascot size"
+							aria-label="看板娘大小"
 						/>
 					</div>
 				</section>
@@ -250,12 +250,12 @@ const systemPanels = [
 					<div class="system-control-section">
 						<div class="system-control-section__row">
 							<div>
-								<p class="system-control-section__title">Music fragment</p>
-								<p class="system-control-section__copy">Pick the current background fragment manually.</p>
+								<p class="system-control-section__title">当前曲目</p>
+								<p class="system-control-section__copy">手动切换当前播放的背景音乐。</p>
 							</div>
 						</div>
 
-						<div id={listId} class="system-control-track-list" role="listbox" aria-label="Background music tracks">
+						<div id={listId} class="system-control-track-list" role="listbox" aria-label="背景音乐列表">
 							{normalizedTracks.length > 0 ? (
 								normalizedTracks.map((track) => (
 									<button
@@ -273,7 +273,7 @@ const systemPanels = [
 										<span class="system-control-track__copy">
 											<span class="system-control-track__title">{track.title}</span>
 											<span class="system-control-track__meta">
-												{track.artist ? track.artist : track.hasSource ? "Ready" : "Missing source"}
+												{track.artist ? track.artist : track.hasSource ? "已就绪" : "缺少音源"}
 											</span>
 										</span>
 										<span class="system-control-track__icon" aria-hidden="true">
@@ -282,7 +282,7 @@ const systemPanels = [
 									</button>
 								))
 							) : (
-								<div class="system-control-empty">Add confirmed songs in src/config.ts.</div>
+								<div class="system-control-empty">去 `src/config.ts` 里补充可用曲目。</div>
 							)}
 						</div>
 					</div>
@@ -796,7 +796,7 @@ const systemPanels = [
 			return {
 				id: button.dataset.trackId || "",
 				src: button.dataset.trackSrc || "",
-				title: button.dataset.trackTitle || "Untitled",
+				title: button.dataset.trackTitle || "未命名曲目",
 				artist: button.dataset.trackArtist?.trim() || "",
 				group: button.dataset.trackGroup?.trim() || "",
 			};
@@ -804,7 +804,7 @@ const systemPanels = [
 
 		const getTrackLabel = (track) => {
 			if (!track) {
-				return "No track selected";
+				return "当前未选择曲目";
 			}
 
 			return track.artist ? `${track.title} · ${track.artist}` : track.title;
@@ -884,8 +884,8 @@ const systemPanels = [
 
 		const applyMascotVisibility = (hidden, shouldPersist = true) => {
 			document.documentElement.dataset.mascotHidden = hidden ? "true" : "false";
-			mascotVisibilityValue.textContent = hidden ? "Hidden" : "Visible";
-			mascotVisibilityButton.textContent = hidden ? "Show mascot" : "Hide mascot";
+			mascotVisibilityValue.textContent = hidden ? "已隐藏" : "显示中";
+			mascotVisibilityButton.textContent = hidden ? "显示看板娘" : "隐藏看板娘";
 			window.dispatchEvent(
 				new CustomEvent("alf:live2d-visibility", {
 					detail: { hidden },
@@ -943,7 +943,7 @@ const systemPanels = [
 			if (!selectedButton) {
 				currentButton = null;
 				toggle.disabled = true;
-				status.textContent = "No tracks configured";
+				status.textContent = "还没有可用曲目";
 				audio.removeAttribute("src");
 				audio.load();
 				return null;
@@ -963,7 +963,7 @@ const systemPanels = [
 				isTrackSwitching = false;
 			});
 			toggle.disabled = !track.src;
-			setStatusText("Paused", track);
+			setStatusText("已暂停", track);
 			setRememberedValue(selectionKey, track.id);
 			return track;
 		};
@@ -1002,13 +1002,13 @@ const systemPanels = [
 				audio.volume = currentVolume;
 				await audio.play();
 				autoplayBlocked = false;
-				setStatusText("Playing");
+				setStatusText("播放中");
 				removeUnlockEvents();
 				return true;
 			} catch {
 				if (fromAutoplay) {
 					autoplayBlocked = true;
-					status.textContent = "Autoplay blocked · click anywhere to start";
+					status.textContent = "自动播放被拦截 · 点击页面任意位置开始播放";
 					if (!unlockEventsBound) {
 						document.addEventListener("pointerdown", handleAutoplayUnlock, true);
 						document.addEventListener("keydown", handleAutoplayUnlock, true);
@@ -1016,7 +1016,7 @@ const systemPanels = [
 					}
 				} else {
 					updatePlaybackUi(false);
-					setStatusText("Paused");
+					setStatusText("已暂停");
 				}
 				return false;
 			}
@@ -1148,7 +1148,7 @@ const systemPanels = [
 
 		audio.addEventListener("play", () => {
 			updatePlaybackUi(true);
-			setStatusText("Playing");
+			setStatusText("播放中");
 			exposeWeatherState();
 		});
 
@@ -1158,14 +1158,14 @@ const systemPanels = [
 			}
 
 			updatePlaybackUi(false);
-			setStatusText("Paused");
+			setStatusText("已暂停");
 			exposeWeatherState();
 		});
 
 		audio.addEventListener("ended", async () => {
 			if (!playlistLoop) {
 				updatePlaybackUi(false);
-				setStatusText("Ended");
+				setStatusText("播放结束");
 				exposeWeatherState();
 				return;
 			}
@@ -1183,7 +1183,7 @@ const systemPanels = [
 
 		audio.addEventListener("error", () => {
 			updatePlaybackUi(false);
-			status.textContent = "Audio failed to load";
+			status.textContent = "音频加载失败";
 			exposeWeatherState();
 		});
 

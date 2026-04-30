@@ -31,7 +31,7 @@ export const siteConfig: SiteConfig = {
 	},
 	backgroundMusic: {
 		enable: true,
-		title: "Music",
+		title: "音乐",
 		autoplay: false,
 		loop: true,
 		defaultTrackId: "cold-orbit",
@@ -76,7 +76,7 @@ export const navBarConfig: NavBarConfig = {
 		},
 		LinkPreset.About,
 		{
-			name: "Dashboard",
+			name: "总览",
 			url: "/dashboard/",
 		},
 		{
