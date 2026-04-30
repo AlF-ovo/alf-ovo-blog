@@ -30,5 +30,3 @@ lang: "zh_CN"
 所以答案是：
 
 `ctfshow{114514}`
-
-题目附件：[pwn6](/attachments/ctfshow/prerequisite-basics/pwn6/pwn6)

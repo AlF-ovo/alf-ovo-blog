@@ -24,5 +24,3 @@ lang: "zh_CN"
 ![结果截图](/attachments/ctfshow/prerequisite-basics/pwn5/03-result.png)
 
 `ctfshow{Welcome_to_CTFshow_PWN}`
-
-题目附件：[pwn5](/attachments/ctfshow/prerequisite-basics/pwn5/pwn5)

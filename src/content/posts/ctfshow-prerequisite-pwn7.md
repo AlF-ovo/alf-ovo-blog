@@ -22,5 +22,3 @@ lang: "zh_CN"
 题目里给出的 `36D` 按十六进制理解，直接写成答案就是：
 
 `ctfshow{0x36D}`
-
-题目附件：[pwn7](/attachments/ctfshow/prerequisite-basics/pwn7/pwn7)

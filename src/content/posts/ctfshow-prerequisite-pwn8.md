@@ -24,5 +24,3 @@ lang: "zh_CN"
 ![结果截图](/attachments/ctfshow/prerequisite-basics/pwn8/03-result.png)
 
 `ctfshow{0x80490E8}`
-
-题目附件：[pwn8](/attachments/ctfshow/prerequisite-basics/pwn8/pwn8)
