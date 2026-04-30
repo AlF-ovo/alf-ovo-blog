@@ -2351,6 +2351,19 @@
 			});
 			return chooseLandingSpotFromCandidates(sortedCandidates.slice(0, 3), options);
 		};
+		const clampBirdPerchX = (bird, perchX) => {
+			const perchElement = bird.perch?.element;
+			if (!(perchElement instanceof HTMLElement)) {
+				return perchX;
+			}
+			const rect = perchElement.getBoundingClientRect();
+			const minX = rect.left + 22;
+			const maxX = rect.right - 22;
+			if (maxX <= minX) {
+				return (rect.left + rect.right) * 0.5;
+			}
+			return clamp(perchX, minX, maxX);
+		};
 		const syncBirdPerchPosition = (bird) => {
 			const perchElement = bird.perch?.element;
 			if (!(perchElement instanceof HTMLElement)) {
@@ -2358,6 +2371,10 @@
 			}
 			const rect = perchElement.getBoundingClientRect();
 			bird.perch.y = rect.top;
+			bird.perch.x = clampBirdPerchX(
+				bird,
+				bird.perch?.x ?? rect.left + (rect.right - rect.left) * 0.5,
+			);
 			bird.y = rect.top - bird.footOffset;
 			bird.x = clamp(
 				bird.perch.x - bird.width / 2,
@@ -3935,6 +3952,8 @@
 			bird.perchAction = "idle";
 			bird.perchActionStartedAt = 0;
 			bird.perchActionDuration = 0;
+			bird.perchActionBaseX = bird.perch?.x ?? bird.x + bird.width * 0.5;
+			bird.perchActionTravelX = 0;
 			bird.pendingPerchReaction = null;
 			bird.pendingPerchReactionAt = 0;
 			bird.pendingPerchReactionFacing = 0;
@@ -3968,6 +3987,8 @@
 		const startPerchAction = (bird, action, now, options = {}) => {
 			const hasFacingOverride =
 				Number.isFinite(options.facing) && options.facing !== 0;
+			const isHopAction =
+				action === "hop" || action === "turn-hop" || action === "chief-hop";
 			bird.perchAction = action;
 			bird.perchActionStartedAt = now;
 			bird.perchActionDuration = options.duration ?? getPerchActionDuration(action);
@@ -3990,6 +4011,30 @@
 			if (action === "inspect" && !hasFacingOverride) {
 				bird.facing *= Math.random() < 0.5 ? -1 : 1;
 			}
+			bird.perchActionBaseX = bird.perch?.x ?? bird.x + bird.width * 0.5;
+			bird.perchActionTravelX = isHopAction
+				? randomBetween(
+						action === "turn-hop" ? 4.5 : 5.5,
+						action === "chief-hop" ? 10.5 : 9.2,
+					) * bird.facing
+				: 0;
+		};
+		const applyPerchActionTravel = (bird, progress) => {
+			if (
+				!(bird.perch?.element instanceof HTMLElement) ||
+				!Number.isFinite(bird.perchActionBaseX)
+			) {
+				return;
+			}
+			bird.perch.x = clampBirdPerchX(
+				bird,
+				bird.perchActionBaseX + (bird.perchActionTravelX ?? 0) * progress,
+			);
+			bird.x = clamp(
+				bird.perch.x - bird.width / 2,
+				-VIEWPORT_PADDING,
+				window.innerWidth - bird.width + VIEWPORT_PADDING,
+			);
 		};
 		const queuePerchReaction = (bird, now, options = {}) => {
 			if (
@@ -4982,25 +5027,37 @@
 				const elapsed = now - bird.perchActionStartedAt;
 				const progress = clamp(elapsed / Math.max(1, bird.perchActionDuration), 0, 1);
 				if (progress >= 1) {
+					if (
+						bird.perchAction === "hop" ||
+						bird.perchAction === "turn-hop" ||
+						bird.perchAction === "chief-hop"
+					) {
+						applyPerchActionTravel(bird, 1);
+					}
+					bird.perchActionBaseX = bird.perch?.x ?? bird.x + bird.width * 0.5;
+					bird.perchActionTravelX = 0;
 					bird.perchAction = "idle";
 				} else if (bird.perchAction === "hop") {
 					const hopLift = Math.sin(progress * Math.PI);
 					const hopTravel = easeOutCubic(progress);
+					applyPerchActionTravel(bird, hopTravel);
 					bird.visualBob -= Math.round(hopLift * 8);
-					bird.visualShiftX += Math.round(hopTravel * 8) * bird.facing;
+					bird.visualShiftX += Math.round(hopLift * 1.2) * bird.facing;
 				} else if (bird.perchAction === "turn-hop") {
 					const hopLift = Math.sin(progress * Math.PI);
 					const hopTravel = easeOutCubic(progress);
+					applyPerchActionTravel(bird, hopTravel);
 					bird.visualBob -= Math.round(hopLift * 10);
-					bird.visualShiftX += Math.round(hopTravel * 6) * bird.facing;
+					bird.visualShiftX += Math.round(hopLift * 1.4) * bird.facing;
 				} else if (bird.perchAction === "preen") {
 					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI * 3) * 3);
 					bird.visualBob += Math.round(Math.sin(progress * Math.PI * 2) * 2 - 2);
 				} else if (bird.perchAction === "chief-hop") {
 					const hopLift = Math.sin(progress * Math.PI);
 					const hopTravel = easeOutCubic(progress);
+					applyPerchActionTravel(bird, hopTravel);
 					bird.visualBob -= Math.round(hopLift * 9);
-					bird.visualShiftX += Math.round(hopTravel * 7) * bird.facing;
+					bird.visualShiftX += Math.round(hopLift * 1.3) * bird.facing;
 				} else if (bird.perchAction === "crown-preen") {
 					bird.visualShiftX += Math.round(Math.sin(progress * Math.PI * 2.6) * 2);
 					bird.visualBob += Math.round(Math.sin(progress * Math.PI * 2) * 3 - 3);
@@ -5249,6 +5306,8 @@
 				perchAction: "idle",
 				perchActionStartedAt: 0,
 				perchActionDuration: 0,
+				perchActionBaseX: 0,
+				perchActionTravelX: 0,
 				pendingPerchReaction: null,
 				pendingPerchReactionAt: 0,
 				pendingPerchReactionFacing: 0,
