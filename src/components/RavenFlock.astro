@@ -3608,9 +3608,11 @@
 			}
 			return randomBetween(18, maxY);
 		};
-		const chooseRandomDroppedDrumstickSpawn = (size) => {
+		const chooseRandomDroppedDrumstickSpawn = (size, options = {}) => {
 			const preferredX = getTopDropSpawnX(size);
-			const spawnSide = ["left", "right", "top"][Math.floor(Math.random() * 3)];
+			const spawnSide = options.topOnly
+				? "top"
+				: ["left", "right", "top"][Math.floor(Math.random() * 3)];
 			if (spawnSide === "top") {
 				return {
 					x: preferredX,
@@ -3639,9 +3641,11 @@
 				restX: preferredX,
 			};
 		};
-		const chooseRandomFriesBurstSpawn = (size) => {
+		const chooseRandomFriesBurstSpawn = (size, options = {}) => {
 			const preferredX = getTopDropSpawnX(size);
-			const spawnSide = ["left", "right", "top"][Math.floor(Math.random() * 3)];
+			const spawnSide = options.topOnly
+				? "top"
+				: ["left", "right", "top"][Math.floor(Math.random() * 3)];
 			if (spawnSide === "top") {
 				return {
 					side: "top",
@@ -3669,10 +3673,10 @@
 				restX: preferredX,
 			};
 		};
-		const spawnTopDroppedDrumstick = () => {
+		const spawnTopDroppedDrumstick = (options = {}) => {
 			const scale = state.food.scale;
 			const size = FOOD_HOME_SIZE * scale;
-			const spawn = chooseRandomDroppedDrumstickSpawn(size);
+			const spawn = chooseRandomDroppedDrumstickSpawn(size, options);
 			createDroppedFoodItem({
 				foodKind: "drumstick",
 				scale,
@@ -3848,7 +3852,7 @@
 						vy: directDropVy,
 						restX: null,
 					}
-					: chooseRandomFriesBurstSpawn(size);
+					: chooseRandomFriesBurstSpawn(size, options);
 			createDroppedFoodItem({
 				foodKind: "fries",
 				scale: burstScale,
@@ -5924,7 +5928,7 @@
 								pointerVelocityY,
 								useThrownRelease: true,
 							}
-						: { count: burstCount },
+						: { count: burstCount, topOnly: true },
 				);
 				return;
 			}
@@ -5934,7 +5938,7 @@
 			releaseFoodPointerCapture(event.pointerId);
 
 			if (state.food.mode === "holding") {
-				spawnTopDroppedDrumstick();
+				spawnTopDroppedDrumstick({ topOnly: true });
 				resetFoodToHome();
 				summonBirdsToFood();
 				ensureAnimationLoop();
