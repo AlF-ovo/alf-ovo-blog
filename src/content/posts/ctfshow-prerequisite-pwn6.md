@@ -2,7 +2,7 @@
 title: "ctfshow 前置基础 pwn6"
 published: 2026-04-30T18:10:00+08:00
 description: "记录 ctfshow 前置基础 pwn6 的立即寻址判断过程。"
-image: "/attachments/ctfshow/prerequisite-basics/pwn6/01-question.png"
+image: ""
 tags: ["ctfshow", "前置基础", "Pwn"]
 category: "ctfshow"
 categoryPath: ["ctfshow", "前置基础"]

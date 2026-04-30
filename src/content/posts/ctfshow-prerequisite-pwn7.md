@@ -2,7 +2,7 @@
 title: "ctfshow 前置基础 pwn7"
 published: 2026-04-30T18:11:00+08:00
 description: "记录 ctfshow 前置基础 pwn7 的进制转换结果。"
-image: "/attachments/ctfshow/prerequisite-basics/pwn7/01-question.png"
+image: ""
 tags: ["ctfshow", "前置基础", "Pwn"]
 category: "ctfshow"
 categoryPath: ["ctfshow", "前置基础"]

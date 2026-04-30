@@ -2,7 +2,7 @@
 title: "ctfshow 前置基础 pwn8"
 published: 2026-04-30T18:12:00+08:00
 description: "记录 ctfshow 前置基础 pwn8 的地址定位结果。"
-image: "/attachments/ctfshow/prerequisite-basics/pwn8/01-question.png"
+image: ""
 tags: ["ctfshow", "前置基础", "Pwn"]
 category: "ctfshow"
 categoryPath: ["ctfshow", "前置基础"]
