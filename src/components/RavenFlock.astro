@@ -654,6 +654,12 @@
 		const CLICK_HEART_PROBABILITY = 0.05;
 		const CLICK_RELOCATE_PROBABILITY = 0.635;
 		const CLICK_ESCAPE_PROBABILITY = 0.315;
+		const ALERT_REACTION_MIN_MS = 220;
+		const ALERT_REACTION_MAX_MS = 640;
+		const FOOD_INSPECT_MIN_MS = 320;
+		const FOOD_INSPECT_MAX_MS = 1080;
+		const FOOD_RECONSIDER_MIN_MS = 900;
+		const FOOD_RECONSIDER_MAX_MS = 2200;
 		const THOUGHT_INTERVAL_MIN_MS = 12000;
 		const THOUGHT_INTERVAL_MAX_MS = 22000;
 		const FOOD_HOME_SIZE = 44;
@@ -798,6 +804,44 @@
 			"左边先补货，右边那几只一会儿自然会围过来。",
 			"要是没人投喂，我就得自己去外面找点硬菜了。",
 			"这会儿先发鸡腿，薯条留着等后半场。",
+		];
+		const BIRD_PERSONALITY_PROFILES = [
+			{
+				key: "skittish",
+				weight: 0.26,
+				caution: [0.72, 0.94],
+				curiosity: [0.22, 0.46],
+				sociability: [0.18, 0.42],
+				greed: [0.12, 0.38],
+				assertiveness: [0.14, 0.38],
+			},
+			{
+				key: "greedy",
+				weight: 0.28,
+				caution: [0.18, 0.44],
+				curiosity: [0.48, 0.76],
+				sociability: [0.24, 0.52],
+				greed: [0.66, 0.94],
+				assertiveness: [0.48, 0.72],
+			},
+			{
+				key: "bold",
+				weight: 0.18,
+				caution: [0.12, 0.32],
+				curiosity: [0.56, 0.82],
+				sociability: [0.42, 0.74],
+				greed: [0.38, 0.68],
+				assertiveness: [0.68, 0.96],
+			},
+			{
+				key: "calm",
+				weight: 0.28,
+				caution: [0.38, 0.62],
+				curiosity: [0.34, 0.58],
+				sociability: [0.46, 0.72],
+				greed: [0.28, 0.56],
+				assertiveness: [0.28, 0.54],
+			},
 		];
 
 		const palette = {
@@ -1235,6 +1279,30 @@
 			}
 			return result;
 		};
+		const pickBirdPersonality = () => {
+			const totalWeight = BIRD_PERSONALITY_PROFILES.reduce(
+				(sum, profile) => sum + profile.weight,
+				0,
+			);
+			let roll = Math.random() * totalWeight;
+			let profile =
+				BIRD_PERSONALITY_PROFILES[BIRD_PERSONALITY_PROFILES.length - 1];
+			for (const candidate of BIRD_PERSONALITY_PROFILES) {
+				roll -= candidate.weight;
+				if (roll <= 0) {
+					profile = candidate;
+					break;
+				}
+			}
+			return {
+				key: profile.key,
+				caution: randomBetween(...profile.caution),
+				curiosity: randomBetween(...profile.curiosity),
+				sociability: randomBetween(...profile.sociability),
+				greed: randomBetween(...profile.greed),
+				assertiveness: randomBetween(...profile.assertiveness),
+			};
+		};
 		const getFriesBurstCountFromHold = (elapsedMs) =>
 			clamp(
 				Math.round(
@@ -1476,9 +1544,21 @@
 			bird.hungerBubbleElement.dataset.kind = nextBubbleKind;
 			bird.hungerBubbleElement.innerHTML = getHungerBubbleSvg(nextBubbleKind);
 		};
-		const getNextHungerEscapeDeadline = () =>
+		const getBirdStayBias = (bird = null) =>
+			bird
+				? clamp(
+						(bird.foodEatenCount ?? 0) * 0.22 +
+							(bird.sociability ?? 0.5) * 0.16 +
+							(bird.caution ?? 0.5) * 0.08,
+						0,
+						0.78,
+					)
+				: 0;
+		const getNextHungerEscapeDeadline = (bird = null) =>
 			performance.now() +
-			randomBetween(NORMAL_HUNGER_ESCAPE_MIN_MS, NORMAL_HUNGER_ESCAPE_MAX_MS);
+			randomBetween(NORMAL_HUNGER_ESCAPE_MIN_MS, NORMAL_HUNGER_ESCAPE_MAX_MS) *
+				(bird ? lerp(1.12, 0.82, bird.caution ?? 0.5) : 1) *
+				(bird ? lerp(1, 1.54, getBirdStayBias(bird)) : 1);
 		const getAlfSupplyIntervalMs = () => {
 			const hungryCount = getHungryNormalBirds().length;
 			const birdCount = state.birds.filter((bird) => bird.state !== "escaping").length;
@@ -1627,8 +1707,13 @@
 					bird.x + bird.width * 0.5 - center.x,
 					bird.y + bird.height * 0.5 - center.y,
 				);
-				const crowdingPenalty = (assignedCounts.get(source.targetKey) ?? 0) * 64;
-				const sameTargetBonus = bird.foodTargetKey === source.targetKey ? 78 : 0;
+				const assignedCount = assignedCounts.get(source.targetKey) ?? 0;
+				const crowdingPenalty =
+					assignedCount * lerp(88, 46, bird.sociability ?? 0.5);
+				const sameTargetBonus =
+					bird.foodTargetKey === source.targetKey
+						? lerp(52, 92, 1 - (bird.caution ?? 0.5) * 0.68)
+						: 0;
 				const foodKindBonus =
 					source.foodKind === "drumstick"
 						? 28
@@ -1637,12 +1722,26 @@
 							: isFriesFoodKind(source.foodKind)
 								? 12
 								: 0;
+				const sourceRichnessBonus =
+					Math.min(18, (source.bitesRemaining ?? 0) * 2.4) *
+					(0.4 + (bird.greed ?? 0.5) * 0.6);
+				const socialPullBonus =
+					Math.min(assignedCount, 2) * (bird.sociability ?? 0.5) * 18;
+				const distancePenalty =
+					distance *
+					lerp(
+						0.52,
+						0.3,
+						clamp(((bird.curiosity ?? 0.5) + (bird.greed ?? 0.5)) * 0.5, 0, 1),
+					);
 				const score =
 					sameTargetBonus +
-					foodKindBonus -
-					distance * 0.42 -
+					foodKindBonus * (1 + (bird.greed ?? 0.5) * 0.32) +
+					sourceRichnessBonus +
+					socialPullBonus -
+					distancePenalty -
 					crowdingPenalty +
-					randomBetween(-10, 10);
+					randomBetween(-8, 8);
 				if (score > bestScore) {
 					bestScore = score;
 					bestSource = source;
@@ -2248,6 +2347,21 @@
 				return leftDistance - rightDistance;
 			});
 			return chooseLandingSpotFromCandidates(sortedCandidates.slice(0, 3), options);
+		};
+		const syncBirdPerchPosition = (bird) => {
+			const perchElement = bird.perch?.element;
+			if (!(perchElement instanceof HTMLElement)) {
+				return false;
+			}
+			const rect = perchElement.getBoundingClientRect();
+			bird.perch.y = rect.top;
+			bird.y = rect.top - bird.footOffset;
+			bird.x = clamp(
+				bird.perch.x - bird.width / 2,
+				-VIEWPORT_PADDING,
+				window.innerWidth - bird.width + VIEWPORT_PADDING,
+			);
+			return true;
 		};
 
 		const getSkyEntryPoint = (birdWidth) => ({
@@ -2896,6 +3010,29 @@
 			bird.nextFrameAt = bird.startedAt;
 			bird.finalAction = finalAction;
 			bird.actionPayload = payload;
+			const travelDx = destination.x - bird.source.x;
+			const travelDy = destination.y - bird.source.y;
+			const driftScale =
+				nextState === "food-dash"
+					? 0.42
+					: nextState === "escaping"
+						? 0.58
+						: 1;
+			bird.flightDriftX =
+				randomBetween(
+					-Math.min(36, Math.max(10, Math.abs(travelDx) * 0.1)),
+					Math.min(36, Math.max(10, Math.abs(travelDx) * 0.1)),
+				) * driftScale;
+			bird.flightDriftY =
+				randomBetween(
+					-Math.min(16, Math.max(4, Math.abs(travelDy) * 0.06)),
+					Math.min(10, Math.max(3, Math.abs(travelDy) * 0.04)),
+				) * driftScale;
+			bird.flightLateSwayX =
+				randomBetween(
+					-Math.min(24, Math.max(6, Math.abs(travelDx) * 0.05)),
+					Math.min(24, Math.max(6, Math.abs(travelDx) * 0.05)),
+				) * (nextState === "food-dash" ? 0.45 : 0.72);
 		};
 		const clearBirdCarry = (bird) => {
 			bird.carryingFoodKind = null;
@@ -2926,7 +3063,11 @@
 			bird.satedUntil = 0;
 			bird.hasEatenFood = false;
 			bird.hungrySince = performance.now();
-			bird.nextHungryEscapeAt = getNextHungerEscapeDeadline();
+			bird.nextHungryEscapeAt = getNextHungerEscapeDeadline(bird);
+			bird.alertUntil = 0;
+			bird.alertStartedAt = 0;
+			bird.inspectUntil = 0;
+			bird.inspectStartedAt = 0;
 			clearBirdCarry(bird);
 			updateBirdHungerBubble(bird);
 		};
@@ -3001,23 +3142,46 @@
 			bird.circlingRadiusY = randomBetween(20, 46);
 			bird.circlingSpeed = randomBetween(0.0018, 0.0027);
 			bird.circlingDirection = Math.random() < 0.5 ? -1 : 1;
+			const stayBias = getBirdStayBias(bird);
+			const satiatedStayBonusMs =
+				clamp((bird.foodEatenCount ?? 0) * 2600, 0, 12000) +
+				Math.round(lerp(0, 2600, stayBias));
 			bird.satedUntil =
 				performance.now() +
 				randomBetween(SATIATED_CIRCLE_MIN_MS, SATIATED_CIRCLE_MAX_MS) +
-				(isFriesFoodKind(sourceFoodKind) ? FRIES_SATED_BONUS_MS : 0);
+				(isFriesFoodKind(sourceFoodKind) ? FRIES_SATED_BONUS_MS : 0) +
+				satiatedStayBonusMs;
 			bird.visualShiftX = 0;
 			bird.visualBob = 0;
 		};
 		const startSatedBehavior = (bird, source = null) => {
 			const carryableSource = findCarryableFoodSource(source);
-			const behaviorPool = isSelectedBird(bird)
-				? ["sky-circling", "sky-circling", "panel-perched"]
-				: carryableSource
-					? ["carry-away", "sky-circling", "sky-circling", "panel-perched"]
-					: ["sky-circling", "sky-circling", "panel-perched"];
-			const behavior =
-				behaviorPool[Math.floor(Math.random() * behaviorPool.length)] ?? "sky-circling";
 			const sourceFoodKind = source?.foodKind ?? "drumstick";
+			const stayBias = getBirdStayBias(bird);
+			const carryAwayChance =
+				!isSelectedBird(bird) && carryableSource
+					? clamp(
+							0.1 +
+								(bird.greed ?? 0.5) * 0.1 +
+								(bird.assertiveness ?? 0.5) * 0.06 -
+								stayBias * 0.18,
+							0.02,
+							0.18,
+						)
+					: 0;
+			const panelWeight =
+				1.15 +
+				stayBias * 2.8 +
+				((bird.foodEatenCount ?? 0) > 0 ? 0.8 : 0) +
+				(isFriesFoodKind(sourceFoodKind) ? 0.35 : 0);
+			const skyWeight = 1.9 + stayBias * 1.7 + (bird.curiosity ?? 0.5) * 0.55;
+			const behaviorRoll = Math.random() * (carryAwayChance + panelWeight + skyWeight);
+			const behavior =
+				behaviorRoll < carryAwayChance
+					? "carry-away"
+					: behaviorRoll < carryAwayChance + panelWeight
+						? "panel-perched"
+						: "sky-circling";
 			setBirdSated(bird, behavior);
 			if (behavior === "carry-away" && carryableSource) {
 				const carryableEntity = getFoodEntityFromSource(carryableSource);
@@ -3047,10 +3211,14 @@
 				return;
 			}
 			if (behavior === "panel-perched") {
+				const satiatedStayBonusMs =
+					clamp((bird.foodEatenCount ?? 0) * 2200, 0, 10000) +
+					Math.round(lerp(0, 2200, stayBias));
 				bird.satedUntil =
 					performance.now() +
 					SATIATED_PERCH_MS +
-					(isFriesFoodKind(sourceFoodKind) ? FRIES_SATED_BONUS_MS : 0);
+					(isFriesFoodKind(sourceFoodKind) ? FRIES_SATED_BONUS_MS : 0) +
+					satiatedStayBonusMs;
 				const landingSpot = chooseLandingSpot({ excludeBird: bird });
 				if (landingSpot) {
 					sendBirdToPanel(bird, landingSpot, { doubleHop: Math.random() < 0.35 });
@@ -3229,14 +3397,28 @@
 
 		const getClickInteractionProbabilities = (bird) => {
 			const eatenBonus = clamp(bird.foodEatenCount * 0.045, 0, 0.16);
-			const relocateProbability = Math.min(
-				0.9,
-				CLICK_RELOCATE_PROBABILITY + eatenBonus,
+			const relocateProbability = clamp(
+				CLICK_RELOCATE_PROBABILITY +
+					eatenBonus +
+					(bird.curiosity ?? 0.5) * 0.16 -
+					(bird.caution ?? 0.5) * 0.12,
+				0.15,
+				0.88,
 			);
-			const heartProbability = CLICK_HEART_PROBABILITY;
-			const escapeProbability = Math.max(
+			const heartProbability = clamp(
+				CLICK_HEART_PROBABILITY +
+					(bird.sociability ?? 0.5) * 0.12 +
+					Math.max(0, bird.growthScale - 1) * 0.1,
+				0.04,
+				0.22,
+			);
+			const escapeProbability = clamp(
+				CLICK_ESCAPE_PROBABILITY +
+					(bird.caution ?? 0.5) * 0.22 -
+					(bird.sociability ?? 0.5) * 0.1 -
+					eatenBonus,
 				0.05,
-				CLICK_ESCAPE_PROBABILITY - eatenBonus,
+				0.7,
 			);
 			return {
 				relocateProbability,
@@ -3596,6 +3778,10 @@
 			const size = FRIES_BAG_BASE_SIZE * burstScale;
 			const hasDirectDrop =
 				Number.isFinite(options.directX) && Number.isFinite(options.directY);
+			const useThrownRelease = hasDirectDrop && options.useThrownRelease === true;
+			const thrownReleaseVx = clamp((options.pointerVelocityX ?? 0) * 0.92, -8.8, 8.8);
+			const thrownReleaseVy = clamp((options.pointerVelocityY ?? 0) * 0.92, -8.8, 8.8);
+			const thrownReleaseSpin = clamp((options.pointerVelocityX ?? 0) * 0.18, -2.2, 2.2);
 			const directDropVx = clamp(
 				(options.pointerVelocityX ?? 0) * FRIES_DIRECT_DROP_VX_SCALE,
 				-3.4,
@@ -3612,8 +3798,20 @@
 				-FRIES_DIRECT_DROP_LEAD_MAX,
 				FRIES_DIRECT_DROP_LEAD_MAX,
 			);
-			const burstSpawn = hasDirectDrop
+			const burstSpawn = useThrownRelease
 				? {
+						x: clamp(options.directX, 0, Math.max(0, window.innerWidth - size)),
+						y: clamp(
+							options.directY,
+							0,
+							Math.max(0, getScrapFloorY(size) - size * 0.2),
+						),
+						vx: thrownReleaseVx,
+						vy: thrownReleaseVy,
+						restX: null,
+					}
+				: hasDirectDrop
+					? {
 						x: clamp(
 							options.directX - size * 0.5 + directDropLeadX,
 							0,
@@ -3628,7 +3826,7 @@
 						vy: directDropVy,
 						restX: null,
 					}
-				: chooseRandomFriesBurstSpawn(size);
+					: chooseRandomFriesBurstSpawn(size);
 			createDroppedFoodItem({
 				foodKind: "fries",
 				scale: burstScale,
@@ -3640,14 +3838,20 @@
 				bitesRemaining: Math.max(FRIES_BAG_BITE_COUNT, burstCount),
 				visualOffsetX: 0,
 				visualOffsetY: 0,
-				impulseX: hasDirectDrop
+				impulseX: useThrownRelease
+					? clamp(thrownReleaseVx * 0.14, -0.42, 0.42)
+					: hasDirectDrop
 					? clamp(directDropVx * 0.08, -0.22, 0.22)
 					: randomBetween(-0.16, 0.2),
 				impulseY: 0,
-				visualRotation: hasDirectDrop
+				visualRotation: useThrownRelease
+					? clamp(-thrownReleaseVx * 3.4, -14, 14)
+					: hasDirectDrop
 					? clamp(-directDropVx * 3.4, -14, 14)
 					: randomBetween(-14, 14),
-				rotationVelocity: hasDirectDrop
+				rotationVelocity: useThrownRelease
+					? thrownReleaseSpin
+					: hasDirectDrop
 					? clamp(-directDropVx * 0.42, -1.8, 1.8)
 					: randomBetween(-2.1, 2.1),
 				contestDelayMin: 320,
@@ -3714,6 +3918,10 @@
 			bird.scrollDocked = false;
 			bird.state = "panel-perched";
 			bird.element.dataset.state = "panel-perched";
+			bird.alertUntil = 0;
+			bird.alertStartedAt = 0;
+			bird.inspectUntil = 0;
+			bird.inspectStartedAt = 0;
 			bird.x = bird.destination.x;
 			bird.y = bird.destination.y;
 			bird.visualShiftX = 0;
@@ -3734,7 +3942,13 @@
 		const beginPerchAction = (bird, now) => {
 			const actions = isAlfBird(bird)
 				? ["chief-hop", "crown-preen", "inspect"]
-				: ["hop", "turn-hop", "preen"];
+				: bird.personalityKey === "skittish"
+					? ["inspect", "turn-hop", "preen"]
+					: bird.personalityKey === "bold"
+						? ["hop", "turn-hop", "hop", "preen"]
+						: bird.personalityKey === "greedy"
+							? ["hop", "inspect", "preen"]
+							: ["hop", "turn-hop", "preen", "inspect"];
 			bird.perchAction = actions[Math.floor(Math.random() * actions.length)] ?? "hop";
 			bird.perchActionStartedAt = now;
 			bird.perchActionDuration = randomBetween(520, 980);
@@ -3765,7 +3979,16 @@
 				return false;
 			}
 
-			const birdToMove = Math.random() < 0.5 ? bird : crowdedNeighbor;
+			const birdYieldScore =
+				(bird.caution ?? 0.5) * 0.7 +
+				(1 - (bird.assertiveness ?? 0.5)) * 0.3 +
+				randomBetween(-0.08, 0.08);
+			const neighborYieldScore =
+				(crowdedNeighbor.caution ?? 0.5) * 0.7 +
+				(1 - (crowdedNeighbor.assertiveness ?? 0.5)) * 0.3 +
+				randomBetween(-0.08, 0.08);
+			const birdToMove =
+				birdYieldScore >= neighborYieldScore ? bird : crowdedNeighbor;
 			birdToMove.nextPerchActionAt = now + randomBetween(2600, 5200);
 			const alternateLandingSpot = chooseLandingSpot({ excludeBird: birdToMove });
 			if (alternateLandingSpot) {
@@ -3863,6 +4086,122 @@
 				bird.foodSlotIndex = slotIndex;
 			});
 		};
+		const setBirdBackToPerch = (bird, now = performance.now()) => {
+			bird.state = "panel-perched";
+			bird.element.dataset.state = "panel-perched";
+			bird.alertUntil = 0;
+			bird.alertStartedAt = 0;
+			bird.inspectUntil = 0;
+			bird.inspectStartedAt = 0;
+			bird.perchAction = "inspect";
+			bird.perchActionStartedAt = now;
+			bird.perchActionDuration = randomBetween(280, 640);
+			bird.nextPerchActionAt =
+				now + randomBetween(PERCH_ACTION_MIN_MS * 0.85, PERCH_ACTION_MAX_MS * 0.95);
+			setBirdFrame(bird, PERCHED_FRAME_INDEX);
+			applyBirdFrame(bird);
+		};
+		const startAlertingBird = (bird, options = {}) => {
+			if (
+				isAlfBird(bird) ||
+				bird.state === "escaping" ||
+				bird.state === "alerting" ||
+				bird.state === "inspecting-food"
+			) {
+				return;
+			}
+			const source =
+				options.source ??
+				getFoodSourceByTargetKey(
+					bird.foodTargetKey,
+					options.sources ?? getFoodSources(),
+				) ??
+				null;
+			bird.state = "alerting";
+			bird.element.dataset.state = "alerting";
+			bird.alertStartedAt = performance.now();
+			bird.alertUntil =
+				bird.alertStartedAt +
+				(options.duration ??
+					randomBetween(ALERT_REACTION_MIN_MS, ALERT_REACTION_MAX_MS) *
+						lerp(0.82, 1.26, bird.caution ?? 0.5));
+			bird.actionPayload = {
+				nextAction: options.nextAction ?? "inspect-food",
+				source,
+				sources: options.sources ?? null,
+			};
+			if (source) {
+				bird.foodTargetKey = source.targetKey;
+			}
+		};
+		const startFoodInspection = (bird, options = {}) => {
+			if (isAlfBird(bird) || isPreviewLockedBird(bird)) {
+				return;
+			}
+			if (!isBirdHungry(bird) && options.force !== true) {
+				return;
+			}
+			const sources = options.sources ?? getFoodSources();
+			const source =
+				options.source ??
+				getFoodSourceByTargetKey(bird.foodTargetKey, sources) ??
+				sources[0] ??
+				null;
+			if (!source || !doesFoodMatchCraving(source.foodKind, bird.cravingKind)) {
+				releaseBirdFromFood(bird);
+				return;
+			}
+			const now = performance.now();
+			bird.state = "inspecting-food";
+			bird.element.dataset.state = "inspecting-food";
+			bird.alertUntil = 0;
+			bird.alertStartedAt = 0;
+			bird.inspectStartedAt = now;
+			bird.inspectUntil =
+				now +
+				randomBetween(FOOD_INSPECT_MIN_MS, FOOD_INSPECT_MAX_MS) *
+					lerp(0.88, 1.22, bird.caution ?? 0.5) *
+					lerp(1.08, 0.92, bird.curiosity ?? 0.5);
+			bird.foodTargetKey = source.targetKey;
+			bird.actionPayload = { source, sources };
+			bird.foodBusyUntil = Math.max(
+				bird.foodBusyUntil,
+				now + randomBetween(220, 420),
+			);
+		};
+		const startBirdFoodInterest = (bird, options = {}) => {
+			if (
+				isAlfBird(bird) ||
+				isPreviewLockedBird(bird) ||
+				!isBirdHungry(bird) ||
+				bird.state === "escaping"
+			) {
+				return;
+			}
+			const sources = options.sources ?? getFoodSources();
+			const source =
+				options.source ??
+				getFoodSourceByTargetKey(bird.foodTargetKey, sources) ??
+				sources[0] ??
+				null;
+			if (!source || !doesFoodMatchCraving(source.foodKind, bird.cravingKind)) {
+				releaseBirdFromFood(bird);
+				return;
+			}
+			const shouldPauseFirst =
+				options.forceAlert === true ||
+				bird.state === "panel-perched" ||
+				Math.random() < lerp(0.34, 0.88, bird.caution ?? 0.5);
+			if (shouldPauseFirst) {
+				startAlertingBird(bird, {
+					nextAction: "inspect-food",
+					source,
+					sources,
+				});
+				return;
+			}
+			startFoodHover(bird, { source, sources });
+		};
 
 		const startFoodHover = (bird, options = {}) => {
 			if (isAlfBird(bird) || isPreviewLockedBird(bird)) {
@@ -3883,6 +4222,10 @@
 			}
 
 			bird.foodTargetKey = source.targetKey;
+			bird.alertUntil = 0;
+			bird.alertStartedAt = 0;
+			bird.inspectUntil = 0;
+			bird.inspectStartedAt = 0;
 			const waitPoint = getFoodWaitPoint(bird, source);
 			retargetFoodHoverDrift(bird, source);
 			if (options.direct) {
@@ -3923,6 +4266,14 @@
 					isAlfBird(bird) ||
 					isPreviewLockedBird(bird)
 				) {
+					return;
+				}
+				if (bird.state === "panel-perched") {
+					startBirdFoodInterest(bird, {
+						source: getAssignedFoodSource(bird, sources),
+						sources,
+						forceAlert: true,
+					});
 					return;
 				}
 				startFoodHover(bird, { source: getAssignedFoodSource(bird, sources), sources });
@@ -4085,6 +4436,14 @@
 			}
 
 			if (hasChickenLegs()) {
+				if (
+					bird.perch?.element instanceof HTMLElement &&
+					bird.caution > 0.62 &&
+					Math.random() < 0.58
+				) {
+					startBirdFoodInterest(bird, { forceAlert: true });
+					return;
+				}
 				startFoodHover(bird);
 				return;
 			}
@@ -4102,10 +4461,20 @@
 							otherBird.state !== "bird-attack" &&
 							otherBird.state.startsWith("food") &&
 							isBirdHungry(otherBird) &&
-							Math.hypot(otherBird.x - bird.x, otherBird.y - bird.y) < 180,
+						Math.hypot(otherBird.x - bird.x, otherBird.y - bird.y) < 180,
 					),
 				)[0];
-				if (attackTarget && Math.random() < 0.42) {
+				if (
+					attackTarget &&
+					Math.random() <
+						clamp(
+							0.28 +
+								(bird.assertiveness ?? 0.5) * 0.24 -
+								(bird.caution ?? 0.5) * 0.12,
+							0.12,
+							0.56,
+						)
+				) {
 					if (startBirdAttack(bird, attackTarget)) {
 						return;
 					}
@@ -4269,10 +4638,19 @@
 						? easeOutSine(progress * 2) * 0.5
 						: 0.5 + easeInCubic((progress - 0.5) * 2) * 0.5;
 
-			bird.x = lerp(bird.source.x, bird.destination.x, horizontalProgress);
+			const pathWave = Math.sin(progress * Math.PI);
+			const lateSwayProgress =
+				progress <= 0.55
+					? 0
+					: Math.sin(((progress - 0.55) / 0.45) * Math.PI);
+			bird.x =
+				lerp(bird.source.x, bird.destination.x, horizontalProgress) +
+				pathWave * (bird.flightDriftX ?? 0) +
+				lateSwayProgress * (bird.flightLateSwayX ?? 0);
 			bird.y =
 				lerp(bird.source.y, bird.destination.y, verticalProgress) -
-				Math.sin(progress * Math.PI) * bird.arcHeight;
+				pathWave * bird.arcHeight +
+				pathWave * (bird.flightDriftY ?? 0);
 			bird.visualShiftX = 0;
 			bird.visualBob = 0;
 
@@ -4282,6 +4660,123 @@
 			if (progress >= 1) {
 				handleCompletedFlightAction(bird);
 			}
+		};
+		const updateAlertingBird = (bird, now) => {
+			if (shouldHungryBirdLeave(bird, now)) {
+				startEscape(bird, { force: true });
+				return;
+			}
+			if (
+				!bird.perch?.element ||
+				!isVisibleTarget(bird.perch.element) ||
+				!syncBirdPerchPosition(bird)
+			) {
+				startEscape(bird);
+				return;
+			}
+
+			const source =
+				getFoodSourceByTargetKey(
+					bird.actionPayload?.source?.targetKey ?? bird.foodTargetKey,
+				) ?? null;
+			if (source) {
+				const center = getFoodSourceCenter(source);
+				bird.facing = center.x >= bird.x + bird.width * 0.5 ? 1 : -1;
+			}
+			const alertPhase = (now - bird.alertStartedAt) * 0.02 + bird.idlePhase;
+			bird.visualShiftX = Math.round(Math.sin(alertPhase * 0.72) * 2);
+			bird.visualBob = -Math.round(Math.abs(Math.sin(alertPhase)) * 4);
+			setBirdFrame(bird, PERCHED_FRAME_INDEX);
+			applyBirdFrame(bird);
+
+			if (now < bird.alertUntil) {
+				return;
+			}
+
+			const nextAction = bird.actionPayload?.nextAction ?? "inspect-food";
+			if (nextAction === "inspect-food") {
+				startFoodInspection(bird, {
+					source,
+					sources: bird.actionPayload?.sources ?? getFoodSources(),
+				});
+				return;
+			}
+
+			setBirdBackToPerch(bird, now);
+		};
+		const updateInspectingFoodBird = (bird, now) => {
+			if (shouldHungryBirdLeave(bird, now)) {
+				startEscape(bird, { force: true });
+				return;
+			}
+			if (
+				!bird.perch?.element ||
+				!isVisibleTarget(bird.perch.element) ||
+				!syncBirdPerchPosition(bird)
+			) {
+				startEscape(bird);
+				return;
+			}
+
+			const sources = getFoodSources();
+			const source =
+				getFoodSourceByTargetKey(
+					bird.actionPayload?.source?.targetKey ?? bird.foodTargetKey,
+					sources,
+				) ?? null;
+			if (!source || !doesFoodMatchCraving(source.foodKind, bird.cravingKind)) {
+				releaseBirdFromFood(bird);
+				return;
+			}
+
+			const center = getFoodSourceCenter(source);
+			bird.facing = center.x >= bird.x + bird.width * 0.5 ? 1 : -1;
+			const inspectPhase = (now - bird.inspectStartedAt) * 0.014 + bird.idlePhase;
+			bird.visualShiftX = Math.round(Math.sin(inspectPhase * 0.82) * 2);
+			bird.visualBob =
+				-Math.round(Math.abs(Math.sin(inspectPhase * 1.2)) * 3) +
+				Math.round(Math.cos(inspectPhase * 0.54));
+			setBirdFrame(bird, PERCHED_FRAME_INDEX);
+			applyBirdFrame(bird);
+
+			if (now < bird.inspectUntil) {
+				return;
+			}
+
+			const crowding = state.birds.filter(
+				(otherBird) =>
+					otherBird !== bird &&
+					otherBird.state !== "escaping" &&
+					otherBird.foodTargetKey === source.targetKey &&
+					(otherBird.state === "food-hover" ||
+						otherBird.state === "food-approaching" ||
+						otherBird.state === "food-dash" ||
+						otherBird.state === "inspecting-food"),
+			).length;
+			const sourceAttraction = getFoodAttractionWeight(source);
+			const commitChance = clamp(
+				0.26 +
+					(bird.greed ?? 0.5) * 0.28 +
+					(bird.curiosity ?? 0.5) * 0.18 +
+					sourceAttraction * 0.18 +
+					Math.min(crowding, 2) * (bird.sociability ?? 0.5) * 0.05 -
+					(bird.caution ?? 0.5) * 0.22 -
+					Math.max(0, crowding - 1) * 0.08 +
+					randomBetween(-0.08, 0.08),
+				0.08,
+				0.96,
+			);
+
+			if (Math.random() < commitChance) {
+				startFoodHover(bird, { source, sources });
+				return;
+			}
+
+			bird.foodBusyUntil =
+				now +
+				randomBetween(FOOD_RECONSIDER_MIN_MS, FOOD_RECONSIDER_MAX_MS) *
+					lerp(1.16, 0.92, bird.curiosity ?? 0.5);
+			setBirdBackToPerch(bird, now);
 		};
 
 		const updatePanelPerchedBird = (bird, now) => {
@@ -4307,16 +4802,17 @@
 				if (now >= bird.satedUntil) {
 					wakeBirdHunger(bird);
 					if (hasFoodForBird(bird)) {
-						startFoodHover(bird);
+						startBirdFoodInterest(bird);
 						return;
 					}
 				}
 			} else if (
 				hasFoodForBird(bird) &&
+				now >= bird.foodBusyUntil &&
 				!isPreviewLockedBird(bird) &&
 				(!isSelectedBird(bird) || now >= bird.selectedDockSettledUntil)
 			) {
-				startFoodHover(bird);
+				startBirdFoodInterest(bird);
 				return;
 			}
 			if (isAlfBird(bird) && now >= bird.nextAlfSupplyAt) {
@@ -4324,14 +4820,7 @@
 				return;
 			}
 
-			const rect = bird.perch.element.getBoundingClientRect();
-			bird.perch.y = rect.top;
-			bird.y = rect.top - bird.footOffset;
-			bird.x = clamp(
-				bird.perch.x - bird.width / 2,
-				-VIEWPORT_PADDING,
-				window.innerWidth - bird.width + VIEWPORT_PADDING,
-			);
+			syncBirdPerchPosition(bird);
 			if (resolvePerchedCrowding(bird, now)) {
 				return;
 			}
@@ -4528,6 +5017,7 @@
 			statusElement.innerHTML = `<div class="raven-bird__nameplate">${selectedNameplateSvg}</div>`;
 			element.appendChild(statusElement);
 
+			const personality = pickBirdPersonality();
 			const sizeScale = randomBetween(0.92, 1.12);
 			const initialWidth = BASE_BIRD_WIDTH * sizeScale;
 			const source = getSkyEntryPoint(initialWidth);
@@ -4600,7 +5090,7 @@
 				satedUntil: 0,
 				satedBehavior: "none",
 				hungrySince: performance.now(),
-				nextHungryEscapeAt: getNextHungerEscapeDeadline(),
+				nextHungryEscapeAt: 0,
 				carryingFoodKind: null,
 				carryingFoodScale: 1,
 				circlingCenterX: source.x,
@@ -4609,10 +5099,20 @@
 				circlingRadiusY: 0,
 				circlingSpeed: 0,
 				circlingDirection: 1,
-				dashDurationFactor: randomBetween(0.96, 1.28),
-				dashArcFactor: randomBetween(0.8, 1.35),
-				hoverTightness: randomBetween(0.075, 0.13),
-				greed: randomBetween(0, 1),
+				dashDurationFactor:
+					randomBetween(0.96, 1.28) *
+					lerp(1.08, 0.88, personality.assertiveness),
+				dashArcFactor:
+					randomBetween(0.8, 1.35) * lerp(1.04, 0.9, personality.caution),
+				hoverTightness:
+					randomBetween(0.075, 0.13) *
+					lerp(0.92, 1.08, personality.curiosity),
+				greed: personality.greed,
+				caution: personality.caution,
+				curiosity: personality.curiosity,
+				sociability: personality.sociability,
+				assertiveness: personality.assertiveness,
+				personalityKey: personality.key,
 				role: "normal",
 				baseScale: sizeScale,
 				growthScale: 1,
@@ -4622,8 +5122,16 @@
 				nextAlfThoughtAt: 0,
 				alfSupplyPlan: null,
 				recentPerchElements: [],
+				alertUntil: 0,
+				alertStartedAt: 0,
+				inspectUntil: 0,
+				inspectStartedAt: 0,
+				flightDriftX: 0,
+				flightDriftY: 0,
+				flightLateSwayX: 0,
 				colorVariant,
 			};
+			bird.nextHungryEscapeAt = getNextHungerEscapeDeadline(bird);
 
 			updateBirdDimensions(bird);
 			applyBirdColorVariant(bird);
@@ -5163,8 +5671,8 @@
 				releaseFriesPointerCapture(event.pointerId);
 				const burstCount = state.fries.burstCount;
 				const wasDragging = state.fries.mode === "dragging";
-				const releaseX = state.fries.x + friesButtonElement.offsetWidth * 0.5;
-				const releaseY = state.fries.y + friesButtonElement.offsetHeight * 0.5;
+				const releaseX = state.fries.x;
+				const releaseY = state.fries.y;
 				const pointerVelocityX = state.fries.pointerVelocityX;
 				const pointerVelocityY = state.fries.pointerVelocityY;
 				resetFriesButtonState();
@@ -5176,6 +5684,7 @@
 								directY: releaseY,
 								pointerVelocityX,
 								pointerVelocityY,
+								useThrownRelease: true,
 							}
 						: { count: burstCount },
 				);
@@ -5697,6 +6206,16 @@
 
 				if (bird.state === "panel-perched") {
 					updatePanelPerchedBird(bird, now);
+					return;
+				}
+
+				if (bird.state === "alerting") {
+					updateAlertingBird(bird, now);
+					return;
+				}
+
+				if (bird.state === "inspecting-food") {
+					updateInspectingFoodBird(bird, now);
 					return;
 				}
 
