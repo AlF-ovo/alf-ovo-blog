@@ -42,6 +42,21 @@ const togglePanel = () => {
 	panel?.classList.toggle("float-panel-closed");
 };
 
+const closeFloatingPanel = (): void => {
+	const panel = document.getElementById("search-panel");
+	panel?.classList.add("float-panel-closed");
+};
+
+const scrollResultsBoardIntoView = (): void => {
+	window.requestAnimationFrame(() => {
+		const board = document.getElementById("search-results-board");
+		board?.scrollIntoView({
+			behavior: "smooth",
+			block: "start",
+		});
+	});
+};
+
 const syncBoardState = (
 	keyword: string,
 	partial: Partial<{ results: SearchResult[]; isSearching: boolean }>,
@@ -53,19 +68,12 @@ const syncBoardState = (
 	});
 };
 
-const setPanelVisibility = (show: boolean, isDesktop: boolean): void => {
-	const panel = document.getElementById("search-panel");
-	if (!panel || !isDesktop) return;
-
-	panel.classList.add("float-panel-closed");
-};
-
 const getCurrentKeyword = (isDesktop: boolean): string =>
 	isDesktop ? keywordDesktop : keywordMobile;
 
 const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 	if (!keyword) {
-		setPanelVisibility(false, isDesktop);
+		closeFloatingPanel();
 		result = [];
 		closeSearchDisplay();
 		syncBoardState("", { results: [], isSearching: false });
@@ -78,6 +86,10 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 
 	isSearching = true;
 	syncBoardState(keyword, { isSearching: true });
+	if (isDesktop) {
+		openSearchDisplay();
+		closeFloatingPanel();
+	}
 	const searchToken = ++activeSearchToken;
 
 	try {
@@ -102,7 +114,10 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 
 		result = searchResults;
 		syncBoardState(keyword, { results: searchResults, isSearching: false });
-		setPanelVisibility(result.length > 0, isDesktop);
+		if (isDesktop) {
+			openSearchDisplay();
+			closeFloatingPanel();
+		}
 	} catch (error) {
 		const latestKeyword = getCurrentKeyword(isDesktop);
 		if (searchToken !== activeSearchToken || latestKeyword !== keyword) {
@@ -112,7 +127,10 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 		console.error("Search error:", error);
 		result = [];
 		syncBoardState(keyword, { results: [], isSearching: false });
-		setPanelVisibility(false, isDesktop);
+		if (isDesktop) {
+			openSearchDisplay();
+			closeFloatingPanel();
+		}
 	} finally {
 		if (searchToken === activeSearchToken) {
 			isSearching = false;
@@ -130,7 +148,24 @@ const showResultsBoard = (isDesktop: boolean): void => {
 
 	syncBoardState(keyword, { results, isSearching });
 	openSearchDisplay();
-	setPanelVisibility(false, isDesktop);
+	closeFloatingPanel();
+	scrollResultsBoardIntoView();
+};
+
+const submitSearch = (isDesktop: boolean): void => {
+	showResultsBoard(isDesktop);
+};
+
+const handleSearchKeydown = (
+	event: KeyboardEvent,
+	isDesktop: boolean,
+): void => {
+	if (event.key !== "Enter" || event.isComposing) {
+		return;
+	}
+
+	event.preventDefault();
+	submitSearch(isDesktop);
 };
 
 onMount(() => {
@@ -192,13 +227,14 @@ $: if (initialized && keywordMobile) {
 ">
     <Icon icon="material-symbols:search" class="absolute text-[1.25rem] pointer-events-none ml-3 transition my-auto text-black/30 dark:text-white/30"></Icon>
     <input placeholder="{i18n(I18nKey.search)}" bind:value={keywordDesktop} on:focus={() => search(keywordDesktop, true)}
+           on:keydown={(event) => handleSearchKeydown(event, true)}
            class="transition-all pl-10 text-sm bg-transparent outline-0
-         h-full w-40 pr-11 active:w-60 focus:w-60 text-black/50 dark:text-white/50"
+          h-full w-40 pr-11 active:w-60 focus:w-60 text-black/50 dark:text-white/50"
     >
     <button
         type="button"
         class="absolute right-1 flex h-9 w-9 items-center justify-center rounded-lg text-black/35 transition hover:bg-black/8 hover:text-black/60 dark:text-white/35 dark:hover:bg-white/10 dark:hover:text-white/70"
-        on:click={() => showResultsBoard(true)}
+        on:click={() => submitSearch(true)}
         aria-label="Show search results in main content"
     >
         <Icon icon="material-symbols:search-rounded" class="text-[1.1rem]"></Icon>
@@ -230,32 +266,19 @@ top-20 left-4 md:left-[unset] right-4 shadow-2xl rounded-2xl p-2">
   ">
         <Icon icon="material-symbols:search" class="absolute text-[1.25rem] pointer-events-none ml-3 transition my-auto text-black/30 dark:text-white/30"></Icon>
         <input placeholder="Search" bind:value={keywordMobile}
+               on:keydown={(event) => handleSearchKeydown(event, false)}
                class="pl-10 absolute inset-0 text-sm bg-transparent outline-0
-               focus:w-60 text-black/50 dark:text-white/50"
+                focus:w-60 text-black/50 dark:text-white/50"
         >
     </div>
 
     <button
         type="button"
         class="mt-2 flex h-11 w-full items-center justify-center rounded-xl bg-[var(--primary)] text-sm font-semibold text-white transition hover:brightness-105"
-        on:click={() => showResultsBoard(false)}
+        on:click={() => submitSearch(false)}
     >
         在正文区域显示结果
     </button>
-
-    <!-- search results -->
-    {#each result as item}
-        <a href={item.url}
-           class="transition first-of-type:mt-2 lg:first-of-type:mt-0 group block
-       rounded-xl text-lg px-3 py-2 hover:bg-[var(--btn-plain-bg-hover)] active:bg-[var(--btn-plain-bg-active)]">
-            <div class="transition text-90 inline-flex font-bold group-hover:text-[var(--primary)]">
-                {item.meta.title}<Icon icon="fa6-solid:chevron-right" class="transition text-[0.75rem] translate-x-1 my-auto text-[var(--primary)]"></Icon>
-            </div>
-            <div class="transition text-sm text-50">
-                {@html item.excerpt}
-            </div>
-        </a>
-    {/each}
 </div>
 
 <style>

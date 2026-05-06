@@ -44,6 +44,7 @@ $: if (!$searchDisplayState.isOpen && wasOpen) {
 
 {#if $searchDisplayState.isOpen}
 	<section
+		id="search-results-board"
 		bind:this={boardElement}
 		class="card-base search-results-board mb-4 overflow-hidden rounded-[1.75rem] p-5 md:p-6"
 		aria-labelledby="search-results-title"
