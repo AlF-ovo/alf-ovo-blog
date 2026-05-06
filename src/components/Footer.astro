@@ -1,22 +1,199 @@
 ---
-
-import { profileConfig } from "../config";
+import { profileConfig, siteConfig } from "../config";
 import { url } from "../utils/url-utils";
 
 const currentYear = new Date().getFullYear();
+const runningSince = siteConfig.footer?.runningSince ?? "2023-09-26T14:27:38+08:00";
+const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 ---
 
-<!--<div class="border-t border-[var(&#45;&#45;primary)] mx-16 border-dashed py-8 max-w-[var(&#45;&#45;page-width)] flex flex-col items-center justify-center px-6">-->
 <div class="transition border-t border-black/10 dark:border-white/15 my-10 border-dashed mx-32"></div>
-<!--<div class="transition bg-[oklch(92%_0.01_var(&#45;&#45;hue))] dark:bg-black rounded-2xl py-8 mt-4 mb-8 flex flex-col items-center justify-center px-6">-->
-<div class="transition border-dashed border-[oklch(85%_0.01_var(--hue))] dark:border-white/15 rounded-2xl mb-12 flex flex-col items-center justify-center px-6">
-    <div class="transition text-50 text-sm text-center">
-        &copy; <span id="copyright-year">{currentYear}</span> {profileConfig.name}. 保留所有权利。 /
-        <a class="transition link text-[var(--primary)] font-medium" target="_blank" href={url('rss.xml')}>RSS</a> /
-        <a class="transition link text-[var(--primary)] font-medium" target="_blank" href={url('sitemap-index.xml')}>站点地图</a><br>
-        由
-        <a class="transition link text-[var(--primary)] font-medium" target="_blank" href="https://astro.build">Astro</a> &
-        <a class="transition link text-[var(--primary)] font-medium" target="_blank" href="https://github.com/saicaca/fuwari">Fuwari</a>
-        驱动
-    </div>
+<div class="footer-shell transition border-dashed border-[oklch(85%_0.01_var(--hue))] dark:border-white/15 rounded-2xl mb-12 flex flex-col items-center justify-center px-6 py-5">
+	<div class="footer-status-grid">
+		<div class="footer-status-chip">
+			<span class="footer-status-label">值班乌鸦已盘旋</span>
+			<strong id="footer-uptime" data-running-since={runningSince}>正在校准风向...</strong>
+		</div>
+		<div class="footer-status-chip">
+			<span class="footer-status-label">羽毛落点累计</span>
+			<strong id="footer-visits" data-counter-ready="false">正在清点脚印...</strong>
+		</div>
+	</div>
+
+	<div class="transition text-50 text-sm text-center leading-7">
+		&copy; <span id="copyright-year">{currentYear}</span> {profileConfig.name}. 保留所有权利。 /
+		<a class="transition link text-[var(--primary)] font-medium" target="_blank" href={url("rss.xml")}>RSS</a> /
+		<a class="transition link text-[var(--primary)] font-medium" target="_blank" href={url("sitemap-index.xml")}>站点地图</a><br>
+		由
+		<a class="transition link text-[var(--primary)] font-medium" target="_blank" href="https://astro.build">Astro</a>
+		&
+		<a class="transition link text-[var(--primary)] font-medium" target="_blank" href="https://github.com/saicaca/fuwari">Fuwari</a>
+		驱动
+	</div>
 </div>
+
+<style>
+	.footer-shell {
+		gap: 1rem;
+	}
+
+	.footer-status-grid {
+		width: min(100%, 42rem);
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: 0.75rem;
+	}
+
+	.footer-status-chip {
+		display: grid;
+		gap: 0.35rem;
+		padding: 0.9rem 1rem;
+		border-radius: 1rem;
+		border: 1px solid var(--frame);
+		background: transparent;
+		box-shadow: var(--surface-shadow);
+		backdrop-filter: blur(12px);
+		text-align: left;
+	}
+
+	.footer-status-label {
+		font-size: 0.74rem;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: rgba(71, 85, 105, 0.76);
+	}
+
+	.footer-status-chip strong {
+		font-size: 0.96rem;
+		font-weight: 800;
+		color: rgba(15, 23, 42, 0.92);
+	}
+
+	:global(.dark) .footer-status-label {
+		color: rgba(203, 213, 225, 0.62);
+	}
+
+	:global(.dark) .footer-status-chip strong {
+		color: rgba(248, 250, 252, 0.92);
+	}
+
+	@media (max-width: 900px) {
+		.footer-status-grid {
+			grid-template-columns: 1fr;
+		}
+	}
+
+	@media (max-width: 768px) {
+		.footer-shell {
+			padding-left: 1rem;
+			padding-right: 1rem;
+		}
+	}
+</style>
+
+<script is:inline define:vars={{ visitorCounterApi }}>
+	const formatDuration = (ms) => {
+		const totalMinutes = Math.max(0, Math.floor(ms / 60000));
+		const days = Math.floor(totalMinutes / 1440);
+		const hours = Math.floor((totalMinutes % 1440) / 60);
+		const minutes = totalMinutes % 60;
+
+		if (days > 0) {
+			return `${days} 天 ${hours} 时 ${minutes} 分`;
+		}
+
+		if (hours > 0) {
+			return `${hours} 时 ${minutes} 分`;
+		}
+
+		return `${minutes} 分`;
+	};
+
+	const formatVisits = (count) => new Intl.NumberFormat("zh-CN").format(Math.max(0, count));
+
+	const syncFooterUptime = () => {
+		const uptimeNode = document.getElementById("footer-uptime");
+		if (!(uptimeNode instanceof HTMLElement)) {
+			return;
+		}
+
+		const runningSince = uptimeNode.dataset.runningSince;
+		const startedAt = runningSince ? new Date(runningSince).getTime() : Number.NaN;
+		uptimeNode.textContent = Number.isFinite(startedAt)
+			? formatDuration(Date.now() - startedAt)
+			: "时间戳失联";
+	};
+
+	const renderFooterVisits = (value, fallback = false) => {
+		const visitsNode = document.getElementById("footer-visits");
+		if (!(visitsNode instanceof HTMLElement)) {
+			return;
+		}
+
+		if (typeof value === "number" && Number.isFinite(value) && value >= 0) {
+			visitsNode.dataset.counterReady = "true";
+			visitsNode.textContent = `${formatVisits(value)} 次来回盘旋`;
+			return;
+		}
+
+		if (fallback && visitsNode.dataset.counterReady !== "true") {
+			visitsNode.textContent = "计数乌鸦暂时离巢";
+		}
+	};
+
+	const readExternalVisitorCount = () => {
+		const siteVisits = document.getElementById("busuanzi_value_site_pv");
+		const pageVisits = document.getElementById("busuanzi_value_page_pv");
+		const rawValue = siteVisits?.textContent?.trim() || pageVisits?.textContent?.trim() || "";
+		const numericValue = Number.parseInt(rawValue.replace(/[^\d]/g, ""), 10);
+		if (Number.isFinite(numericValue)) {
+			renderFooterVisits(numericValue);
+			return true;
+		}
+		return false;
+	};
+
+	const ensureVisitorCounterScript = () => {
+		if (!visitorCounterApi || document.querySelector('script[data-footer-visitor-counter="true"]')) {
+			return;
+		}
+
+		const script = document.createElement("script");
+		script.src = visitorCounterApi;
+		script.async = true;
+		script.defer = true;
+		script.dataset.footerVisitorCounter = "true";
+		script.onload = () => {
+			window.setTimeout(() => {
+				if (!readExternalVisitorCount()) {
+					renderFooterVisits(null, true);
+				}
+			}, 120);
+		};
+		script.onerror = () => renderFooterVisits(null, true);
+		document.head.appendChild(script);
+	};
+
+	const syncFooterSignals = () => {
+		syncFooterUptime();
+		ensureVisitorCounterScript();
+
+		if (!readExternalVisitorCount()) {
+			window.setTimeout(() => {
+				if (!readExternalVisitorCount()) {
+					renderFooterVisits(null, true);
+				}
+			}, 800);
+		}
+	};
+
+	document.addEventListener("astro:page-load", syncFooterSignals);
+	document.addEventListener("DOMContentLoaded", syncFooterSignals);
+</script>
+
+<span id="busuanzi_container_site_pv" hidden>
+	<span id="busuanzi_value_site_pv"></span>
+</span>
+<span id="busuanzi_container_page_pv" hidden>
+	<span id="busuanzi_value_page_pv"></span>
+</span>

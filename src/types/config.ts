@@ -34,6 +34,10 @@ export type SiteConfig = {
 		enable: boolean;
 		depth: 1 | 2 | 3;
 	};
+	footer?: {
+		runningSince?: string;
+		visitorCounterApi?: string;
+	};
 	backgroundMusic: {
 		enable: boolean;
 		title: string;
