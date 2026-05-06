@@ -15,7 +15,7 @@ lang: "zh_CN"
 
 ## 现在接了什么
 
-- 运行时长直接读站点配置里的 `footer.runningSince`。
+- 运行时长直接取 `posts` 和 `notes` 里最早一篇内容的 `published` 时间。
 - 访问计数走外部统计源 `footer.visitorCounterApi`。
 - 当前默认接的是不蒜子的公开计数接口，用来显示全站累计访问量。
 

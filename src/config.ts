@@ -30,7 +30,6 @@ export const siteConfig: SiteConfig = {
 		depth: 2,
 	},
 	footer: {
-		runningSince: "2023-09-26T14:27:38+08:00",
 		visitorCounterApi: "https://busuanzi.9420.ltd/js",
 	},
 	backgroundMusic: {

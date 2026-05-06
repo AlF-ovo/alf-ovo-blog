@@ -14,6 +14,8 @@ type WrappedEntry<TCollection extends ContentCollection = ContentCollection> = {
 	entry: CollectionEntry<TCollection>;
 };
 
+let firstContentPublishedAtPromise: Promise<Date | null> | null = null;
+
 const shouldIncludeEntry = ({ data }: ContentEntry) =>
 	import.meta.env.PROD ? data.draft !== true : true;
 
@@ -48,6 +50,31 @@ export async function getSortedPosts() {
 	}
 
 	return sorted;
+}
+
+export function getFirstContentPublishedAt(): Promise<Date | null> {
+	if (!firstContentPublishedAtPromise) {
+		firstContentPublishedAtPromise = (async () => {
+			const [posts, notes] = await Promise.all([
+				getCollection("posts", shouldIncludeEntry),
+				getCollection("notes", shouldIncludeEntry),
+			]);
+			const allEntries = [...posts, ...notes];
+			if (allEntries.length === 0) {
+				return null;
+			}
+
+			return allEntries.reduce(
+				(earliest, entry) =>
+					entry.data.published.getTime() < earliest.getTime()
+						? entry.data.published
+						: earliest,
+				allEntries[0].data.published,
+			);
+		})();
+	}
+
+	return firstContentPublishedAtPromise;
 }
 
 export async function getSortedNotes() {

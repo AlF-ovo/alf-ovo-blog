@@ -1,9 +1,35 @@
 ---
 import { profileConfig, siteConfig } from "../config";
+import { getFirstContentPublishedAt } from "../utils/content-utils";
 import { url } from "../utils/url-utils";
 
 const currentYear = new Date().getFullYear();
-const runningSince = siteConfig.footer?.runningSince ?? "2023-09-26T14:27:38+08:00";
+const SITE_TIMEZONE_OFFSET_MINUTES = 8 * 60;
+
+const toRunningSinceTimestamp = (date: Date | null) => {
+	if (!date) {
+		return "";
+	}
+
+	const isDateOnlyEntry =
+		date.getUTCHours() === 0 &&
+		date.getUTCMinutes() === 0 &&
+		date.getUTCSeconds() === 0 &&
+		date.getUTCMilliseconds() === 0;
+
+	if (!isDateOnlyEntry) {
+		return String(date.getTime());
+	}
+
+	const [year, month, day] = date.toISOString().slice(0, 10).split("-").map(Number);
+	return String(
+		Date.UTC(year, month - 1, day, 0, 0, 0, 0) -
+			SITE_TIMEZONE_OFFSET_MINUTES * 60 * 1000,
+	);
+};
+
+const firstContentPublishedAt = await getFirstContentPublishedAt();
+const runningSince = toRunningSinceTimestamp(firstContentPublishedAt);
 const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 ---
 
@@ -92,6 +118,15 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 </style>
 
 <script is:inline define:vars={{ visitorCounterApi }}>
+	const visitorCountSourceIds = [
+		"busuanzi_site_pv",
+		"busuanzi_value_site_pv",
+		"busuanzi_page_pv",
+		"busuanzi_value_page_pv",
+	];
+	let visitorCountPollTimer = 0;
+	let uptimeTimer = 0;
+
 	const formatDuration = (ms) => {
 		const totalMinutes = Math.max(0, Math.floor(ms / 60000));
 		const days = Math.floor(totalMinutes / 1440);
@@ -118,7 +153,12 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		}
 
 		const runningSince = uptimeNode.dataset.runningSince;
-		const startedAt = runningSince ? new Date(runningSince).getTime() : Number.NaN;
+		const parsedTimestamp = runningSince ? Number.parseInt(runningSince, 10) : Number.NaN;
+		const startedAt = Number.isFinite(parsedTimestamp)
+			? parsedTimestamp
+			: runningSince
+				? new Date(runningSince).getTime()
+				: Number.NaN;
 		uptimeNode.textContent = Number.isFinite(startedAt)
 			? formatDuration(Date.now() - startedAt)
 			: "时间戳失联";
@@ -142,15 +182,52 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 	};
 
 	const readExternalVisitorCount = () => {
-		const siteVisits = document.getElementById("busuanzi_value_site_pv");
-		const pageVisits = document.getElementById("busuanzi_value_page_pv");
-		const rawValue = siteVisits?.textContent?.trim() || pageVisits?.textContent?.trim() || "";
-		const numericValue = Number.parseInt(rawValue.replace(/[^\d]/g, ""), 10);
-		if (Number.isFinite(numericValue)) {
-			renderFooterVisits(numericValue);
-			return true;
+		for (const id of visitorCountSourceIds) {
+			const rawValue = document.getElementById(id)?.textContent?.trim() ?? "";
+			const numericValue = Number.parseInt(rawValue.replace(/[^\d]/g, ""), 10);
+			if (Number.isFinite(numericValue)) {
+				renderFooterVisits(numericValue);
+				return true;
+			}
 		}
+
 		return false;
+	};
+
+	const stopVisitorCountPolling = () => {
+		if (visitorCountPollTimer) {
+			window.clearInterval(visitorCountPollTimer);
+			visitorCountPollTimer = 0;
+		}
+	};
+
+	const scheduleVisitorCountSync = () => {
+		stopVisitorCountPolling();
+
+		if (readExternalVisitorCount()) {
+			return;
+		}
+
+		const startedAt = Date.now();
+		visitorCountPollTimer = window.setInterval(() => {
+			if (readExternalVisitorCount()) {
+				stopVisitorCountPolling();
+				return;
+			}
+
+			if (Date.now() - startedAt >= 10000) {
+				stopVisitorCountPolling();
+				renderFooterVisits(null, true);
+			}
+		}, 250);
+	};
+
+	const scheduleUptimeSync = () => {
+		syncFooterUptime();
+		if (uptimeTimer) {
+			window.clearInterval(uptimeTimer);
+		}
+		uptimeTimer = window.setInterval(syncFooterUptime, 60000);
 	};
 
 	const ensureVisitorCounterScript = () => {
@@ -162,29 +239,20 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		script.src = visitorCounterApi;
 		script.async = true;
 		script.defer = true;
+		script.setAttribute("pjax", "");
 		script.dataset.footerVisitorCounter = "true";
-		script.onload = () => {
-			window.setTimeout(() => {
-				if (!readExternalVisitorCount()) {
-					renderFooterVisits(null, true);
-				}
-			}, 120);
+		script.onload = () => scheduleVisitorCountSync();
+		script.onerror = () => {
+			stopVisitorCountPolling();
+			renderFooterVisits(null, true);
 		};
-		script.onerror = () => renderFooterVisits(null, true);
 		document.head.appendChild(script);
 	};
 
 	const syncFooterSignals = () => {
-		syncFooterUptime();
+		scheduleUptimeSync();
 		ensureVisitorCounterScript();
-
-		if (!readExternalVisitorCount()) {
-			window.setTimeout(() => {
-				if (!readExternalVisitorCount()) {
-					renderFooterVisits(null, true);
-				}
-			}, 800);
-		}
+		scheduleVisitorCountSync();
 	};
 
 	document.addEventListener("astro:page-load", syncFooterSignals);
@@ -194,6 +262,8 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 <span id="busuanzi_container_site_pv" hidden>
 	<span id="busuanzi_value_site_pv"></span>
 </span>
+<span id="busuanzi_site_pv" hidden></span>
 <span id="busuanzi_container_page_pv" hidden>
 	<span id="busuanzi_value_page_pv"></span>
 </span>
+<span id="busuanzi_page_pv" hidden></span>
