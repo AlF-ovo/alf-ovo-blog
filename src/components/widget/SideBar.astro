@@ -8,12 +8,22 @@ import Tag from "./Tags.astro";
 interface Props {
 	class?: string;
 	headings?: MarkdownHeading[];
+	deferredSticky?: boolean;
 }
 
 const className = Astro.props.class;
+const deferredSticky = Astro.props.deferredSticky ?? false;
 ---
 <div id="sidebar" class:list={[className, "w-full"]}>
-    <div id="sidebar-sticky" class="transition-all duration-700 sidebar-stack sticky top-4 mb-4">
+	<div
+		id="sidebar-sticky"
+		class:list={[
+			"transition-all duration-700 sidebar-stack sticky mb-4",
+			{ "top-4": !deferredSticky },
+		]}
+		data-deferred-sidebar-sticky={deferredSticky ? "true" : undefined}
+		style={deferredSticky ? "top: var(--sidebar-sticky-top, 1rem)" : undefined}
+	>
         <Profile></Profile>
         <SiteLinks class="onload-animation" style="animation-delay: 125ms"></SiteLinks>
         <Categories class="onload-animation" style="animation-delay: 150ms"></Categories>

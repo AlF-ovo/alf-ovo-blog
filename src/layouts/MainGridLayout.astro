@@ -23,6 +23,7 @@ interface Props {
 	setOGTypeArticle?: boolean;
 	headings?: MarkdownHeading[];
 	sidebarRight?: boolean;
+	deferredSidebarSticky?: boolean;
 }
 
 const {
@@ -33,6 +34,7 @@ const {
 	setOGTypeArticle,
 	headings = [],
 	sidebarRight = false,
+	deferredSidebarSticky = false,
 } = Astro.props;
 const hasBannerCredit =
 	siteConfig.banner.enable && siteConfig.banner.credit.enable;
@@ -106,6 +108,7 @@ const mainPanelTop = siteConfig.banner.enable
 					sidebarRight ? "order-2" : "order-1 lg:order-1",
 				]}
 				headings={headings}
+				deferredSticky={deferredSidebarSticky}
 			></SideBar>
 
             <div class="footer col-span-2 onload-animation block lg:hidden">

@@ -49,7 +49,7 @@ const { page }: Props = Astro.props;
 const len = page.data.length;
 ---
 
-<MainGridLayout>
+<MainGridLayout deferredSidebarSticky={true}>
 	{
 		len > 0 ? (
 			<>

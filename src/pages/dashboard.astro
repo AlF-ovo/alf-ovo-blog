@@ -6,7 +6,7 @@ import { getDashboardData } from "../utils/dashboard-data";
 const { chartDatasets, recentUpdates, dashboardMetrics } = await getDashboardData();
 ---
 
-<MainGridLayout title="总览" description="AlF 博客内容总览">
+<MainGridLayout title="总览" description="AlF 博客内容总览" deferredSidebarSticky={true}>
 	<section class="dashboard-page-block mb-4 onload-animation" style="animation-delay: calc(var(--content-delay) + 50ms);">
 		<DashboardSurface
 			chartDatasets={chartDatasets}
