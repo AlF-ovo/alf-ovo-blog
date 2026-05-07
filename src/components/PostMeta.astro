@@ -15,6 +15,7 @@ interface Props {
 	series?: string;
 	hideTagsForMobile?: boolean;
 	hideUpdateDate?: boolean;
+	showVisitCounter?: boolean;
 }
 const {
 	published,
@@ -25,6 +26,7 @@ const {
 	series = "",
 	hideTagsForMobile = false,
 	hideUpdateDate = false,
+	showVisitCounter = false,
 } = Astro.props;
 const className = Astro.props.class;
 const categorySegments = categoryPath.length > 1 ? categoryPath.slice(1) : [];
@@ -83,6 +85,21 @@ const categorySegments = categoryPath.length > 1 ? categoryPath.slice(1) : [];
             >
                 {series}
             </a>
+        </div>
+    )}
+
+    {showVisitCounter && (
+        <div class="flex items-center">
+            <div class="meta-icon">
+                <Icon name="material-symbols:visibility-outline-rounded" class="text-xl"></Icon>
+            </div>
+            <span
+                class="text-50 text-sm font-medium whitespace-nowrap"
+                data-page-visit-counter
+                data-counter-ready="false"
+            >
+                羽毛落点累计清点中...
+            </span>
         </div>
     )}
 

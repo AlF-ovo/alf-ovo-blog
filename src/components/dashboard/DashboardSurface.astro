@@ -216,6 +216,32 @@ const defaultSummary = summarizeDataset(defaultDataset);
 	const buildLinePath = (metrics, key) => `M ${metrics.map((point) => `${point.x} ${point[key]}`).join(" L ")}`;
 	const summarizeDataset = (dataset) =>
 		`${dataset.label}：发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 次，修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次。`;
+	const getColumnWidth = (range, pointCount) => {
+		if (range === "month") {
+			return "2.2rem";
+		}
+
+		if (range === "year") {
+			return "3rem";
+		}
+
+		return pointCount > 14 ? "2.5rem" : "2.9rem";
+	};
+	const shouldShowChartLabel = (range, index, total) => {
+		if (total <= 7) {
+			return true;
+		}
+
+		if (range === "month") {
+			return index === 0 || index === total - 1 || index % 5 === 4;
+		}
+
+		if (range === "year") {
+			return index === 0 || index === total - 1 || index % 2 === 1;
+		}
+
+		return index === 0 || index === total - 1 || index % 2 === 0;
+	};
 
 	const initDashboardTypewriter = () => {
 		const node = document.querySelector("[data-dashboard-typewriter]");
@@ -463,12 +489,19 @@ const defaultSummary = summarizeDataset(defaultDataset);
 			updateLine.setAttribute("d", buildLinePath(metrics, "updateY"));
 			deleteLine.setAttribute("d", buildLinePath(metrics, "deleteY"));
 			summaryNode.textContent = summarizeDataset(dataset);
+			chartRoot.style.setProperty("--chart-base-point-count", String(metrics.length));
+			chartRoot.style.setProperty("--chart-base-column-width", getColumnWidth(range, metrics.length));
 			labels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(0, 1fr))`;
 			labels.replaceChildren(
-				...metrics.map((point) => {
+				...metrics.map((point, index) => {
 					const item = document.createElement("span");
 					item.className = "dashboard-chart-label";
-					item.textContent = point.label;
+					const visible = shouldShowChartLabel(range, index, metrics.length);
+					item.textContent = visible ? point.label : "";
+					item.setAttribute("aria-hidden", visible ? "false" : "true");
+					if (!visible) {
+						item.classList.add("is-placeholder");
+					}
 					return item;
 				}),
 			);
@@ -1117,6 +1150,9 @@ const defaultSummary = summarizeDataset(defaultDataset);
 
 	.dashboard-chart-scroll {
 		overflow-x: auto;
+		overflow-y: hidden;
+		scrollbar-width: thin;
+		scrollbar-color: color-mix(in srgb, var(--dashboard-frame-strong) 60%, transparent) transparent;
 	}
 
 	.dashboard-chart-stage {
@@ -1150,6 +1186,14 @@ const defaultSummary = summarizeDataset(defaultDataset);
 		font-size: 0.76rem;
 		text-align: center;
 		color: var(--dashboard-muted);
+		min-height: 1rem;
+		line-height: 1.35;
+		white-space: nowrap;
+	}
+
+	.dashboard-chart-label.is-placeholder {
+		opacity: 0;
+		pointer-events: none;
 	}
 
 	.dashboard-recent-list {
