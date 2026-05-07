@@ -1,5 +1,6 @@
 <script lang="ts">
-	import { fade } from "svelte/transition";
+	import { cubicOut, cubicInOut } from "svelte/easing";
+	import { fly } from "svelte/transition";
 
 	export let sortedPosts: Post[] = [];
 	export let initialTags: string[] = [];
@@ -388,6 +389,7 @@
 	$: activeFolder = folderLookup.get(activeFolderId) ?? archiveRoot;
 	$: activeFolderAncestors = getFolderAncestors(activeFolder.id, folderLookup);
 	$: activeChildFolders = activeFolder.children;
+	$: selectedTreeChildFolderIds = new Set(activeChildFolders.map((child) => child.id));
 	$: activeFolderPosts = getFolderDisplayPosts(activeFolder);
 	$: activeFolderSummary = getFolderSummary(activeFolder, filteredPosts.length);
 	$: activeFilterSummary = getFilterSummary();
@@ -442,7 +444,16 @@
 						on:click={() => selectFolder(folder.id)}
 					>
 						<span class="archive-tree-label">
-							<span class="archive-tree-icon" aria-hidden="true"></span>
+							<span
+								class:list={[
+									"archive-tree-icon",
+									{
+										"archive-tree-icon--filled":
+											activeFolderId === folder.id || selectedTreeChildFolderIds.has(folder.id),
+									},
+								]}
+								aria-hidden="true"
+							></span>
 							<span>{folder.id === ROOT_FOLDER_ID ? ROOT_FOLDER_NAME : formatFolderLabel(folder.name)}</span>
 						</span>
 						<span class="archive-tree-count">{folder.posts.length}</span>
@@ -484,9 +495,13 @@
 		</nav>
 
 		{#key `${activeFolder.id}-${activeFolderPosts.length}-${activeChildFolders.length}`}
-			<div class="archive-content-stage" transition:fade={{ duration: 180 }}>
+			<div
+				class="archive-content-stage"
+				in:fly={{ y: 14, duration: 320, opacity: 0, easing: cubicOut }}
+				out:fly={{ y: -8, duration: 180, opacity: 0, easing: cubicInOut }}
+			>
 				{#if activeChildFolders.length > 0}
-					<section class="archive-block">
+					<section class="archive-block archive-block--grouped">
 						<div class="archive-block-head">
 							<h3 class="archive-block-title">子文件夹</h3>
 							<p class="archive-copy">{activeChildFolders.length} 个</p>
@@ -721,6 +736,17 @@
 		border: 1px solid var(--frame-strong);
 		background: transparent;
 		flex-shrink: 0;
+		box-shadow: inset 0 0 0 0 rgba(255, 255, 255, 0.88);
+		transition:
+			background-color 260ms cubic-bezier(0.22, 1, 0.36, 1),
+			box-shadow 260ms cubic-bezier(0.22, 1, 0.36, 1),
+			border-color 260ms cubic-bezier(0.22, 1, 0.36, 1);
+	}
+
+	.archive-tree-icon--filled {
+		background: rgba(255, 255, 255, 0.9);
+		box-shadow: inset 0 0 0 0.18rem rgba(255, 255, 255, 0.9);
+		border-color: rgba(255, 255, 255, 0.96);
 	}
 
 	.archive-tree-count {
@@ -754,11 +780,20 @@
 		display: grid;
 		gap: 1.1rem;
 		min-height: 22rem;
+		will-change: transform, opacity, filter;
 	}
 
 	.archive-block {
 		display: grid;
 		gap: 0.85rem;
+	}
+
+	.archive-block--grouped {
+		padding: 0.95rem 1rem 1rem;
+		border: 1px solid var(--frame);
+		border-radius: 1rem;
+		box-shadow: var(--surface-shadow);
+		background: transparent;
 	}
 
 	.archive-child-grid {
@@ -866,6 +901,12 @@
 	:global(.dark) .archive-child-card-label,
 	:global(.dark) .archive-entry-title {
 		color: rgba(248, 250, 252, 0.92);
+	}
+
+	:global(.dark) .archive-tree-icon--filled {
+		background: rgba(248, 250, 252, 0.92);
+		box-shadow: inset 0 0 0 0.18rem rgba(248, 250, 252, 0.92);
+		border-color: rgba(248, 250, 252, 0.98);
 	}
 
 	@media (max-width: 1100px) {
