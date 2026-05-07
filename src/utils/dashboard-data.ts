@@ -39,10 +39,17 @@ type DashboardMetrics = {
 	latestNote: DashboardEntrySummary;
 };
 
+type PopularPostSeed = {
+	title: string;
+	url: string;
+	description: string;
+};
+
 type DashboardData = {
 	chartDatasets: Record<"week" | "month" | "year", ActivityDataset>;
 	recentUpdates: DashboardRecentUpdate[];
 	dashboardMetrics: DashboardMetrics;
+	popularPosts: PopularPostSeed[];
 };
 
 type WrappedEntry = Awaited<ReturnType<typeof getAllSortedContentEntries>>[number];
@@ -323,5 +330,10 @@ export async function getDashboardData(): Promise<DashboardData> {
 			latestPost: toEntrySummary(posts[0]),
 			latestNote: toEntrySummary(notes[0]),
 		},
+		popularPosts: posts.map((entry) => ({
+			title: entry.entry.data.title,
+			url: getCollectionUrl(entry.collection, entry.entry.slug),
+			description: entry.entry.data.description || "这篇文章暂时还没有摘要。",
+		})),
 	};
 }

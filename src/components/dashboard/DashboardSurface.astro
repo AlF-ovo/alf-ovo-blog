@@ -4,6 +4,7 @@ import DashboardActivityPanel from "./DashboardActivityPanel.astro";
 import DashboardGuidePanel from "./DashboardGuidePanel.astro";
 import DashboardHero from "./DashboardHero.astro";
 import DashboardMetricsGrid from "./DashboardMetricsGrid.astro";
+import DashboardPopularPosts from "./DashboardPopularPosts.astro";
 import DashboardRecentUpdates from "./DashboardRecentUpdates.astro";
 import DashboardSidebar from "./DashboardSidebar.astro";
 import DashboardTopbar from "./DashboardTopbar.astro";
@@ -45,6 +46,7 @@ interface Props {
 	chartDatasets: Record<string, { label: string; points: ActivityPoint[] }>;
 	recentUpdates: DashboardItem[];
 	dashboardMetrics: DashboardMetrics;
+	popularPosts: { title: string; url: string; description: string }[];
 	compact?: boolean;
 	showSidebar?: boolean;
 }
@@ -53,6 +55,7 @@ const {
 	chartDatasets,
 	recentUpdates,
 	dashboardMetrics,
+	popularPosts,
 	compact = false,
 	showSidebar = true,
 }: Props = Astro.props;
@@ -171,6 +174,7 @@ const defaultSummary = summarizeDataset(defaultDataset);
 				defaultMetrics={defaultMetrics}
 				defaultSummary={defaultSummary}
 			/>
+			<DashboardPopularPosts posts={popularPosts} />
 			<DashboardRecentUpdates recentUpdates={recentUpdates} />
 			<DashboardGuidePanel />
 		</div>
@@ -198,6 +202,7 @@ const defaultSummary = summarizeDataset(defaultDataset);
 <script id="dashboard-hint-data" type="application/json" is:inline set:html={JSON.stringify(dashboardHints)}></script>
 <script id="dashboard-search-data" type="application/json" is:inline set:html={JSON.stringify(dashboardSearchItems)}></script>
 <script id="dashboard-hero-quotes" type="application/json" is:inline set:html={JSON.stringify(dashboardHeroQuotes)}></script>
+<script id="dashboard-popular-posts-data" type="application/json" is:inline set:html={JSON.stringify(popularPosts)}></script>
 
 <script is:inline>
 	const buildMetrics = (points) => {
@@ -514,11 +519,193 @@ const defaultSummary = summarizeDataset(defaultDataset);
 		renderChart(chartRoot.dataset.defaultRange || "week");
 	};
 
+	const initDashboardPopularPosts = () => {
+		const root = document.querySelector("[data-popular-posts-root]");
+		const statusNode = document.querySelector("[data-popular-posts-status]");
+		const dataNode = document.querySelector("#dashboard-popular-posts-data");
+
+		if (!(root instanceof HTMLElement) || !(dataNode instanceof HTMLScriptElement)) {
+			return;
+		}
+
+		const posts = JSON.parse(dataNode.textContent || "[]");
+		if (!Array.isArray(posts) || posts.length === 0) {
+			if (statusNode instanceof HTMLElement) {
+				statusNode.textContent = "暂时还没有可统计的文章。";
+			}
+			return;
+		}
+
+		if (root.dataset.popularPostsInitialized === "true") {
+			return;
+		}
+		root.dataset.popularPostsInitialized = "true";
+
+		const counterApi = root.dataset.counterApi || "";
+		const counterOrigin = root.dataset.counterOrigin || window.location.origin;
+		const formatVisits = (count) => new Intl.NumberFormat("zh-CN").format(Math.max(0, count));
+		const medalMap = {
+			1: "金牌",
+			2: "银牌",
+			3: "铜牌",
+		};
+
+		const applyRanking = (ranking) => {
+			const podium = root.querySelector("[data-popular-posts-podium]");
+			const list = root.querySelector("[data-popular-posts-list]");
+
+			if (!(podium instanceof HTMLElement) || !(list instanceof HTMLElement)) {
+				return;
+			}
+
+			const podiumItems = ranking.slice(0, 3);
+			const listItems = ranking.slice(3);
+
+			podium.replaceChildren(
+				...podiumItems.map((item, index) => {
+					const link = document.createElement("a");
+					link.className = "dashboard-popular-card";
+					link.href = item.url;
+					link.dataset.rank = String(index + 1);
+
+					const medal = document.createElement("div");
+					medal.className = "dashboard-popular-medal";
+					medal.textContent = medalMap[index + 1] || String(index + 1);
+
+					const copy = document.createElement("div");
+					copy.className = "dashboard-popular-copy";
+
+					const rankLabel = document.createElement("p");
+					rankLabel.className = "dashboard-popular-rank-label";
+					rankLabel.textContent = index === 0 ? "金牌席" : index === 1 ? "银牌席" : "铜牌席";
+
+					const title = document.createElement("h4");
+					title.className = "dashboard-popular-title";
+					title.textContent = item.title;
+
+					const description = document.createElement("p");
+					description.className = "dashboard-popular-description";
+					description.textContent = item.description;
+
+					copy.append(rankLabel, title, description);
+
+					const count = document.createElement("div");
+					count.className = "dashboard-popular-count";
+					count.textContent = `${formatVisits(item.visits)} 次`;
+
+					link.append(medal, copy, count);
+					return link;
+				}),
+			);
+
+			list.replaceChildren(
+				...listItems.map((item, index) => {
+					const rank = index + 4;
+					const link = document.createElement("a");
+					link.className = "dashboard-popular-list-item";
+					link.href = item.url;
+					link.dataset.rank = String(rank);
+
+					const rankNode = document.createElement("div");
+					rankNode.className = "dashboard-popular-list-rank";
+					rankNode.textContent = String(rank).padStart(2, "0");
+
+					const copy = document.createElement("div");
+					copy.className = "dashboard-popular-list-copy";
+
+					const title = document.createElement("h4");
+					title.className = "dashboard-popular-list-title";
+					title.textContent = item.title;
+
+					const description = document.createElement("p");
+					description.className = "dashboard-popular-list-description";
+					description.textContent = item.description;
+
+					copy.append(title, description);
+
+					const count = document.createElement("div");
+					count.className = "dashboard-popular-list-count";
+					count.textContent = `${formatVisits(item.visits)} 次`;
+
+					link.append(rankNode, copy, count);
+					return link;
+				}),
+			);
+		};
+
+		const updateStatus = (ranking) => {
+			if (!(statusNode instanceof HTMLElement)) {
+				return;
+			}
+
+			if (ranking.length === 0) {
+				statusNode.textContent = "热门榜暂时还没有数据。";
+				return;
+			}
+
+			const topItem = ranking[0];
+			statusNode.textContent = `${topItem.title} 当前羽毛落点累计 ${formatVisits(topItem.visits)} 次。`;
+		};
+
+		const renderFallback = () => {
+			root.querySelectorAll(".is-loading").forEach((node) => {
+				node.classList.remove("is-loading");
+			});
+			if (statusNode instanceof HTMLElement) {
+				statusNode.textContent = "热门榜统计暂时失联。";
+			}
+		};
+
+		const fetchPopularPosts = async () => {
+			if (!counterApi) {
+				renderFallback();
+				return;
+			}
+
+			try {
+				const ranking = (
+					await Promise.all(
+						posts.map(async (post) => {
+							const targetUrl = new URL(post.url, counterOrigin).toString();
+							const response = await fetch(counterApi, {
+								method: "GET",
+								headers: {
+									"x-bsz-referer": targetUrl,
+								},
+							});
+
+							if (!response.ok) {
+								throw new Error(`Failed to fetch ${targetUrl}`);
+							}
+
+							const payload = await response.json();
+							return {
+								...post,
+								visits:
+									typeof payload?.data?.page_pv === "number" && Number.isFinite(payload.data.page_pv)
+										? payload.data.page_pv
+										: 0,
+							};
+						}),
+					)
+				).sort((left, right) => right.visits - left.visits || left.title.localeCompare(right.title, "zh-CN"));
+
+				applyRanking(ranking);
+				updateStatus(ranking);
+			} catch (_error) {
+				renderFallback();
+			}
+		};
+
+		void fetchPopularPosts();
+	};
+
 	const bootDashboard = () => {
 		initDashboardTypewriter();
 		initDashboardSearch();
 		initDashboardHints();
 		initDashboardChart();
+		initDashboardPopularPosts();
 	};
 
 	document.addEventListener("astro:page-load", bootDashboard);
@@ -1196,6 +1383,175 @@ const defaultSummary = summarizeDataset(defaultDataset);
 		pointer-events: none;
 	}
 
+	.dashboard-popular-shell {
+		display: grid;
+		gap: 1rem;
+	}
+
+	.dashboard-popular-podium {
+		display: grid;
+		grid-template-columns: repeat(3, minmax(0, 1fr));
+		gap: 0.85rem;
+	}
+
+	.dashboard-popular-card,
+	.dashboard-popular-list-item {
+		border: 1px solid var(--dashboard-frame);
+		background: transparent;
+		box-shadow: var(--dashboard-shadow);
+		backdrop-filter: blur(12px);
+		text-decoration: none;
+		color: inherit;
+		transition: 180ms ease;
+	}
+
+	.dashboard-popular-card {
+		display: grid;
+		grid-template-rows: auto 1fr auto;
+		gap: 0.9rem;
+		padding: 1rem;
+		border-radius: 1.15rem;
+		min-height: 15rem;
+	}
+
+	.dashboard-popular-card:hover,
+	.dashboard-popular-list-item:hover {
+		background: var(--dashboard-surface-hover);
+		border-color: var(--dashboard-frame-strong);
+	}
+
+	.dashboard-popular-card[data-rank="1"] {
+		background:
+			linear-gradient(180deg, rgba(245, 158, 11, 0.12), transparent 60%),
+			transparent;
+	}
+
+	.dashboard-popular-card[data-rank="2"] {
+		background:
+			linear-gradient(180deg, rgba(148, 163, 184, 0.14), transparent 60%),
+			transparent;
+	}
+
+	.dashboard-popular-card[data-rank="3"] {
+		background:
+			linear-gradient(180deg, rgba(180, 83, 9, 0.12), transparent 60%),
+			transparent;
+	}
+
+	.dashboard-popular-medal,
+	.dashboard-popular-list-rank {
+		display: inline-flex;
+		align-items: center;
+		justify-content: center;
+		font-weight: 800;
+		letter-spacing: 0.04em;
+	}
+
+	.dashboard-popular-medal {
+		width: fit-content;
+		min-width: 3.4rem;
+		height: 2rem;
+		padding: 0 0.85rem;
+		border-radius: 999px;
+		font-size: 0.82rem;
+		color: var(--dashboard-text);
+		border: 1px solid var(--dashboard-frame-strong);
+	}
+
+	.dashboard-popular-card[data-rank="1"] .dashboard-popular-medal {
+		background: rgba(245, 158, 11, 0.18);
+	}
+
+	.dashboard-popular-card[data-rank="2"] .dashboard-popular-medal {
+		background: rgba(148, 163, 184, 0.2);
+	}
+
+	.dashboard-popular-card[data-rank="3"] .dashboard-popular-medal {
+		background: rgba(180, 83, 9, 0.18);
+	}
+
+	.dashboard-popular-copy,
+	.dashboard-popular-list-copy {
+		display: grid;
+		gap: 0.45rem;
+		min-width: 0;
+	}
+
+	.dashboard-popular-rank-label {
+		margin: 0;
+		font-size: 0.78rem;
+		font-weight: 700;
+		letter-spacing: 0.08em;
+		text-transform: uppercase;
+		color: var(--dashboard-subtle);
+	}
+
+	.dashboard-popular-title,
+	.dashboard-popular-list-title {
+		margin: 0;
+		font-size: 1rem;
+		font-weight: 800;
+		color: var(--dashboard-text);
+	}
+
+	.dashboard-popular-description,
+	.dashboard-popular-list-description {
+		margin: 0;
+		font-size: 0.84rem;
+		line-height: 1.8;
+		color: var(--dashboard-muted);
+	}
+
+	.dashboard-popular-description {
+		display: -webkit-box;
+		-webkit-line-clamp: 3;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.dashboard-popular-count,
+	.dashboard-popular-list-count {
+		font-weight: 800;
+		color: var(--dashboard-text);
+		white-space: nowrap;
+	}
+
+	.dashboard-popular-count {
+		font-size: 1.2rem;
+	}
+
+	.dashboard-popular-list {
+		display: grid;
+		gap: 0.75rem;
+	}
+
+	.dashboard-popular-list-item {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 0.9rem;
+		padding: 0.9rem 1rem;
+		border-radius: 1rem;
+	}
+
+	.dashboard-popular-list-rank {
+		width: 2.5rem;
+		height: 2.5rem;
+		border-radius: 0.85rem;
+		border: 1px solid var(--dashboard-frame);
+		font-size: 0.82rem;
+		color: var(--dashboard-subtle);
+	}
+
+	.dashboard-popular-list-count {
+		font-size: 0.95rem;
+	}
+
+	.dashboard-popular-card.is-loading,
+	.dashboard-popular-list-item.is-loading {
+		opacity: 0.72;
+	}
+
 	.dashboard-recent-list {
 		display: grid;
 		grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -1331,6 +1687,10 @@ const defaultSummary = summarizeDataset(defaultDataset);
 
 		.dashboard-recent-list,
 		.dashboard-shell--compact .dashboard-recent-list {
+			grid-template-columns: 1fr;
+		}
+
+		.dashboard-popular-podium {
 			grid-template-columns: 1fr;
 		}
 	}

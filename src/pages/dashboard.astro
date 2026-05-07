@@ -3,7 +3,7 @@ import DashboardSurface from "@components/dashboard/DashboardSurface.astro";
 import MainGridLayout from "../layouts/MainGridLayout.astro";
 import { getDashboardData } from "../utils/dashboard-data";
 
-const { chartDatasets, recentUpdates, dashboardMetrics } = await getDashboardData();
+const { chartDatasets, recentUpdates, dashboardMetrics, popularPosts } = await getDashboardData();
 ---
 
 <MainGridLayout title="总览" description="AlF 博客内容总览" deferredSidebarSticky={true}>
@@ -12,6 +12,7 @@ const { chartDatasets, recentUpdates, dashboardMetrics } = await getDashboardDat
 			chartDatasets={chartDatasets}
 			recentUpdates={recentUpdates}
 			dashboardMetrics={dashboardMetrics}
+			popularPosts={popularPosts}
 			compact={true}
 			showSidebar={false}
 		/>
