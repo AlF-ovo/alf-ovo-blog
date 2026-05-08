@@ -48,7 +48,7 @@ interface DashboardMetrics {
 
 interface Props {
 	activityDatasets: Record<string, { label: string; points: ActivityPoint[] }>;
-	visitDatasets: Record<string, { label: string; points: VisitGrowthPoint[] }>;
+	visitDatasets: Record<"week", { label: string; points: VisitGrowthPoint[] }>;
 	recentUpdates: DashboardItem[];
 	dashboardMetrics: DashboardMetrics;
 	compact?: boolean;
@@ -187,7 +187,6 @@ const defaultSummary = "等待全站访问快照...";
 				<DashboardRecentUpdates recentUpdates={recentUpdates.slice(0, 4)} />
 				<DashboardVisitPanel
 					chartColor={visitChartColor}
-					defaultRange={defaultRange}
 					defaultMetrics={defaultMetrics}
 					defaultSummary={defaultSummary}
 				/>
@@ -295,28 +294,12 @@ const defaultSummary = "等待全站访问快照...";
 		return `${dataset.label}：当前全站访问量 ${formatVisits(latestPoint.totalVisits)}，较首个有效采样点增长 ${formatGrowthRate(rangeGrowthRate)}。`;
 	};
 
-	const getColumnWidth = (range, pointCount) => {
-		if (range === "month") {
-			return "2.2rem";
-		}
-
-		if (range === "year") {
-			return "3rem";
-		}
-
+	const getColumnWidth = (pointCount) => {
 		return pointCount > 14 ? "2.5rem" : "2.9rem";
 	};
-	const shouldShowChartLabel = (range, index, total) => {
+	const shouldShowChartLabel = (index, total) => {
 		if (total <= 7) {
 			return true;
-		}
-
-		if (range === "month") {
-			return index === 0 || index === total - 1 || index % 5 === 4;
-		}
-
-		if (range === "year") {
-			return index === 0 || index === total - 1 || index % 2 === 1;
 		}
 
 		return index === 0 || index === total - 1 || index % 2 === 0;
@@ -353,14 +336,10 @@ const defaultSummary = "等待全站访问快照...";
 	const buildVisitDatasets = (sourceDatasets) => {
 		const history = readSiteVisitHistory();
 		const dayTotals = new Map();
-		const monthTotals = new Map();
 
 		history.forEach((entry) => {
 			const siteUv = entry.siteUv ?? 0;
 			dayTotals.set(entry.dayKey, Math.max(dayTotals.get(entry.dayKey) ?? 0, siteUv));
-
-			const monthKey = entry.dayKey.slice(0, 7);
-			monthTotals.set(monthKey, Math.max(monthTotals.get(monthKey) ?? 0, siteUv));
 		});
 
 		const hydratePoints = (points, totalMap) => {
@@ -396,18 +375,6 @@ const defaultSummary = "等待全站访问快照...";
 				? {
 						...sourceDatasets.week,
 						points: hydratePoints(sourceDatasets.week.points, dayTotals),
-					}
-				: null,
-			month: sourceDatasets?.month
-				? {
-						...sourceDatasets.month,
-						points: hydratePoints(sourceDatasets.month.points, dayTotals),
-					}
-				: null,
-			year: sourceDatasets?.year
-				? {
-						...sourceDatasets.year,
-						points: hydratePoints(sourceDatasets.year.points, monthTotals),
 					}
 				: null,
 		};
@@ -661,42 +628,32 @@ const defaultSummary = "等待全站访问快照...";
 	const renderDashboardChart = () => {
 		const dataNode = document.querySelector("#dashboard-chart-data");
 		const chartRoot = document.querySelector("[data-chart-root]");
-		const switchRoot = document.querySelector("[data-chart-switch]");
 		const summaryNode = document.querySelector("[data-chart-summary]");
 		const svg = document.querySelector("[data-chart-svg]");
 		const labels = document.querySelector("[data-chart-labels]");
-		if (!dataNode || !chartRoot || !switchRoot || !summaryNode || !svg || !labels) {
+		if (!dataNode || !chartRoot || !summaryNode || !svg || !labels) {
 			return;
 		}
 
 		const datasets = buildVisitDatasets(JSON.parse(dataNode.textContent || "{}"));
 		const [area, line] = svg.querySelectorAll("path");
-		const activeRange = chartRoot.dataset.currentRange || chartRoot.dataset.defaultRange || "week";
-		const dataset = datasets[activeRange];
+		const dataset = datasets.week;
 		if (!dataset) {
 			return;
 		}
 
 		const metrics = buildMetrics(dataset.points);
-		switchRoot.dataset.activeIndex =
-			activeRange === "week" ? "0" : activeRange === "month" ? "1" : "2";
-		switchRoot.querySelectorAll("[data-range-option]").forEach((button) => {
-			const active = button.dataset.rangeOption === activeRange;
-			button.classList.toggle("is-active", active);
-			button.setAttribute("aria-selected", active ? "true" : "false");
-		});
-
 		area?.setAttribute("d", buildAreaPath(metrics));
 		line?.setAttribute("d", buildLinePath(metrics));
 		summaryNode.textContent = summarizeDataset(dataset);
 		chartRoot.style.setProperty("--chart-base-point-count", String(metrics.length));
-		chartRoot.style.setProperty("--chart-base-column-width", getColumnWidth(activeRange, metrics.length));
+		chartRoot.style.setProperty("--chart-base-column-width", getColumnWidth(metrics.length));
 		labels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(0, 1fr))`;
 		labels.replaceChildren(
 			...metrics.map((point, index) => {
 				const item = document.createElement("span");
 				item.className = "dashboard-chart-label";
-				const visible = shouldShowChartLabel(activeRange, index, metrics.length);
+				const visible = shouldShowChartLabel(index, metrics.length);
 				item.textContent = visible ? point.label : "";
 				item.setAttribute("aria-hidden", visible ? "false" : "true");
 				if (!visible) {
@@ -709,18 +666,11 @@ const defaultSummary = "等待全站访问快照...";
 
 	const initDashboardChart = () => {
 		const chartRoot = document.querySelector("[data-chart-root]");
-		const switchRoot = document.querySelector("[data-chart-switch]");
-		if (!chartRoot || !switchRoot) {
+		if (!chartRoot) {
 			return;
 		}
 
 		if (chartRoot.dataset.chartInitialized !== "true") {
-			switchRoot.querySelectorAll("[data-range-option]").forEach((button) => {
-				button.onclick = () => {
-					chartRoot.dataset.currentRange = button.dataset.rangeOption || "week";
-					renderDashboardChart();
-				};
-			});
 			chartRoot.dataset.chartInitialized = "true";
 		}
 

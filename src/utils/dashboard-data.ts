@@ -53,7 +53,7 @@ type DashboardMetrics = {
 
 type DashboardData = {
 	activityDatasets: Record<"week" | "month" | "year", ActivityDataset>;
-	visitDatasets: Record<"week" | "month" | "year", VisitGrowthDataset>;
+	visitDatasets: Record<"week", VisitGrowthDataset>;
 	recentUpdates: DashboardRecentUpdate[];
 	dashboardMetrics: DashboardMetrics;
 };
@@ -92,8 +92,7 @@ const formatDateTime = (date: Date) =>
 
 const getKindLabel = (
 	collection: WrappedEntry["collection"],
-): DashboardRecentUpdate["kindLabel"] =>
-	collection === "notes" ? "笔记" : "文章";
+): DashboardRecentUpdate["kindLabel"] => (collection === "notes" ? "笔记" : "文章");
 
 const toEntrySummary = (entry?: WrappedEntry): DashboardEntrySummary => {
 	if (!entry) {
@@ -175,7 +174,6 @@ const parseGitActivity = () => {
 
 		for (const rawLine of output.split(/\r?\n/)) {
 			const line = rawLine.trim();
-
 			if (!line) {
 				continue;
 			}
@@ -196,7 +194,6 @@ const parseGitActivity = () => {
 			const parts = rawLine.split("\t");
 			const status = parts[0]?.trim() || "";
 			const stats = dayStats.get(activeDayKey);
-
 			if (!stats) {
 				continue;
 			}
@@ -303,19 +300,6 @@ const buildVisitDatasetFromDays = (
 	})),
 });
 
-const buildVisitDatasetFromMonths = (
-	label: string,
-	dates: Date[],
-): VisitGrowthDataset => ({
-	label,
-	points: dates.map((date) => ({
-		label: `${date.getMonth() + 1}月`,
-		bucketKey: formatMonthKey(date),
-		totalVisits: 0,
-		growthRate: 0,
-	})),
-});
-
 export async function getDashboardData(): Promise<DashboardData> {
 	const allEntries = await getAllSortedContentEntries();
 	const categories = await getCategoryList();
@@ -360,8 +344,6 @@ export async function getDashboardData(): Promise<DashboardData> {
 		},
 		visitDatasets: {
 			week: buildVisitDatasetFromDays("近 7 天", createDaySeries(7, now)),
-			month: buildVisitDatasetFromDays("近 30 天", createDaySeries(30, now)),
-			year: buildVisitDatasetFromMonths("近 12 个月", createMonthSeries(12, now)),
 		},
 		recentUpdates,
 		dashboardMetrics: {

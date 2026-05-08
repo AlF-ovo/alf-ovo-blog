@@ -9,7 +9,6 @@ type VisitGrowthMetric = {
 
 interface Props {
 	chartColor: { line: string; area: string };
-	defaultRange: "week" | "month" | "year";
 	defaultMetrics: VisitGrowthMetric[];
 	defaultSummary: string;
 	chartId?: string;
@@ -20,7 +19,6 @@ interface Props {
 
 const {
 	chartColor,
-	defaultRange,
 	defaultMetrics,
 	defaultSummary,
 	chartId = "visit-growth",
@@ -36,18 +34,6 @@ const {
 			<p class="dashboard-panel-eyebrow">{eyebrow}</p>
 			<h3 class="dashboard-panel-title">{title}</h3>
 		</div>
-		<div
-			class="dashboard-range-switch"
-			data-chart-switch
-			data-active-index="0"
-			role="tablist"
-			aria-label="图表时间范围"
-		>
-			<span class="dashboard-range-switch-thumb" aria-hidden="true"></span>
-			<button class="dashboard-range-button is-active" type="button" data-range-option="week" role="tab" aria-selected="true">近 7 天</button>
-			<button class="dashboard-range-button" type="button" data-range-option="month" role="tab" aria-selected="false">近 30 天</button>
-			<button class="dashboard-range-button" type="button" data-range-option="year" role="tab" aria-selected="false">近 12 个月</button>
-		</div>
 	</div>
 
 	<div class="dashboard-chart-meta">
@@ -59,7 +45,7 @@ const {
 		<p class="dashboard-chart-summary" data-chart-summary>{defaultSummary}</p>
 	</div>
 
-	<div class="dashboard-chart-shell" data-chart-root data-default-range={defaultRange}>
+	<div class="dashboard-chart-shell" data-chart-root>
 		<div class="dashboard-chart-scroll">
 			<div
 				class="dashboard-chart-stage"
