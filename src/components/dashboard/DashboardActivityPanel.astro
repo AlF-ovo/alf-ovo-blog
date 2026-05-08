@@ -1,17 +1,29 @@
 ---
-type VisitGrowthMetric = {
+type ChartPalette = {
+	publish: { line: string; area: string };
+	update: { line: string; area: string };
+	delete: { line: string; area: string };
+};
+
+type ActivityPoint = {
 	label: string;
-	totalVisits: number;
-	growthRate: number;
+	publish: number;
+	update: number;
+	delete: number;
+};
+
+type ActivityMetric = ActivityPoint & {
+	total: number;
 	x: number;
-	y: number;
+	publishY: number;
+	updateY: number;
+	deleteY: number;
 };
 
 interface Props {
-	chartColor: { line: string; area: string };
+	chartPalette: ChartPalette;
+	chartDatasets: Record<"week" | "month" | "year", { label: string; points: ActivityPoint[] }>;
 	defaultRange: "week" | "month" | "year";
-	defaultMetrics: VisitGrowthMetric[];
-	defaultSummary: string;
 	chartId?: string;
 	title?: string;
 	eyebrow?: string;
@@ -19,15 +31,44 @@ interface Props {
 }
 
 const {
-	chartColor,
+	chartPalette,
+	chartDatasets,
 	defaultRange,
-	defaultMetrics,
-	defaultSummary,
 	chartId = "activity",
-	title = "全站访问增长率",
-	eyebrow = "访问",
-	ariaLabel = "全站访问增长率图",
+	title = "最近发布、修改和删除趋势",
+	eyebrow = "活动",
+	ariaLabel = "内容活动趋势图",
 }: Props = Astro.props;
+
+const getChartMetrics = (points: ActivityPoint[]): ActivityMetric[] => {
+	const maxTotal = Math.max(
+		...points.map((point) => point.publish + point.update + point.delete),
+		1,
+	);
+	const denominator = Math.max(points.length - 1, 1);
+
+	return points.map((point, index) => ({
+		...point,
+		total: point.publish + point.update + point.delete,
+		x: (index / denominator) * 100,
+		publishY: 100 - (point.publish / maxTotal) * 100,
+		updateY: 100 - (point.update / maxTotal) * 100,
+		deleteY: 100 - (point.delete / maxTotal) * 100,
+	}));
+};
+
+const summarizeDataset = (dataset: (typeof chartDatasets)[typeof defaultRange]) =>
+	[
+		dataset.label,
+		`发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 次`,
+		`修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次`,
+		`删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次`,
+	].join(" / ");
+
+const defaultDataset = chartDatasets[defaultRange];
+const defaultMetrics = getChartMetrics(defaultDataset.points);
+const defaultSummary = summarizeDataset(defaultDataset);
+const chartDataId = `${chartId}-chart-data`;
 ---
 
 <article id={chartId} class="card-base dashboard-panel">
@@ -36,7 +77,13 @@ const {
 			<p class="dashboard-panel-eyebrow">{eyebrow}</p>
 			<h3 class="dashboard-panel-title">{title}</h3>
 		</div>
-		<div class="dashboard-range-switch" data-chart-switch data-active-index="0" role="tablist" aria-label="图表时间范围">
+		<div
+			class="dashboard-range-switch"
+			data-activity-chart-switch={chartId}
+			data-active-index="0"
+			role="tablist"
+			aria-label="图表时间范围"
+		>
 			<span class="dashboard-range-switch-thumb" aria-hidden="true"></span>
 			<button class="dashboard-range-button is-active" type="button" data-range-option="week" role="tab" aria-selected="true">近 7 天</button>
 			<button class="dashboard-range-button" type="button" data-range-option="month" role="tab" aria-selected="false">近 30 天</button>
@@ -46,38 +93,75 @@ const {
 
 	<div class="dashboard-chart-meta">
 		<div class="dashboard-chart-legend">
-			<span><i class="is-publish"></i> 增长率</span>
+			<span><i class="is-publish"></i> 发布</span>
+			<span><i class="is-update"></i> 修改</span>
+			<span><i class="is-delete"></i> 删除</span>
 		</div>
-		<p class="dashboard-chart-summary" data-chart-summary>{defaultSummary}</p>
+		<p class="dashboard-chart-summary" data-activity-chart-summary={chartId}>{defaultSummary}</p>
 	</div>
 
-	<div class="dashboard-chart-shell" data-chart-root data-default-range={defaultRange}>
+	<div class="dashboard-chart-shell" data-activity-chart-root={chartId} data-default-range={defaultRange}>
 		<div class="dashboard-chart-scroll">
 			<div
 				class="dashboard-chart-stage"
-				data-chart-stage
 				style={`--chart-base-point-count: ${defaultMetrics.length}; --chart-base-column-width: 2.7rem;`}
 			>
-				<svg class="dashboard-chart-svg" data-chart-svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={ariaLabel}>
+				<svg
+					class="dashboard-chart-svg"
+					data-activity-chart-svg={chartId}
+					viewBox="0 0 100 100"
+					preserveAspectRatio="none"
+					aria-label={ariaLabel}
+				>
 					<path
 						class="dashboard-chart-area is-publish"
-						fill={chartColor.area}
+						fill={chartPalette.publish.area}
 						stroke="none"
-						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.y}`).join(" ")} L 100 100 Z`}
+						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.publishY}`).join(" ")} L 100 100 Z`}
+					></path>
+					<path
+						class="dashboard-chart-area is-update"
+						fill={chartPalette.update.area}
+						stroke="none"
+						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.updateY}`).join(" ")} L 100 100 Z`}
+					></path>
+					<path
+						class="dashboard-chart-area is-delete"
+						fill={chartPalette.delete.area}
+						stroke="none"
+						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.deleteY}`).join(" ")} L 100 100 Z`}
 					></path>
 					<path
 						class="dashboard-chart-line is-publish"
 						fill="none"
-						stroke={chartColor.line}
+						stroke={chartPalette.publish.line}
 						stroke-width="2.1"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.y}`).join(" L ")}`}
+						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.publishY}`).join(" L ")}`}
+					></path>
+					<path
+						class="dashboard-chart-line is-update"
+						fill="none"
+						stroke={chartPalette.update.line}
+						stroke-width="2.1"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.updateY}`).join(" L ")}`}
+					></path>
+					<path
+						class="dashboard-chart-line is-delete"
+						fill="none"
+						stroke={chartPalette.delete.line}
+						stroke-width="2.1"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.deleteY}`).join(" L ")}`}
 					></path>
 				</svg>
 				<div
 					class="dashboard-chart-labels"
-					data-chart-labels
+					data-activity-chart-labels={chartId}
 					style={`grid-template-columns: repeat(${defaultMetrics.length}, minmax(0, 1fr));`}
 				>
 					{defaultMetrics.map((point) => <span class="dashboard-chart-label">{point.label}</span>)}
@@ -86,3 +170,137 @@ const {
 		</div>
 	</div>
 </article>
+
+<script id={chartDataId} type="application/json" is:inline set:html={JSON.stringify(chartDatasets)}></script>
+
+<script is:inline define:vars={{ chartId, chartDataId }}>
+	const getColumnWidth = (range, pointCount) => {
+		if (range === "month") {
+			return "2.2rem";
+		}
+
+		if (range === "year") {
+			return "3rem";
+		}
+
+		return pointCount > 14 ? "2.5rem" : "2.9rem";
+	};
+
+	const shouldShowChartLabel = (range, index, total) => {
+		if (total <= 7) {
+			return true;
+		}
+
+		if (range === "month") {
+			return index === 0 || index === total - 1 || index % 5 === 4;
+		}
+
+		if (range === "year") {
+			return index === 0 || index === total - 1 || index % 2 === 1;
+		}
+
+		return index === 0 || index === total - 1 || index % 2 === 0;
+	};
+
+	const buildMetrics = (points) => {
+		const maxTotal = Math.max(...points.map((point) => point.publish + point.update + point.delete), 1);
+		const denominator = Math.max(points.length - 1, 1);
+		return points.map((point, index) => ({
+			...point,
+			total: point.publish + point.update + point.delete,
+			x: (index / denominator) * 100,
+			publishY: 100 - (point.publish / maxTotal) * 100,
+			updateY: 100 - (point.update / maxTotal) * 100,
+			deleteY: 100 - (point.delete / maxTotal) * 100,
+		}));
+	};
+
+	const summarizeDataset = (dataset) =>
+		[
+			dataset.label,
+			`发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 次`,
+			`修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次`,
+			`删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次`,
+		].join(" / ");
+	const buildAreaPath = (metrics, key) =>
+		`M 0 100 ${metrics.map((point) => `L ${point.x} ${point[key]}`).join(" ")} L 100 100 Z`;
+	const buildLinePath = (metrics, key) =>
+		`M ${metrics.map((point) => `${point.x} ${point[key]}`).join(" L ")}`;
+
+	const renderActivityChart = () => {
+		const dataNode = document.getElementById(chartDataId);
+		const chartRoot = document.querySelector(`[data-activity-chart-root="${chartId}"]`);
+		const switchRoot = document.querySelector(`[data-activity-chart-switch="${chartId}"]`);
+		const summaryNode = document.querySelector(`[data-activity-chart-summary="${chartId}"]`);
+		const svg = document.querySelector(`[data-activity-chart-svg="${chartId}"]`);
+		const labels = document.querySelector(`[data-activity-chart-labels="${chartId}"]`);
+		if (!dataNode || !chartRoot || !switchRoot || !summaryNode || !svg || !labels) {
+			return;
+		}
+
+		const datasets = JSON.parse(dataNode.textContent || "{}");
+		const [publishArea, updateArea, deleteArea, publishLine, updateLine, deleteLine] =
+			svg.querySelectorAll("path");
+		const activeRange = chartRoot.dataset.currentRange || chartRoot.dataset.defaultRange || "week";
+		const dataset = datasets[activeRange];
+		if (!dataset) {
+			return;
+		}
+
+		const metrics = buildMetrics(dataset.points);
+		switchRoot.dataset.activeIndex =
+			activeRange === "week" ? "0" : activeRange === "month" ? "1" : "2";
+		switchRoot.querySelectorAll("[data-range-option]").forEach((button) => {
+			const active = button.dataset.rangeOption === activeRange;
+			button.classList.toggle("is-active", active);
+			button.setAttribute("aria-selected", active ? "true" : "false");
+		});
+
+		publishArea?.setAttribute("d", buildAreaPath(metrics, "publishY"));
+		updateArea?.setAttribute("d", buildAreaPath(metrics, "updateY"));
+		deleteArea?.setAttribute("d", buildAreaPath(metrics, "deleteY"));
+		publishLine?.setAttribute("d", buildLinePath(metrics, "publishY"));
+		updateLine?.setAttribute("d", buildLinePath(metrics, "updateY"));
+		deleteLine?.setAttribute("d", buildLinePath(metrics, "deleteY"));
+		summaryNode.textContent = summarizeDataset(dataset);
+		chartRoot.style.setProperty("--chart-base-point-count", String(metrics.length));
+		chartRoot.style.setProperty("--chart-base-column-width", getColumnWidth(activeRange, metrics.length));
+		labels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(0, 1fr))`;
+		labels.replaceChildren(
+			...metrics.map((point, index) => {
+				const item = document.createElement("span");
+				item.className = "dashboard-chart-label";
+				const visible = shouldShowChartLabel(activeRange, index, metrics.length);
+				item.textContent = visible ? point.label : "";
+				item.setAttribute("aria-hidden", visible ? "false" : "true");
+				if (!visible) {
+					item.classList.add("is-placeholder");
+				}
+				return item;
+			}),
+		);
+	};
+
+	const bootActivityChart = () => {
+		const chartRoot = document.querySelector(`[data-activity-chart-root="${chartId}"]`);
+		const switchRoot = document.querySelector(`[data-activity-chart-switch="${chartId}"]`);
+		if (!chartRoot || !switchRoot) {
+			return;
+		}
+
+		if (chartRoot.dataset.chartInitialized !== "true") {
+			switchRoot.querySelectorAll("[data-range-option]").forEach((button) => {
+				button.onclick = () => {
+					chartRoot.dataset.currentRange = button.dataset.rangeOption || "week";
+					renderActivityChart();
+				};
+			});
+			chartRoot.dataset.chartInitialized = "true";
+		}
+
+		renderActivityChart();
+	};
+
+	document.addEventListener("astro:page-load", bootActivityChart);
+	document.addEventListener("DOMContentLoaded", bootActivityChart);
+</script>

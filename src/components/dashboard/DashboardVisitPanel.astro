@@ -1,0 +1,99 @@
+---
+type VisitGrowthMetric = {
+	label: string;
+	totalVisits: number;
+	growthRate: number;
+	x: number;
+	y: number;
+};
+
+interface Props {
+	chartColor: { line: string; area: string };
+	defaultRange: "week" | "month" | "year";
+	defaultMetrics: VisitGrowthMetric[];
+	defaultSummary: string;
+	chartId?: string;
+	title?: string;
+	eyebrow?: string;
+	ariaLabel?: string;
+}
+
+const {
+	chartColor,
+	defaultRange,
+	defaultMetrics,
+	defaultSummary,
+	chartId = "visit-growth",
+	title = "全站访问增长率",
+	eyebrow = "访问",
+	ariaLabel = "全站访问增长率图",
+}: Props = Astro.props;
+---
+
+<article id={chartId} class="card-base dashboard-panel dashboard-panel--compact-chart">
+	<div class="dashboard-panel-head">
+		<div>
+			<p class="dashboard-panel-eyebrow">{eyebrow}</p>
+			<h3 class="dashboard-panel-title">{title}</h3>
+		</div>
+		<div
+			class="dashboard-range-switch"
+			data-chart-switch
+			data-active-index="0"
+			role="tablist"
+			aria-label="图表时间范围"
+		>
+			<span class="dashboard-range-switch-thumb" aria-hidden="true"></span>
+			<button class="dashboard-range-button is-active" type="button" data-range-option="week" role="tab" aria-selected="true">近 7 天</button>
+			<button class="dashboard-range-button" type="button" data-range-option="month" role="tab" aria-selected="false">近 30 天</button>
+			<button class="dashboard-range-button" type="button" data-range-option="year" role="tab" aria-selected="false">近 12 个月</button>
+		</div>
+	</div>
+
+	<div class="dashboard-chart-meta">
+		<div class="dashboard-chart-legend">
+			<span><i class="is-publish"></i> 增长率</span>
+		</div>
+		<p class="dashboard-chart-summary" data-chart-summary>{defaultSummary}</p>
+	</div>
+
+	<div class="dashboard-chart-shell" data-chart-root data-default-range={defaultRange}>
+		<div class="dashboard-chart-scroll">
+			<div
+				class="dashboard-chart-stage"
+				style={`--chart-base-point-count: ${defaultMetrics.length}; --chart-base-column-width: 2.45rem;`}
+			>
+				<svg
+					class="dashboard-chart-svg dashboard-chart-svg--compact"
+					data-chart-svg
+					viewBox="0 0 100 100"
+					preserveAspectRatio="none"
+					aria-label={ariaLabel}
+				>
+					<path
+						class="dashboard-chart-area is-publish"
+						fill={chartColor.area}
+						stroke="none"
+						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.y}`).join(" ")} L 100 100 Z`}
+					></path>
+					<path
+						class="dashboard-chart-line is-publish"
+						fill="none"
+						stroke={chartColor.line}
+						stroke-width="2.1"
+						stroke-linecap="round"
+						stroke-linejoin="round"
+						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.y}`).join(" L ")}`}
+					></path>
+				</svg>
+				<div
+					class="dashboard-chart-labels"
+					data-chart-labels
+					style={`grid-template-columns: repeat(${defaultMetrics.length}, minmax(0, 1fr));`}
+				>
+					{defaultMetrics.map((point) => <span class="dashboard-chart-label">{point.label}</span>)}
+				</div>
+			</div>
+		</div>
+	</div>
+</article>
