@@ -82,6 +82,8 @@
 		const BIRD_HEIGHT = 72;
 		const FOOT_OFFSET = 58;
 		const MAX_BIRD_COUNT = 10;
+		const RESIZE_WIDTH_THRESHOLD = 12;
+		const RESIZE_HEIGHT_THRESHOLD = 120;
 		const FLIGHT_SEQUENCE = [1, 2, 3, 4, 5, 4, 3, 2];
 		const PERCH_PROGRAMS = [
 			[0, 0, 2, 0, 0, 3, 0, 0],
@@ -706,6 +708,8 @@
 			window[CONTROLLER_KEY] || (window[CONTROLLER_KEY] = createController());
 		window.__alfRavenHeadHitboxes = () => controller.getHeadHitboxes();
 		window.__alfRavenWeatherState = () => controller.getWeatherState();
+		let lastViewportWidth = window.innerWidth;
+		let lastViewportHeight = window.innerHeight;
 
 		const mountRavenFlock = (forceReposition = false) => {
 			controller.syncRoot(document.getElementById("raven-flock"));
@@ -717,6 +721,21 @@
 			window.addEventListener(
 				"resize",
 				() => {
+					const nextViewportWidth = window.innerWidth;
+					const nextViewportHeight = window.innerHeight;
+					const widthChanged =
+						Math.abs(nextViewportWidth - lastViewportWidth) >=
+						RESIZE_WIDTH_THRESHOLD;
+					const heightChanged =
+						Math.abs(nextViewportHeight - lastViewportHeight) >=
+						RESIZE_HEIGHT_THRESHOLD;
+
+					if (!widthChanged && !heightChanged) {
+						return;
+					}
+
+					lastViewportWidth = nextViewportWidth;
+					lastViewportHeight = nextViewportHeight;
 					mountRavenFlock(false);
 				},
 				{ passive: true },
