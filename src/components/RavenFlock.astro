@@ -19,7 +19,9 @@
 		top: 0;
 		width: 6rem;
 		height: 4.5rem;
-		pointer-events: none;
+		pointer-events: auto;
+		cursor: pointer;
+		touch-action: manipulation;
 		user-select: none;
 		will-change: transform;
 		filter:
@@ -70,6 +72,55 @@
 		transform-origin: 50% 88%;
 		will-change: transform;
 	}
+
+	.raven-emote {
+		position: absolute;
+		left: 0;
+		top: 0;
+		pointer-events: none;
+		opacity: 0;
+	}
+
+	.raven-emote svg {
+		display: block;
+		width: 100%;
+		height: 100%;
+		image-rendering: pixelated;
+	}
+
+	.raven-emote--heart {
+		width: 1rem;
+		height: 1rem;
+		transform: translate3d(var(--fx-x, 0px), var(--fx-y, 0px), 0)
+			scale(var(--fx-scale, 1));
+		animation: raven-heart-pop 820ms steps(6, end) forwards;
+	}
+
+	@keyframes raven-heart-pop {
+		0% {
+			opacity: 0;
+			transform: translate3d(var(--fx-x, 0px), var(--fx-y, 0px), 0)
+				scale(calc(var(--fx-scale, 1) * 0.65));
+		}
+
+		18% {
+			opacity: 1;
+		}
+
+		72% {
+			opacity: 1;
+		}
+
+		100% {
+			opacity: 0;
+			transform: translate3d(
+					calc(var(--fx-x, 0px) + var(--fx-drift-x, 0px)),
+					calc(var(--fx-y, 0px) + var(--fx-rise, -28px)),
+					0
+				)
+				scale(calc(var(--fx-scale, 1) * 1.08));
+		}
+	}
 </style>
 
 <script is:inline>
@@ -84,6 +135,17 @@
 		const MAX_BIRD_COUNT = 10;
 		const RESIZE_WIDTH_THRESHOLD = 12;
 		const RESIZE_HEIGHT_THRESHOLD = 120;
+		const TARGET_SELECTOR = [
+			".card-base",
+			".banner-container",
+			".markdown-content img",
+			".sidebar-widget",
+			".float-panel",
+			".dashboard-sidebar",
+			".dashboard-panel",
+			".dashboard-metric-card",
+			".dashboard-hero",
+		].join(",");
 		const FLIGHT_SEQUENCE = [1, 2, 3, 4, 5, 4, 3, 2];
 		const PERCH_PROGRAMS = [
 			[0, 0, 2, 0, 0, 3, 0, 0],
@@ -242,6 +304,7 @@
 		};
 
 		const randomBetween = (rng, min, max) => min + rng() * (max - min);
+		const randomBetweenGlobal = (min, max) => min + Math.random() * (max - min);
 		const chooseFromTop = (items, count, rng) => {
 			if (items.length <= count) {
 				return items[Math.floor(rng() * items.length)] ?? null;
@@ -259,6 +322,9 @@
 			bird.frameIndex = frameIndex;
 			bird.sprite.innerHTML = spriteMarkup[frameIndex] ?? spriteMarkup[0];
 		};
+
+		const heartMarkup =
+			'<svg viewBox="0 0 8 7" role="presentation" focusable="false" shape-rendering="crispEdges"><rect x="1" y="0" width="2" height="2" fill="#ff84b7" /><rect x="5" y="0" width="2" height="2" fill="#ff84b7" /><rect x="0" y="1" width="3" height="2" fill="#ff84b7" /><rect x="5" y="1" width="3" height="2" fill="#ff84b7" /><rect x="1" y="3" width="6" height="2" fill="#ff6ea8" /><rect x="2" y="5" width="4" height="1" fill="#ff5b9a" /><rect x="3" y="6" width="2" height="1" fill="#ff5b9a" /></svg>';
 
 		const createBird = (index) => {
 			const rng = mulberry32((0x9e3779b9 ^ ((index + 1) * 2654435761)) >>> 0);
@@ -308,6 +374,7 @@
 				perchUntil: 0,
 				flightStartedAt: 0,
 				flightDurationMs: 0,
+				escapeAfterFlight: false,
 				currentPerch: null,
 				targetPerch: null,
 				poseProgram: PERCH_PROGRAMS[index % PERCH_PROGRAMS.length],
@@ -326,6 +393,7 @@
 				root: null,
 				birds: [],
 				perches: [],
+				rootClickHandler: null,
 				viewportWidth: window.innerWidth,
 				viewportHeight: window.innerHeight,
 				rafId: 0,
@@ -333,6 +401,9 @@
 				lastRefreshAt: 0,
 				syncRoot(root) {
 					if (!(root instanceof HTMLElement)) {
+						if (this.root && this.rootClickHandler) {
+							this.root.removeEventListener("click", this.rootClickHandler);
+						}
 						this.root = null;
 						return;
 					}
@@ -341,11 +412,54 @@
 						return;
 					}
 
+					if (this.root && this.rootClickHandler) {
+						this.root.removeEventListener("click", this.rootClickHandler);
+					}
 					this.root = root;
 					this.root.replaceChildren();
+					if (!this.rootClickHandler) {
+						this.rootClickHandler = (event) => this.handleBirdClick(event);
+					}
+					this.root.addEventListener("click", this.rootClickHandler);
 					this.birds.forEach((bird) => {
 						this.root.appendChild(bird.element);
 					});
+				},
+				spawnEmote(markup, className, options) {
+					if (!(this.root instanceof HTMLElement)) {
+						return;
+					}
+
+					const emote = document.createElement("div");
+					emote.className = `raven-emote ${className}`;
+					emote.innerHTML = markup;
+					emote.style.setProperty("--fx-x", `${options.x}px`);
+					emote.style.setProperty("--fx-y", `${options.y}px`);
+					emote.style.setProperty("--fx-scale", `${options.scale ?? 1}`);
+					emote.style.setProperty("--fx-drift-x", `${options.driftX ?? 0}px`);
+					emote.style.setProperty("--fx-rise", `${options.rise ?? -28}px`);
+					this.root.appendChild(emote);
+					window.setTimeout(() => {
+						emote.remove();
+					}, options.lifetime ?? 900);
+				},
+				spawnHeartBurst(bird) {
+					const width = BIRD_WIDTH * bird.scale;
+					const height = BIRD_HEIGHT * bird.scale;
+					const x = bird.centerX - width / 2;
+					const y = bird.footY - FOOT_OFFSET * bird.scale;
+					const centerX = x + width * 0.5 - 8;
+					const centerY = y + height * 0.22 - 8;
+					for (let index = 0; index < 3; index += 1) {
+						this.spawnEmote(heartMarkup, "raven-emote--heart", {
+							x: centerX + randomBetweenGlobal(-12, 12),
+							y: centerY + randomBetweenGlobal(-4, 8),
+							scale: randomBetweenGlobal(0.9, 1.15),
+							driftX: randomBetweenGlobal(-18, 18),
+							rise: randomBetweenGlobal(-34, -22),
+							lifetime: 860,
+						});
+					}
 				},
 				getDesiredBirdCount() {
 					if (this.viewportWidth < 640) {
@@ -375,6 +489,12 @@
 					}
 				},
 				buildPerches() {
+					const targetPerches = this.getTargetPerches();
+					if (targetPerches.length > 0) {
+						this.perches = targetPerches;
+						return;
+					}
+
 					const safeMarginX = clamp(this.viewportWidth * 0.08, 42, 92);
 					const safeTop = clamp(this.viewportHeight * 0.12, 86, 138);
 					const safeBottom = clamp(this.viewportHeight * 0.16, 112, 170);
@@ -401,10 +521,47 @@
 					this.perches = rows.flatMap((row, rowIndex) =>
 						row.xs.map((fraction, columnIndex) => ({
 							key: `row-${rowIndex}-col-${columnIndex}`,
-							x: clamp(this.viewportWidth * fraction, safeMarginX, this.viewportWidth - safeMarginX),
+							x: clamp(
+								this.viewportWidth * fraction,
+								safeMarginX,
+								this.viewportWidth - safeMarginX,
+							),
 							y: row.y,
 						})),
 					);
+				},
+				getTargetPerches() {
+					const seen = new Set();
+					return Array.from(document.querySelectorAll(TARGET_SELECTOR))
+						.filter((element) => {
+							if (!(element instanceof HTMLElement) || seen.has(element)) {
+								return false;
+							}
+							const rect = element.getBoundingClientRect();
+							if (rect.width < 96 || rect.height < 30) {
+								return false;
+							}
+							if (rect.bottom < 24 || rect.top > window.innerHeight - 24) {
+								return false;
+							}
+							if (rect.right < 24 || rect.left > window.innerWidth - 24) {
+								return false;
+							}
+							seen.add(element);
+							return true;
+						})
+						.map((element, index) => {
+							const rect = element.getBoundingClientRect();
+							return {
+								key: `target-${index}`,
+								x: clamp(
+									rect.left + rect.width * 0.5,
+									42,
+									this.viewportWidth - 42,
+								),
+								y: clamp(rect.top + 10, 84, this.viewportHeight - 72),
+							};
+						});
 				},
 				pickPerchForBird(bird, options = {}) {
 					const avoidKeys = options.avoidKeys ?? new Set();
@@ -458,6 +615,7 @@
 				assignPerch(bird, perch, now, options = {}) {
 					bird.state = "perched";
 					bird.element.dataset.state = "perched";
+					bird.escapeAfterFlight = false;
 					bird.currentPerch = perch;
 					bird.targetPerch = null;
 					bird.centerX = perch.x;
@@ -472,10 +630,12 @@
 						bird.perchFacing = shouldFaceRight ? 1 : -1;
 					}
 					bird.perchUntil =
-						now +
-						bird.restBaseMs +
-						randomBetween(bird.rng, 0, bird.restJitterMs) +
-						bird.id * 70;
+						options.preserveTimer && Number.isFinite(bird.perchUntil)
+							? bird.perchUntil
+							: now +
+								bird.restBaseMs +
+								randomBetween(bird.rng, 0, bird.restJitterMs) +
+								bird.id * 70;
 				},
 				placeBirdsOnPerches(now) {
 					const claimedPerches = new Set();
@@ -505,13 +665,31 @@
 					} else {
 						this.birds.forEach((bird) => {
 							if (bird.state === "perched") {
-								const nearestPerch =
+								const matchingPerch =
+									this.perches.find(
+										(perch) => perch.key === bird.currentPerch?.key,
+									) ??
 									this.pickPerchForBird(bird) ??
 									this.perches[bird.id % this.perches.length];
-								if (nearestPerch) {
-									this.assignPerch(bird, nearestPerch, now, { keepFacing: true });
+								if (matchingPerch) {
+									this.assignPerch(bird, matchingPerch, now, {
+										keepFacing: true,
+										preserveTimer: true,
+									});
 								}
 							} else {
+								if (bird.targetPerch && !bird.escapeAfterFlight) {
+									const matchingTarget = this.perches.find(
+										(perch) => perch.key === bird.targetPerch?.key,
+									);
+									if (matchingTarget) {
+										bird.targetPerch = matchingTarget;
+										bird.destination = {
+											x: matchingTarget.x,
+											y: matchingTarget.y,
+										};
+									}
+								}
 								bird.centerX = clamp(
 									bird.centerX,
 									BIRD_WIDTH * 0.5,
@@ -538,8 +716,8 @@
 
 					this.lastRefreshAt = now;
 				},
-				startFlight(bird, now) {
-					const targetPerch = this.pickPerchForBird(bird);
+				startFlight(bird, now, preferredPerch = null) {
+					const targetPerch = preferredPerch ?? this.pickPerchForBird(bird);
 					if (!targetPerch) {
 						bird.perchUntil = now + 1200;
 						return;
@@ -547,6 +725,7 @@
 
 					bird.state = "flying";
 					bird.element.dataset.state = "flying";
+					bird.escapeAfterFlight = false;
 					bird.targetPerch = targetPerch;
 					bird.start = { x: bird.centerX, y: bird.footY };
 					bird.destination = { x: targetPerch.x, y: targetPerch.y };
@@ -575,6 +754,94 @@
 					);
 					bird.perchFacing = direction;
 				},
+				startEscape(bird, now, options = {}) {
+					const direction =
+						options.direction ??
+						(bird.centerX < this.viewportWidth * 0.5 ? -1 : 1);
+					const exitX =
+						direction < 0
+							? -BIRD_WIDTH * bird.scale * 0.9
+							: this.viewportWidth + BIRD_WIDTH * bird.scale * 0.9;
+					const exitY = clamp(
+						bird.footY - randomBetween(bird.rng, 48, 112),
+						FOOT_OFFSET + 8,
+						this.viewportHeight * 0.42,
+					);
+					bird.state = "flying";
+					bird.element.dataset.state = "flying";
+					bird.targetPerch = null;
+					bird.start = { x: bird.centerX, y: bird.footY };
+					bird.destination = { x: exitX, y: exitY };
+					bird.control = {
+						x: clamp(
+							lerp(bird.start.x, bird.destination.x, 0.5) +
+								randomBetween(bird.rng, -64, 64),
+							-BIRD_WIDTH,
+							this.viewportWidth + BIRD_WIDTH,
+						),
+						y: clamp(
+							Math.min(bird.start.y, bird.destination.y) -
+								randomBetween(bird.rng, 48, 120),
+							FOOT_OFFSET + 8,
+							this.viewportHeight - 180,
+						),
+					};
+					bird.flightStartedAt = now;
+					bird.flightDurationMs = clamp(
+						(distanceBetween(bird.start, bird.destination) / bird.flightSpeed) * 1000,
+						900,
+						2100,
+					);
+					bird.perchFacing = direction;
+					bird.escapeAfterFlight = true;
+				},
+				reseatEscapedBird(bird, now) {
+					const perch =
+						this.pickPerchForBird(bird) ??
+						this.perches[bird.id % Math.max(1, this.perches.length)];
+					if (!perch) {
+						bird.perchUntil = now + 900;
+						bird.escapeAfterFlight = false;
+						return;
+					}
+					bird.escapeAfterFlight = false;
+					this.assignPerch(bird, perch, now, { keepFacing: false });
+					bird.perchUntil = now + 800 + bird.id * 60;
+				},
+				handleBirdClick(event) {
+					const target = event.target;
+					if (!(target instanceof Element)) {
+						return;
+					}
+
+					const birdElement = target.closest(".raven-bird");
+					if (!(birdElement instanceof HTMLElement)) {
+						return;
+					}
+
+					const bird = this.birds.find((item) => item.element === birdElement);
+					if (!bird) {
+						return;
+					}
+
+					event.preventDefault();
+					event.stopPropagation();
+					const roll = Math.random();
+					if (roll < 0.28) {
+						this.spawnHeartBurst(bird);
+						const nextPerch = this.pickPerchForBird(bird, {
+							avoidKeys: new Set([bird.currentPerch?.key].filter(Boolean)),
+						});
+						if (nextPerch) {
+							this.startFlight(bird, performance.now(), nextPerch);
+						}
+						return;
+					}
+
+					this.startEscape(bird, performance.now(), {
+						direction: event.clientX < this.viewportWidth * 0.5 ? 1 : -1,
+					});
+				},
 				updateBird(bird, now) {
 					if (bird.state === "perched") {
 						if (now >= bird.perchUntil) {
@@ -599,6 +866,10 @@
 					bird.footY = point.y;
 
 					if (rawProgress >= 1) {
+						if (bird.escapeAfterFlight) {
+							this.reseatEscapedBird(bird, now);
+							return;
+						}
 						this.assignPerch(bird, bird.targetPerch, now, { keepFacing: true });
 					}
 				},

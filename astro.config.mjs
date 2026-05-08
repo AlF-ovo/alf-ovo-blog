@@ -163,6 +163,16 @@ export default defineConfig({
 					) {
 						return;
 					}
+					if (
+						warning.id?.endsWith("src/components/ArchivePanel.svelte") &&
+						(warning.message.includes(
+							"Can't resolve original location of error",
+						) ||
+							(warning.message.includes("contains an annotation that Rollup cannot interpret") &&
+								warning.message.includes("@__PURE__")))
+					) {
+						return;
+					}
 					warn(warning);
 				},
 			},
