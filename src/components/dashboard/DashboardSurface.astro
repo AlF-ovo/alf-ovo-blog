@@ -1274,6 +1274,27 @@ const defaultSummary = "等待全站访问快照...";
 		padding: 0.85rem;
 	}
 
+	.dashboard-panel--compact-chart {
+		display: grid;
+		gap: 0.9rem;
+	}
+
+	.dashboard-panel--compact-chart .dashboard-panel-head,
+	.dashboard-panel--compact-chart .dashboard-chart-meta {
+		margin-bottom: 0;
+	}
+
+	.dashboard-panel--compact-chart .dashboard-panel-head {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		align-items: center;
+		gap: 0.9rem 1rem;
+	}
+
+	.dashboard-panel-heading {
+		min-width: 0;
+	}
+
 	.dashboard-panel-head,
 	.dashboard-chart-meta {
 		justify-content: space-between;
@@ -1284,6 +1305,10 @@ const defaultSummary = "等待全站访问快照...";
 	.dashboard-panel-title {
 		font-size: 1.08rem;
 		font-weight: 800;
+	}
+
+	.dashboard-panel--compact-chart .dashboard-panel-title {
+		margin-top: 0.28rem;
 	}
 
 	.dashboard-chart-legend {
@@ -1300,6 +1325,26 @@ const defaultSummary = "等待全站访问快照...";
 
 	.dashboard-chart-summary {
 		color: var(--dashboard-muted);
+	}
+
+	.dashboard-chart-meta-primary {
+		display: flex;
+		align-items: center;
+		gap: 0.75rem;
+	}
+
+	.dashboard-panel--compact-chart .dashboard-chart-meta {
+		display: grid;
+		grid-template-columns: auto minmax(0, 1fr);
+		align-items: center;
+		gap: 0.75rem 1rem;
+	}
+
+	.dashboard-panel--compact-chart .dashboard-chart-summary {
+		margin: 0;
+		font-size: 0.82rem;
+		line-height: 1.65;
+		text-align: right;
 	}
 
 	.dashboard-chart-legend i {
@@ -1322,9 +1367,9 @@ const defaultSummary = "等待全站访问快照...";
 	}
 
 	.dashboard-range-switch {
-		--dashboard-range-switch-padding: 0.28rem;
-		--dashboard-range-switch-gap: 0.12rem;
-		--dashboard-range-switch-thumb-shrink: 0.18rem;
+		--dashboard-range-switch-padding: 0.22rem;
+		--dashboard-range-switch-gap: 0.08rem;
+		--dashboard-range-switch-thumb-shrink: 0.12rem;
 		--dashboard-range-switch-segment-width: calc(
 			(100% - (var(--dashboard-range-switch-padding) * 2) - (var(--dashboard-range-switch-gap) * 2)) / 3
 		);
@@ -1332,12 +1377,15 @@ const defaultSummary = "等待全站访问快照...";
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
 		padding: var(--dashboard-range-switch-padding);
-		border-radius: 999px;
-		background: transparent;
+		border-radius: 1rem;
+		background: color-mix(in srgb, var(--dashboard-frame-strong) 18%, transparent);
 		border: 1px solid var(--dashboard-frame);
-		box-shadow: var(--dashboard-shadow);
+		box-shadow:
+			inset 0 1px 0 rgba(255, 255, 255, 0.08),
+			0 10px 24px rgba(15, 23, 42, 0.08);
 		backdrop-filter: blur(12px);
-		min-width: min(100%, 18rem);
+		width: min(100%, 15rem);
+		min-width: 13rem;
 	}
 
 	.dashboard-range-switch-thumb {
@@ -1351,10 +1399,15 @@ const defaultSummary = "等待全站访问快照...";
 			var(--dashboard-range-switch-segment-width) - var(--dashboard-range-switch-thumb-shrink)
 		);
 		box-sizing: border-box;
-		border-radius: 999px;
+		border-radius: 0.82rem;
 		border: 1px solid var(--dashboard-frame-strong);
-		background: transparent;
-		transition: transform 220ms ease;
+		background:
+			linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.08)),
+			color-mix(in srgb, var(--dashboard-frame-strong) 26%, transparent);
+		box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+		transition:
+			transform 220ms ease,
+			background 220ms ease;
 	}
 
 	.dashboard-range-switch[data-active-index="1"] .dashboard-range-switch-thumb {
@@ -1376,15 +1429,23 @@ const defaultSummary = "等待全站访问快照...";
 		box-shadow: none;
 		backdrop-filter: none;
 		background: transparent;
-		padding: 0.72rem 0.8rem;
-		font-size: 0.84rem;
+		padding: 0.62rem 0.7rem;
+		border-radius: 0.82rem;
+		font-size: 0.8rem;
 		font-weight: 700;
 		color: var(--dashboard-subtle);
+		transition:
+			color 180ms ease,
+			transform 180ms ease;
 	}
 
 	.dashboard-range-button:hover,
 	.dashboard-range-button.is-active {
 		color: var(--dashboard-text);
+	}
+
+	.dashboard-range-button:hover {
+		transform: translateY(-1px);
 	}
 
 	.dashboard-chart-shell {
@@ -1765,6 +1826,20 @@ const defaultSummary = "等待全站访问快照...";
 
 		.dashboard-popular-podium {
 			grid-template-columns: 1fr;
+		}
+
+		.dashboard-panel--compact-chart .dashboard-panel-head,
+		.dashboard-panel--compact-chart .dashboard-chart-meta {
+			grid-template-columns: 1fr;
+		}
+
+		.dashboard-panel--compact-chart .dashboard-chart-summary {
+			text-align: left;
+		}
+
+		.dashboard-range-switch {
+			width: 100%;
+			min-width: 0;
 		}
 	}
 

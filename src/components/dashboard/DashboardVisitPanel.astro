@@ -32,7 +32,7 @@ const {
 
 <article id={chartId} class="card-base dashboard-panel dashboard-panel--compact-chart">
 	<div class="dashboard-panel-head">
-		<div>
+		<div class="dashboard-panel-heading">
 			<p class="dashboard-panel-eyebrow">{eyebrow}</p>
 			<h3 class="dashboard-panel-title">{title}</h3>
 		</div>
@@ -51,8 +51,10 @@ const {
 	</div>
 
 	<div class="dashboard-chart-meta">
-		<div class="dashboard-chart-legend">
-			<span><i class="is-publish"></i> 增长率</span>
+		<div class="dashboard-chart-meta-primary">
+			<div class="dashboard-chart-legend">
+				<span><i class="is-publish"></i> 增长率</span>
+			</div>
 		</div>
 		<p class="dashboard-chart-summary" data-chart-summary>{defaultSummary}</p>
 	</div>
