@@ -543,11 +543,81 @@ const defaultSummary = summarizeDataset(defaultDataset);
 
 		const counterApi = root.dataset.counterApi || "";
 		const counterOrigin = root.dataset.counterOrigin || window.location.origin;
+		const visibleCount = Math.max(Number.parseInt(root.dataset.visibleCount || "6", 10) || 6, 1);
+		const cacheTtlMs = Math.max(Number.parseInt(root.dataset.cacheTtlMs || "900000", 10) || 900000, 0);
+		const cacheKey = `alf-dashboard-popular-posts:${counterOrigin}`;
+		const postsFingerprint = posts.map((post) => post.url).join("|");
 		const formatVisits = (count) => new Intl.NumberFormat("zh-CN").format(Math.max(0, count));
 		const medalMap = {
 			1: "金牌",
 			2: "银牌",
 			3: "铜牌",
+		};
+		let hasRenderedRanking = false;
+
+		const normalizeVisits = (value) => {
+			if (typeof value === "number" && Number.isFinite(value)) {
+				return Math.max(0, value);
+			}
+
+			if (typeof value === "string") {
+				const parsedValue = Number.parseInt(value.replace(/[^\d]/g, ""), 10);
+				if (Number.isFinite(parsedValue)) {
+					return Math.max(0, parsedValue);
+				}
+			}
+
+			return 0;
+		};
+
+		const buildRanking = (visitsByUrl = {}) =>
+			posts
+				.map((post) => ({
+					...post,
+					visits: normalizeVisits(visitsByUrl[post.url]),
+				}))
+				.sort((left, right) => right.visits - left.visits || left.title.localeCompare(right.title, "zh-CN"));
+
+		const readCachedRanking = () => {
+			try {
+				const rawCache = window.sessionStorage.getItem(cacheKey);
+				if (!rawCache) {
+					return null;
+				}
+
+				const parsedCache = JSON.parse(rawCache);
+				if (parsedCache?.fingerprint !== postsFingerprint || typeof parsedCache?.visitsByUrl !== "object") {
+					return null;
+				}
+
+				return {
+					ranking: buildRanking(parsedCache.visitsByUrl),
+					isFresh:
+						typeof parsedCache.timestamp === "number" &&
+						Number.isFinite(parsedCache.timestamp) &&
+						Date.now() - parsedCache.timestamp < cacheTtlMs,
+				};
+			} catch (_error) {
+				return null;
+			}
+		};
+
+		const writeCachedRanking = (ranking) => {
+			try {
+				const visitsByUrl = Object.fromEntries(
+					ranking.map((item) => [item.url, normalizeVisits(item.visits)]),
+				);
+				window.sessionStorage.setItem(
+					cacheKey,
+					JSON.stringify({
+						timestamp: Date.now(),
+						fingerprint: postsFingerprint,
+						visitsByUrl,
+					}),
+				);
+			} catch (_error) {
+				// Ignore storage errors and keep the live ranking only.
+			}
 		};
 
 		const applyRanking = (ranking) => {
@@ -558,8 +628,11 @@ const defaultSummary = summarizeDataset(defaultDataset);
 				return;
 			}
 
-			const podiumItems = ranking.slice(0, 3);
-			const listItems = ranking.slice(3);
+			hasRenderedRanking = true;
+
+			const visibleRanking = ranking.slice(0, visibleCount);
+			const podiumItems = visibleRanking.slice(0, 3);
+			const listItems = visibleRanking.slice(3);
 
 			podium.replaceChildren(
 				...podiumItems.map((item, index) => {
@@ -648,6 +721,13 @@ const defaultSummary = summarizeDataset(defaultDataset);
 		};
 
 		const renderFallback = () => {
+			if (hasRenderedRanking) {
+				if (statusNode instanceof HTMLElement) {
+					statusNode.textContent = "热门榜已显示最近一次统计。";
+				}
+				return;
+			}
+
 			root.querySelectorAll(".is-loading").forEach((node) => {
 				node.classList.remove("is-loading");
 			});
@@ -663,39 +743,44 @@ const defaultSummary = summarizeDataset(defaultDataset);
 			}
 
 			try {
-				const ranking = (
-					await Promise.all(
-						posts.map(async (post) => {
-							const targetUrl = new URL(post.url, counterOrigin).toString();
-							const response = await fetch(counterApi, {
-								method: "GET",
-								headers: {
-									"x-bsz-referer": targetUrl,
-								},
-							});
+				const ranking = buildRanking(
+					Object.fromEntries(
+						await Promise.all(
+							posts.map(async (post) => {
+								const targetUrl = new URL(post.url, counterOrigin).toString();
+								const response = await fetch(counterApi, {
+									method: "GET",
+									cache: "no-store",
+									credentials: "omit",
+									headers: {
+										"x-bsz-referer": targetUrl,
+									},
+								});
 
-							if (!response.ok) {
-								throw new Error(`Failed to fetch ${targetUrl}`);
-							}
+								if (!response.ok) {
+									throw new Error(`Failed to fetch ${targetUrl}`);
+								}
 
-							const payload = await response.json();
-							return {
-								...post,
-								visits:
-									typeof payload?.data?.page_pv === "number" && Number.isFinite(payload.data.page_pv)
-										? payload.data.page_pv
-										: 0,
-							};
-						}),
-					)
-				).sort((left, right) => right.visits - left.visits || left.title.localeCompare(right.title, "zh-CN"));
+								const payload = await response.json();
+								return [post.url, normalizeVisits(payload?.data?.page_pv)];
+							}),
+						),
+					),
+				);
 
 				applyRanking(ranking);
 				updateStatus(ranking);
+				writeCachedRanking(ranking);
 			} catch (_error) {
 				renderFallback();
 			}
 		};
+
+		const cachedRanking = readCachedRanking();
+		if (cachedRanking) {
+			applyRanking(cachedRanking.ranking);
+			updateStatus(cachedRanking.ranking);
+		}
 
 		void fetchPopularPosts();
 	};

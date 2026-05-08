@@ -1,4 +1,6 @@
 ---
+import { siteConfig } from "../../config";
+
 interface PopularPost {
 	title: string;
 	url: string;
@@ -10,6 +12,10 @@ interface Props {
 }
 
 const { posts }: Props = Astro.props;
+const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
+const counterApi = visitorCounterApi.replace(/\/js(?:[?#].*)?$/, "/api");
+const popularPostsVisibleCount = 6;
+const visiblePosts = posts.slice(0, popularPostsVisibleCount);
 ---
 
 <article id="popular" class="card-base dashboard-panel">
@@ -24,23 +30,25 @@ const { posts }: Props = Astro.props;
 	<div
 		class="dashboard-popular-shell"
 		data-popular-posts-root
-		data-counter-api="https://busuanzi.9420.ltd/api"
+		data-counter-api={counterApi}
 		data-counter-origin={Astro.site ? String(Astro.site).replace(/\/$/, "") : "https://alf-ovo.cn"}
+		data-visible-count={popularPostsVisibleCount}
+		data-cache-ttl-ms={1000 * 60 * 15}
 	>
 		<div class="dashboard-popular-podium" data-popular-posts-podium>
 			{
-				Array.from({ length: Math.min(3, posts.length) }, (_, index) => (
-					<a class="dashboard-popular-card is-loading" href={posts[index]?.url || "#"} data-popular-post-card data-rank={index + 1}>
+				Array.from({ length: Math.min(3, visiblePosts.length) }, (_, index) => (
+					<a class="dashboard-popular-card is-loading" href={visiblePosts[index]?.url || "#"} data-popular-post-card data-rank={index + 1}>
 						<div class="dashboard-popular-medal" data-popular-post-medal>{index + 1}</div>
 						<div class="dashboard-popular-copy">
 							<p class="dashboard-popular-rank-label">
 								{index === 0 ? "金牌席" : index === 1 ? "银牌席" : "铜牌席"}
 							</p>
 							<h4 class="dashboard-popular-title" data-popular-post-title>
-								{posts[index]?.title || "暂无文章"}
+								{visiblePosts[index]?.title || "暂无文章"}
 							</h4>
 							<p class="dashboard-popular-description" data-popular-post-description>
-								{posts[index]?.description || "等待更多内容加入排行。"}
+								{visiblePosts[index]?.description || "等待更多内容加入排行。"}
 							</p>
 						</div>
 						<div class="dashboard-popular-count" data-popular-post-count>统计中</div>
@@ -51,8 +59,8 @@ const { posts }: Props = Astro.props;
 
 		<div class="dashboard-popular-list" data-popular-posts-list>
 			{
-				Array.from({ length: Math.max(posts.length - 3, 0) }, (_, listIndex) => {
-					const post = posts[listIndex + 3];
+				Array.from({ length: Math.max(visiblePosts.length - 3, 0) }, (_, listIndex) => {
+					const post = visiblePosts[listIndex + 3];
 					return (
 						<a class="dashboard-popular-list-item is-loading" href={post?.url || "#"} data-popular-post-item data-rank={listIndex + 4}>
 							<div class="dashboard-popular-list-rank" data-popular-post-medal>{listIndex + 4}</div>

@@ -37,7 +37,7 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 <div class="footer-shell transition border-dashed border-[oklch(85%_0.01_var(--hue))] dark:border-white/15 rounded-2xl mb-12 flex flex-col items-center justify-center px-6 py-5">
 	<div class="footer-status-grid">
 		<div class="footer-status-chip">
-			<span class="footer-status-label">值班乌鸦已盘旋</span>
+			<span class="footer-status-label">值班乌鸦已值守</span>
 			<strong id="footer-uptime" data-running-since={runningSince}>正在校准风向...</strong>
 		</div>
 		<div class="footer-status-chip">
@@ -47,7 +47,7 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 	</div>
 
 	<div class="transition text-50 text-sm text-center leading-7">
-		&copy; <span id="copyright-year">{currentYear}</span> {profileConfig.name}. 保留所有权利。 /
+		&copy; <span id="copyright-year">{currentYear}</span> {profileConfig.name}. 保留所有权利 /
 		<a class="transition link text-[var(--primary)] font-medium" target="_blank" href={url("rss.xml")}>RSS</a> /
 		<a class="transition link text-[var(--primary)] font-medium" target="_blank" href={url("sitemap-index.xml")}>站点地图</a><br>
 		由
@@ -119,14 +119,21 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 
 <script is:inline define:vars={{ visitorCounterApi }}>
 	const VISITOR_COUNTER_BOUND_KEY = "__alfFooterVisitorCounterBound";
-	const SITE_VISIT_SOURCE_IDS = ["busuanzi_site_uv", "busuanzi_value_site_uv"];
-	const PAGE_VISIT_SOURCE_IDS = ["busuanzi_page_pv", "busuanzi_value_page_pv"];
+	const VISITOR_IDENTITY_STORAGE_KEY = "bsz-id";
 	const footerWindow = window;
-	const footerState = footerWindow.__alfFooterVisitorCounterState || (footerWindow.__alfFooterVisitorCounterState = {
-		uptimeTimer: 0,
-		visitorCountPollTimer: 0,
-		lastPageKey: "",
-	});
+	const footerState =
+		footerWindow.__alfFooterVisitorCounterState ||
+		(footerWindow.__alfFooterVisitorCounterState = {
+			uptimeTimer: 0,
+			requestToken: 0,
+			activePageKey: "",
+			pendingPageKey: "",
+			lastCountsByPageKey: {},
+		});
+	const counterApi =
+		typeof visitorCounterApi === "string"
+			? visitorCounterApi.replace(/\/js(?:[?#].*)?$/, "/api")
+			: "";
 
 	const formatDuration = (ms) => {
 		const totalMinutes = Math.max(0, Math.floor(ms / 60000));
@@ -135,17 +142,33 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		const minutes = totalMinutes % 60;
 
 		if (days > 0) {
-			return `${days} 天 ${hours} 时 ${minutes} 分`;
+			return `${days} 天 ${hours} 小时 ${minutes} 分钟`;
 		}
 
 		if (hours > 0) {
-			return `${hours} 时 ${minutes} 分`;
+			return `${hours} 小时 ${minutes} 分钟`;
 		}
 
-		return `${minutes} 分`;
+		return `${minutes} 分钟`;
 	};
 
-	const formatVisits = (count) => new Intl.NumberFormat("zh-CN").format(Math.max(0, count));
+	const normalizeVisitCount = (value) => {
+		if (typeof value === "number" && Number.isFinite(value)) {
+			return Math.max(0, Math.floor(value));
+		}
+
+		if (typeof value === "string") {
+			const parsedValue = Number.parseInt(value.replace(/[^\d]/g, ""), 10);
+			if (Number.isFinite(parsedValue)) {
+				return Math.max(0, parsedValue);
+			}
+		}
+
+		return null;
+	};
+
+	const formatVisits = (count) =>
+		new Intl.NumberFormat("zh-CN").format(Math.max(0, count));
 
 	const syncFooterUptime = () => {
 		const uptimeNode = document.getElementById("footer-uptime");
@@ -154,7 +177,9 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		}
 
 		const runningSince = uptimeNode.dataset.runningSince;
-		const parsedTimestamp = runningSince ? Number.parseInt(runningSince, 10) : Number.NaN;
+		const parsedTimestamp = runningSince
+			? Number.parseInt(runningSince, 10)
+			: Number.NaN;
 		const startedAt = Number.isFinite(parsedTimestamp)
 			? parsedTimestamp
 			: runningSince
@@ -178,7 +203,7 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		}
 
 		if (fallback && visitsNode.dataset.counterReady !== "true") {
-			visitsNode.textContent = "计数乌鸦暂时离巢";
+			visitsNode.textContent = "计数乌鸦暂时离岗";
 		}
 	};
 
@@ -200,28 +225,15 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		});
 	};
 
-	const readCounterValue = (sourceIds) => {
-		for (const id of sourceIds) {
-			const rawValue = document.getElementById(id)?.textContent?.trim() ?? "";
-			const numericValue = Number.parseInt(rawValue.replace(/[^\d]/g, ""), 10);
-			if (Number.isFinite(numericValue)) {
-				return numericValue;
-			}
-		}
+	const renderVisitorCounts = (counts, fallback = false) => {
+		const siteVisitValue = normalizeVisitCount(
+			counts?.siteUv ?? counts?.site_uv ?? null,
+		);
+		const pageVisitValue = normalizeVisitCount(
+			counts?.pagePv ?? counts?.page_pv ?? null,
+		);
 
-		return null;
-	};
-
-	const hasPageVisitTargets = () =>
-		document.querySelector("[data-page-visit-counter]") instanceof HTMLElement;
-
-	const syncVisibleVisitorCounts = (fallback = false) => {
-		const siteVisitValue = readCounterValue(SITE_VISIT_SOURCE_IDS);
-		const pageVisitValue = readCounterValue(PAGE_VISIT_SOURCE_IDS);
-		const siteReady = siteVisitValue !== null;
-		const pageReady = pageVisitValue !== null || !hasPageVisitTargets();
-
-		if (siteReady) {
+		if (siteVisitValue !== null) {
 			renderFooterVisits(siteVisitValue);
 		} else if (fallback) {
 			renderFooterVisits(null, true);
@@ -232,8 +244,6 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		} else if (fallback) {
 			renderPageVisits(null, true);
 		}
-
-		return { siteReady, pageReady };
 	};
 
 	const scheduleUptimeSync = () => {
@@ -242,36 +252,6 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 			window.clearInterval(footerState.uptimeTimer);
 		}
 		footerState.uptimeTimer = window.setInterval(syncFooterUptime, 60000);
-	};
-
-	const stopVisitorCountPolling = () => {
-		if (footerState.visitorCountPollTimer) {
-			window.clearInterval(footerState.visitorCountPollTimer);
-			footerState.visitorCountPollTimer = 0;
-		}
-	};
-
-	const scheduleVisitorCountSync = () => {
-		stopVisitorCountPolling();
-
-		const initialState = syncVisibleVisitorCounts();
-		if (initialState.siteReady && initialState.pageReady) {
-			return;
-		}
-
-		const startedAt = Date.now();
-		footerState.visitorCountPollTimer = window.setInterval(() => {
-			const currentState = syncVisibleVisitorCounts();
-			if (currentState.siteReady && currentState.pageReady) {
-				stopVisitorCountPolling();
-				return;
-			}
-
-			if (Date.now() - startedAt >= 10000) {
-				stopVisitorCountPolling();
-				syncVisibleVisitorCounts(true);
-			}
-		}, 250);
 	};
 
 	const resetPageVisitCounter = () => {
@@ -285,67 +265,119 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		});
 	};
 
-	const clearCounterSources = (sourceIds) => {
-		for (const id of sourceIds) {
-			const node = document.getElementById(id);
-			if (node) {
-				node.textContent = "";
-			}
-		}
+	const buildCanonicalPageUrl = () => {
+		const pageUrl = new URL(window.location.href);
+		pageUrl.search = "";
+		pageUrl.hash = "";
+		return pageUrl.toString();
 	};
 
-	const ensureVisitorCounterScript = (force = false) => {
-		if (!visitorCounterApi) {
-			stopVisitorCountPolling();
-			renderFooterVisits(null, true);
-			renderPageVisits(null, true);
-			return;
+	const requestVisitorCounts = async (targetUrl, method = "POST") => {
+		const headers = new Headers({
+			"x-bsz-referer": targetUrl,
+		});
+		const identityToken = window.localStorage.getItem(VISITOR_IDENTITY_STORAGE_KEY);
+		if (identityToken) {
+			headers.set("Authorization", `Bearer ${identityToken}`);
 		}
 
-		const existingScript = document.querySelector('script[data-footer-visitor-counter="true"]');
-		if (existingScript && !force) {
-			return;
+		const response = await fetch(counterApi, {
+			method,
+			cache: "no-store",
+			headers,
+		});
+
+		if (!response.ok) {
+			throw new Error(`Failed to fetch visitor counts for ${targetUrl}`);
 		}
 
-		if (existingScript) {
-			existingScript.remove();
+		const payload = await response.json();
+		const nextIdentityToken = response.headers.get("Set-Bsz-Identity");
+		if (nextIdentityToken) {
+			window.localStorage.setItem(VISITOR_IDENTITY_STORAGE_KEY, nextIdentityToken);
 		}
 
-		const script = document.createElement("script");
-		script.src = visitorCounterApi;
-		script.async = true;
-		script.defer = true;
-		script.setAttribute("pjax", "");
-		script.dataset.footerVisitorCounter = "true";
-		script.onload = () => scheduleVisitorCountSync();
-		script.onerror = () => {
-			stopVisitorCountPolling();
-			renderFooterVisits(null, true);
-			renderPageVisits(null, true);
+		return {
+			siteUv: normalizeVisitCount(payload?.data?.site_uv),
+			pagePv: normalizeVisitCount(payload?.data?.page_pv),
 		};
-		document.head.appendChild(script);
 	};
 
-	const syncVisitorCounter = () => {
-		const currentPageKey = `${window.location.pathname}${window.location.search}`;
-		const shouldReloadScript =
-			currentPageKey !== footerState.lastPageKey ||
-			!document.querySelector('script[data-footer-visitor-counter="true"]');
-
-		footerState.lastPageKey = currentPageKey;
-
-		if (shouldReloadScript) {
-			resetPageVisitCounter();
-			clearCounterSources(PAGE_VISIT_SOURCE_IDS);
-			ensureVisitorCounterScript(true);
+	const syncVisitorCounter = async () => {
+		if (!counterApi) {
+			renderVisitorCounts(null, true);
+			return;
 		}
 
-		scheduleVisitorCountSync();
+		const currentPageKey = buildCanonicalPageUrl();
+		const cachedCounts = footerState.lastCountsByPageKey[currentPageKey] ?? null;
+
+		if (footerState.pendingPageKey === currentPageKey) {
+			if (cachedCounts) {
+				renderVisitorCounts(cachedCounts);
+			}
+			return;
+		}
+
+		if (cachedCounts) {
+			renderVisitorCounts(cachedCounts);
+		} else {
+			resetPageVisitCounter();
+		}
+
+		if (footerState.activePageKey === currentPageKey) {
+			return;
+		}
+
+		footerState.activePageKey = currentPageKey;
+		footerState.pendingPageKey = currentPageKey;
+		const requestToken = ++footerState.requestToken;
+
+		try {
+			const counts = await requestVisitorCounts(currentPageKey, "POST");
+			if (
+				requestToken !== footerState.requestToken ||
+				footerState.activePageKey !== currentPageKey
+			) {
+				return;
+			}
+
+			footerState.pendingPageKey = "";
+			footerState.lastCountsByPageKey[currentPageKey] = counts;
+			renderVisitorCounts(counts);
+			footerWindow.__alfCurrentPageVisitorCounts = {
+				pageKey: currentPageKey,
+				counts,
+			};
+			document.dispatchEvent(
+				new CustomEvent("alf:visitor-counter-updated", {
+					detail: {
+						pageKey: currentPageKey,
+						counts,
+					},
+				}),
+			);
+		} catch (_error) {
+			if (
+				requestToken !== footerState.requestToken ||
+				footerState.activePageKey !== currentPageKey
+			) {
+				return;
+			}
+
+			footerState.pendingPageKey = "";
+			if (cachedCounts) {
+				renderVisitorCounts(cachedCounts);
+				return;
+			}
+
+			renderVisitorCounts(null, true);
+		}
 	};
 
 	const syncFooterSignals = () => {
 		scheduleUptimeSync();
-		syncVisitorCounter();
+		void syncVisitorCounter();
 	};
 
 	if (!footerWindow[VISITOR_COUNTER_BOUND_KEY]) {
@@ -356,12 +388,3 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 
 	syncFooterSignals();
 </script>
-
-<span id="busuanzi_container_site_uv" hidden>
-	<span id="busuanzi_value_site_uv"></span>
-</span>
-<span id="busuanzi_site_uv" hidden></span>
-<span id="busuanzi_container_page_pv" hidden>
-	<span id="busuanzi_value_page_pv"></span>
-</span>
-<span id="busuanzi_page_pv" hidden></span>
