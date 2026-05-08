@@ -1324,6 +1324,10 @@ const defaultSummary = "等待全站访问快照...";
 	.dashboard-range-switch {
 		--dashboard-range-switch-padding: 0.28rem;
 		--dashboard-range-switch-gap: 0.12rem;
+		--dashboard-range-switch-thumb-shrink: 0.18rem;
+		--dashboard-range-switch-segment-width: calc(
+			(100% - (var(--dashboard-range-switch-padding) * 2) - (var(--dashboard-range-switch-gap) * 2)) / 3
+		);
 		position: relative;
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1340,10 +1344,13 @@ const defaultSummary = "等待全站访问快照...";
 		position: absolute;
 		top: var(--dashboard-range-switch-padding);
 		bottom: var(--dashboard-range-switch-padding);
-		left: var(--dashboard-range-switch-padding);
-		width: calc(
-			(100% - (var(--dashboard-range-switch-padding) * 2) - (var(--dashboard-range-switch-gap) * 2)) / 3
+		left: calc(
+			var(--dashboard-range-switch-padding) + (var(--dashboard-range-switch-thumb-shrink) / 2)
 		);
+		width: calc(
+			var(--dashboard-range-switch-segment-width) - var(--dashboard-range-switch-thumb-shrink)
+		);
+		box-sizing: border-box;
 		border-radius: 999px;
 		border: 1px solid var(--dashboard-frame-strong);
 		background: transparent;
@@ -1351,11 +1358,15 @@ const defaultSummary = "等待全站访问快照...";
 	}
 
 	.dashboard-range-switch[data-active-index="1"] .dashboard-range-switch-thumb {
-		transform: translateX(calc(100% + var(--dashboard-range-switch-gap)));
+		transform: translateX(
+			calc(var(--dashboard-range-switch-segment-width) + var(--dashboard-range-switch-gap))
+		);
 	}
 
 	.dashboard-range-switch[data-active-index="2"] .dashboard-range-switch-thumb {
-		transform: translateX(calc((100% * 2) + (var(--dashboard-range-switch-gap) * 2)));
+		transform: translateX(
+			calc((var(--dashboard-range-switch-segment-width) * 2) + (var(--dashboard-range-switch-gap) * 2))
+		);
 	}
 
 	.dashboard-range-button {
