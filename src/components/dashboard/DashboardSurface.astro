@@ -1368,14 +1368,10 @@ const defaultSummary = "等待全站访问快照...";
 
 	.dashboard-range-switch {
 		--dashboard-range-switch-padding: 0.22rem;
-		--dashboard-range-switch-gap: 0.08rem;
-		--dashboard-range-switch-thumb-shrink: 0.12rem;
-		--dashboard-range-switch-segment-width: calc(
-			(100% - (var(--dashboard-range-switch-padding) * 2) - (var(--dashboard-range-switch-gap) * 2)) / 3
-		);
 		position: relative;
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
+		align-items: stretch;
 		padding: var(--dashboard-range-switch-padding);
 		border-radius: 1rem;
 		background: color-mix(in srgb, var(--dashboard-frame-strong) 18%, transparent);
@@ -1384,20 +1380,17 @@ const defaultSummary = "等待全站访问快照...";
 			inset 0 1px 0 rgba(255, 255, 255, 0.08),
 			0 10px 24px rgba(15, 23, 42, 0.08);
 		backdrop-filter: blur(12px);
-		width: min(100%, 15rem);
-		min-width: 13rem;
+		isolation: isolate;
+		overflow: hidden;
+		width: min(100%, 16rem);
+		min-width: 14.5rem;
 	}
 
 	.dashboard-range-switch-thumb {
-		position: absolute;
-		top: var(--dashboard-range-switch-padding);
-		bottom: var(--dashboard-range-switch-padding);
-		left: calc(
-			var(--dashboard-range-switch-padding) + (var(--dashboard-range-switch-thumb-shrink) / 2)
-		);
-		width: calc(
-			var(--dashboard-range-switch-segment-width) - var(--dashboard-range-switch-thumb-shrink)
-		);
+		grid-column: 1 / span 1;
+		grid-row: 1;
+		align-self: stretch;
+		justify-self: stretch;
 		box-sizing: border-box;
 		border-radius: 0.82rem;
 		border: 1px solid var(--dashboard-frame-strong);
@@ -1405,26 +1398,28 @@ const defaultSummary = "等待全站访问快照...";
 			linear-gradient(180deg, rgba(255, 255, 255, 0.26), rgba(255, 255, 255, 0.08)),
 			color-mix(in srgb, var(--dashboard-frame-strong) 26%, transparent);
 		box-shadow: 0 8px 16px rgba(15, 23, 42, 0.08);
+		pointer-events: none;
+		will-change: transform;
 		transition:
 			transform 220ms ease,
 			background 220ms ease;
 	}
 
 	.dashboard-range-switch[data-active-index="1"] .dashboard-range-switch-thumb {
-		transform: translateX(
-			calc(var(--dashboard-range-switch-segment-width) + var(--dashboard-range-switch-gap))
-		);
+		transform: translateX(100%);
 	}
 
 	.dashboard-range-switch[data-active-index="2"] .dashboard-range-switch-thumb {
-		transform: translateX(
-			calc((var(--dashboard-range-switch-segment-width) * 2) + (var(--dashboard-range-switch-gap) * 2))
-		);
+		transform: translateX(200%);
 	}
 
 	.dashboard-range-button {
+		grid-row: 1;
 		position: relative;
 		z-index: 1;
+		display: flex;
+		align-items: center;
+		justify-content: center;
 		border: 0;
 		box-shadow: none;
 		backdrop-filter: none;
@@ -1433,10 +1428,26 @@ const defaultSummary = "等待全站访问快照...";
 		border-radius: 0.82rem;
 		font-size: 0.8rem;
 		font-weight: 700;
+		line-height: 1.1;
+		text-align: center;
+		white-space: nowrap;
+		min-width: 0;
 		color: var(--dashboard-subtle);
 		transition:
 			color 180ms ease,
 			transform 180ms ease;
+	}
+
+	.dashboard-range-button[data-range-option="week"] {
+		grid-column: 1;
+	}
+
+	.dashboard-range-button[data-range-option="month"] {
+		grid-column: 2;
+	}
+
+	.dashboard-range-button[data-range-option="year"] {
+		grid-column: 3;
 	}
 
 	.dashboard-range-button:hover,
