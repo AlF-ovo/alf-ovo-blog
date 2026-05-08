@@ -1318,10 +1318,12 @@ const defaultSummary = "等待全站访问快照...";
 	}
 
 	.dashboard-range-switch {
+		--dashboard-range-switch-padding: 0.28rem;
+		--dashboard-range-switch-gap: 0.12rem;
 		position: relative;
 		display: grid;
 		grid-template-columns: repeat(3, minmax(0, 1fr));
-		padding: 0.28rem;
+		padding: var(--dashboard-range-switch-padding);
 		border-radius: 999px;
 		background: transparent;
 		border: 1px solid var(--dashboard-frame);
@@ -1332,10 +1334,12 @@ const defaultSummary = "等待全站访问快照...";
 
 	.dashboard-range-switch-thumb {
 		position: absolute;
-		top: 0.28rem;
-		bottom: 0.28rem;
-		left: 0.28rem;
-		width: calc((100% - 0.56rem) / 3);
+		top: var(--dashboard-range-switch-padding);
+		bottom: var(--dashboard-range-switch-padding);
+		left: var(--dashboard-range-switch-padding);
+		width: calc(
+			(100% - (var(--dashboard-range-switch-padding) * 2) - (var(--dashboard-range-switch-gap) * 2)) / 3
+		);
 		border-radius: 999px;
 		border: 1px solid var(--dashboard-frame-strong);
 		background: transparent;
@@ -1343,11 +1347,11 @@ const defaultSummary = "等待全站访问快照...";
 	}
 
 	.dashboard-range-switch[data-active-index="1"] .dashboard-range-switch-thumb {
-		transform: translateX(100%);
+		transform: translateX(calc(100% + var(--dashboard-range-switch-gap)));
 	}
 
 	.dashboard-range-switch[data-active-index="2"] .dashboard-range-switch-thumb {
-		transform: translateX(200%);
+		transform: translateX(calc((100% * 2) + (var(--dashboard-range-switch-gap) * 2)));
 	}
 
 	.dashboard-range-button {
