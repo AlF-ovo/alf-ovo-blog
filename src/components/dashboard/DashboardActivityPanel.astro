@@ -1,23 +1,16 @@
 ---
-type ChartPalette = {
-	publish: { line: string; area: string };
-	update: { line: string; area: string };
-	delete: { line: string; area: string };
-};
-
-type ActivityMetric = {
+type VisitGrowthMetric = {
 	label: string;
-	total: number;
+	totalVisits: number;
+	growthRate: number;
 	x: number;
-	publishY: number;
-	updateY: number;
-	deleteY: number;
+	y: number;
 };
 
 interface Props {
-	chartPalette: ChartPalette;
+	chartColor: { line: string; area: string };
 	defaultRange: "week" | "month" | "year";
-	defaultMetrics: ActivityMetric[];
+	defaultMetrics: VisitGrowthMetric[];
 	defaultSummary: string;
 	chartId?: string;
 	title?: string;
@@ -26,14 +19,14 @@ interface Props {
 }
 
 const {
-	chartPalette,
+	chartColor,
 	defaultRange,
 	defaultMetrics,
 	defaultSummary,
 	chartId = "activity",
-	title = "最近发布、修改和删除趋势",
-	eyebrow = "活动",
-	ariaLabel = "内容活动趋势图",
+	title = "全站访问增长率",
+	eyebrow = "访问",
+	ariaLabel = "全站访问增长率图",
 }: Props = Astro.props;
 ---
 
@@ -53,9 +46,7 @@ const {
 
 	<div class="dashboard-chart-meta">
 		<div class="dashboard-chart-legend">
-			<span><i class="is-publish"></i> 发布</span>
-			<span><i class="is-update"></i> 修改</span>
-			<span><i class="is-delete"></i> 删除</span>
+			<span><i class="is-publish"></i> 增长率</span>
 		</div>
 		<p class="dashboard-chart-summary" data-chart-summary>{defaultSummary}</p>
 	</div>
@@ -70,48 +61,18 @@ const {
 				<svg class="dashboard-chart-svg" data-chart-svg viewBox="0 0 100 100" preserveAspectRatio="none" aria-label={ariaLabel}>
 					<path
 						class="dashboard-chart-area is-publish"
-						fill={chartPalette.publish.area}
+						fill={chartColor.area}
 						stroke="none"
-						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.publishY}`).join(" ")} L 100 100 Z`}
-					></path>
-					<path
-						class="dashboard-chart-area is-update"
-						fill={chartPalette.update.area}
-						stroke="none"
-						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.updateY}`).join(" ")} L 100 100 Z`}
-					></path>
-					<path
-						class="dashboard-chart-area is-delete"
-						fill={chartPalette.delete.area}
-						stroke="none"
-						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.deleteY}`).join(" ")} L 100 100 Z`}
+						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.y}`).join(" ")} L 100 100 Z`}
 					></path>
 					<path
 						class="dashboard-chart-line is-publish"
 						fill="none"
-						stroke={chartPalette.publish.line}
+						stroke={chartColor.line}
 						stroke-width="2.1"
 						stroke-linecap="round"
 						stroke-linejoin="round"
-						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.publishY}`).join(" L ")}`}
-					></path>
-					<path
-						class="dashboard-chart-line is-update"
-						fill="none"
-						stroke={chartPalette.update.line}
-						stroke-width="2.1"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.updateY}`).join(" L ")}`}
-					></path>
-					<path
-						class="dashboard-chart-line is-delete"
-						fill="none"
-						stroke={chartPalette.delete.line}
-						stroke-width="2.1"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.deleteY}`).join(" L ")}`}
+						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.y}`).join(" L ")}`}
 					></path>
 				</svg>
 				<div

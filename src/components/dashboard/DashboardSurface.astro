@@ -4,24 +4,20 @@ import DashboardActivityPanel from "./DashboardActivityPanel.astro";
 import DashboardGuidePanel from "./DashboardGuidePanel.astro";
 import DashboardHero from "./DashboardHero.astro";
 import DashboardMetricsGrid from "./DashboardMetricsGrid.astro";
-import DashboardPopularPosts from "./DashboardPopularPosts.astro";
 import DashboardRecentUpdates from "./DashboardRecentUpdates.astro";
 import DashboardSidebar from "./DashboardSidebar.astro";
 import DashboardTopbar from "./DashboardTopbar.astro";
 
-type ActivityPoint = {
+type VisitGrowthPoint = {
 	label: string;
-	publish: number;
-	update: number;
-	delete: number;
+	bucketKey: string;
+	totalVisits: number;
+	growthRate: number;
 };
 
-type ActivityMetric = ActivityPoint & {
-	total: number;
+type VisitGrowthMetric = VisitGrowthPoint & {
 	x: number;
-	publishY: number;
-	updateY: number;
-	deleteY: number;
+	y: number;
 };
 
 interface DashboardItem {
@@ -43,10 +39,9 @@ interface DashboardMetrics {
 }
 
 interface Props {
-	chartDatasets: Record<string, { label: string; points: ActivityPoint[] }>;
+	chartDatasets: Record<string, { label: string; points: VisitGrowthPoint[] }>;
 	recentUpdates: DashboardItem[];
 	dashboardMetrics: DashboardMetrics;
-	popularPosts: { title: string; url: string; description: string }[];
 	compact?: boolean;
 	showSidebar?: boolean;
 }
@@ -55,7 +50,6 @@ const {
 	chartDatasets,
 	recentUpdates,
 	dashboardMetrics,
-	popularPosts,
 	compact = false,
 	showSidebar = true,
 }: Props = Astro.props;
@@ -120,45 +114,32 @@ const dashboardSearchItems = [
 	})),
 ];
 
-const chartPalette = {
-	publish: {
-		line: "rgb(59, 130, 246)",
-		area: "rgba(59, 130, 246, 0.12)",
-	},
-	update: {
-		line: "rgb(14, 165, 233)",
-		area: "rgba(14, 165, 233, 0.12)",
-	},
-	delete: {
-		line: "rgb(245, 158, 11)",
-		area: "rgba(245, 158, 11, 0.12)",
-	},
+const chartColor = {
+	line: "rgb(59, 130, 246)",
+	area: "rgba(59, 130, 246, 0.12)",
 };
 
-const getChartMetrics = (points: ActivityPoint[]): ActivityMetric[] => {
-	const maxTotal = Math.max(
-		...points.map((point) => point.publish + point.update + point.delete),
-		1,
-	);
+const getChartMetrics = (points: VisitGrowthPoint[]): VisitGrowthMetric[] => {
+	const growthValues = points.map((point) => point.growthRate);
 	const denominator = Math.max(points.length - 1, 1);
+	const minValue = Math.min(...growthValues, 0);
+	const maxValue = Math.max(...growthValues, 0);
+	const isFlat = Math.abs(maxValue - minValue) < 0.0001;
+	const padding = isFlat ? 0 : Math.max((maxValue - minValue) * 0.12, 0.5);
+	const domainMin = isFlat ? minValue - 1 : minValue - padding;
+	const domainMax = isFlat ? maxValue + 1 : maxValue + padding;
 
 	return points.map((point, index) => ({
 		...point,
-		total: point.publish + point.update + point.delete,
 		x: (index / denominator) * 100,
-		publishY: 100 - (point.publish / maxTotal) * 100,
-		updateY: 100 - (point.update / maxTotal) * 100,
-		deleteY: 100 - (point.delete / maxTotal) * 100,
+		y: isFlat ? 50 : 100 - ((point.growthRate - domainMin) / (domainMax - domainMin)) * 100,
 	}));
 };
-
-const summarizeDataset = (dataset: (typeof chartDatasets)["week"]) =>
-	`${dataset.label}：发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 次，修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次。`;
 
 const defaultRange = "week";
 const defaultDataset = chartDatasets[defaultRange];
 const defaultMetrics = getChartMetrics(defaultDataset.points);
-const defaultSummary = summarizeDataset(defaultDataset);
+const defaultSummary = "等待全站访问快照...";
 ---
 
 <div class:list={["dashboard-shell", { "dashboard-shell--compact": compact, "dashboard-shell--sidebarless": !showSidebar }]}>
@@ -169,12 +150,11 @@ const defaultSummary = summarizeDataset(defaultDataset);
 
 		<div class="dashboard-grid">
 			<DashboardActivityPanel
-				chartPalette={chartPalette}
+				chartColor={chartColor}
 				defaultRange={defaultRange}
 				defaultMetrics={defaultMetrics}
 				defaultSummary={defaultSummary}
 			/>
-			<DashboardPopularPosts posts={popularPosts} />
 			<DashboardRecentUpdates recentUpdates={recentUpdates} />
 			<DashboardGuidePanel />
 		</div>
@@ -202,25 +182,83 @@ const defaultSummary = summarizeDataset(defaultDataset);
 <script id="dashboard-hint-data" type="application/json" is:inline set:html={JSON.stringify(dashboardHints)}></script>
 <script id="dashboard-search-data" type="application/json" is:inline set:html={JSON.stringify(dashboardSearchItems)}></script>
 <script id="dashboard-hero-quotes" type="application/json" is:inline set:html={JSON.stringify(dashboardHeroQuotes)}></script>
-<script id="dashboard-popular-posts-data" type="application/json" is:inline set:html={JSON.stringify(popularPosts)}></script>
 
 <script is:inline>
+	const SITE_VISIT_HISTORY_STORAGE_KEY = "alf-site-visit-history-v1";
+	const DASHBOARD_VISIT_EVENT_BOUND_KEY = "__alfDashboardVisitEventBound";
+
+	const normalizeVisitCount = (value) => {
+		if (typeof value === "number" && Number.isFinite(value)) {
+			return Math.max(0, Math.floor(value));
+		}
+
+		if (typeof value === "string") {
+			const parsedValue = Number.parseInt(value.replace(/[^\d]/g, ""), 10);
+			if (Number.isFinite(parsedValue)) {
+				return Math.max(0, parsedValue);
+			}
+		}
+
+		return null;
+	};
+
+	const formatVisits = (count) =>
+		new Intl.NumberFormat("zh-CN").format(Math.max(0, Math.floor(count)));
+	const formatGrowthRate = (value) => {
+		const safeValue = Number.isFinite(value) ? value : 0;
+		const formatter = new Intl.NumberFormat("zh-CN", {
+			minimumFractionDigits: Math.abs(safeValue) >= 10 ? 1 : 2,
+			maximumFractionDigits: Math.abs(safeValue) >= 10 ? 1 : 2,
+		});
+		return `${safeValue >= 0 ? "+" : ""}${formatter.format(safeValue)}%`;
+	};
+
 	const buildMetrics = (points) => {
-		const maxTotal = Math.max(...points.map((point) => point.publish + point.update + point.delete), 1);
+		const growthValues = points.map((point) =>
+			typeof point.growthRate === "number" && Number.isFinite(point.growthRate)
+				? point.growthRate
+				: 0,
+		);
 		const denominator = Math.max(points.length - 1, 1);
+		const minValue = Math.min(...growthValues, 0);
+		const maxValue = Math.max(...growthValues, 0);
+		const isFlat = Math.abs(maxValue - minValue) < 0.0001;
+		const padding = isFlat ? 0 : Math.max((maxValue - minValue) * 0.12, 0.5);
+		const domainMin = isFlat ? minValue - 1 : minValue - padding;
+		const domainMax = isFlat ? maxValue + 1 : maxValue + padding;
+
 		return points.map((point, index) => ({
 			...point,
 			x: (index / denominator) * 100,
-			publishY: 100 - (point.publish / maxTotal) * 100,
-			updateY: 100 - (point.update / maxTotal) * 100,
-			deleteY: 100 - (point.delete / maxTotal) * 100,
+			y: isFlat
+				? 50
+				: 100 - ((point.growthRate - domainMin) / (domainMax - domainMin)) * 100,
 		}));
 	};
 
-	const buildAreaPath = (metrics, key) => `M 0 100 ${metrics.map((point) => `L ${point.x} ${point[key]}`).join(" ")} L 100 100 Z`;
-	const buildLinePath = (metrics, key) => `M ${metrics.map((point) => `${point.x} ${point[key]}`).join(" L ")}`;
-	const summarizeDataset = (dataset) =>
-		`${dataset.label}：发布 ${dataset.points.reduce((sum, point) => sum + point.publish, 0)} 次，修改 ${dataset.points.reduce((sum, point) => sum + point.update, 0)} 次，删除 ${dataset.points.reduce((sum, point) => sum + point.delete, 0)} 次。`;
+	const buildAreaPath = (metrics) =>
+		`M 0 100 ${metrics.map((point) => `L ${point.x} ${point.y}`).join(" ")} L 100 100 Z`;
+	const buildLinePath = (metrics) =>
+		`M ${metrics.map((point) => `${point.x} ${point.y}`).join(" L ")}`;
+	const summarizeDataset = (dataset) => {
+		const validPoints = dataset.points.filter((point) => point.totalVisits > 0);
+		if (validPoints.length === 0) {
+			return `${dataset.label}：等待全站访问快照。`;
+		}
+
+		const latestPoint = validPoints[validPoints.length - 1];
+		if (validPoints.length < 2) {
+			return `${dataset.label}：当前全站访问量 ${formatVisits(latestPoint.totalVisits)}，继续积累快照后显示增长率。`;
+		}
+
+		const firstPoint = validPoints[0];
+		const rangeGrowthRate =
+			firstPoint.totalVisits > 0
+				? ((latestPoint.totalVisits - firstPoint.totalVisits) / firstPoint.totalVisits) * 100
+				: 0;
+		return `${dataset.label}：当前全站访问量 ${formatVisits(latestPoint.totalVisits)}，较首个有效采样点增长 ${formatGrowthRate(rangeGrowthRate)}。`;
+	};
+
 	const getColumnWidth = (range, pointCount) => {
 		if (range === "month") {
 			return "2.2rem";
@@ -246,6 +284,131 @@ const defaultSummary = summarizeDataset(defaultDataset);
 		}
 
 		return index === 0 || index === total - 1 || index % 2 === 0;
+	};
+
+	const readSiteVisitHistory = () => {
+		try {
+			const rawHistory = window.localStorage.getItem(SITE_VISIT_HISTORY_STORAGE_KEY);
+			if (!rawHistory) {
+				return [];
+			}
+
+			const parsedHistory = JSON.parse(rawHistory);
+			if (!Array.isArray(parsedHistory)) {
+				return [];
+			}
+
+			return parsedHistory
+				.map((entry) => ({
+					dayKey: typeof entry?.dayKey === "string" ? entry.dayKey : "",
+					timestamp:
+						typeof entry?.timestamp === "number" && Number.isFinite(entry.timestamp)
+							? entry.timestamp
+							: 0,
+					siteUv: normalizeVisitCount(entry?.siteUv),
+				}))
+				.filter((entry) => entry.dayKey && entry.siteUv !== null)
+				.sort((left, right) => left.timestamp - right.timestamp);
+		} catch (_error) {
+			return [];
+		}
+	};
+
+	const buildVisitDatasets = (sourceDatasets) => {
+		const history = readSiteVisitHistory();
+		const dayTotals = new Map();
+		const monthTotals = new Map();
+
+		history.forEach((entry) => {
+			const siteUv = entry.siteUv ?? 0;
+			dayTotals.set(entry.dayKey, Math.max(dayTotals.get(entry.dayKey) ?? 0, siteUv));
+
+			const monthKey = entry.dayKey.slice(0, 7);
+			monthTotals.set(monthKey, Math.max(monthTotals.get(monthKey) ?? 0, siteUv));
+		});
+
+		const hydratePoints = (points, totalMap) => {
+			let carriedTotal = 0;
+			let previousTotal = null;
+
+			return points.map((point) => {
+				const observedTotal = normalizeVisitCount(totalMap.get(point.bucketKey));
+				if (observedTotal !== null) {
+					carriedTotal = Math.max(carriedTotal, observedTotal);
+				}
+
+				const totalVisits = carriedTotal;
+				const growthRate =
+					typeof previousTotal === "number" && previousTotal > 0 && totalVisits >= previousTotal
+						? ((totalVisits - previousTotal) / previousTotal) * 100
+						: 0;
+
+				if (totalVisits > 0) {
+					previousTotal = totalVisits;
+				}
+
+				return {
+					...point,
+					totalVisits,
+					growthRate,
+				};
+			});
+		};
+
+		return {
+			week: sourceDatasets?.week
+				? {
+						...sourceDatasets.week,
+						points: hydratePoints(sourceDatasets.week.points, dayTotals),
+					}
+				: null,
+			month: sourceDatasets?.month
+				? {
+						...sourceDatasets.month,
+						points: hydratePoints(sourceDatasets.month.points, dayTotals),
+					}
+				: null,
+			year: sourceDatasets?.year
+				? {
+						...sourceDatasets.year,
+						points: hydratePoints(sourceDatasets.year.points, monthTotals),
+					}
+				: null,
+		};
+	};
+
+	const getLatestSiteVisitTotal = () => {
+		const currentCounts = window.__alfCurrentPageVisitorCounts?.counts;
+		const currentSiteUv = normalizeVisitCount(
+			currentCounts?.siteUv ?? currentCounts?.site_uv ?? null,
+		);
+		if (currentSiteUv !== null) {
+			return currentSiteUv;
+		}
+
+		const history = readSiteVisitHistory();
+		const latestEntry = history[history.length - 1];
+		return latestEntry?.siteUv ?? null;
+	};
+
+	const renderDashboardSiteVisits = () => {
+		const latestSiteVisits = getLatestSiteVisitTotal();
+
+		document.querySelectorAll("[data-dashboard-site-visits]").forEach((node) => {
+			if (!(node instanceof HTMLElement)) {
+				return;
+			}
+
+			if (latestSiteVisits !== null) {
+				node.dataset.counterReady = "true";
+				node.textContent = `${formatVisits(latestSiteVisits)} 次`;
+				return;
+			}
+
+			if (node.dataset.counterReady !== "true") {
+				node.textContent = "统计中...";
+			}
+		});
 	};
 
 	const initDashboardTypewriter = () => {
@@ -459,7 +622,7 @@ const defaultSummary = summarizeDataset(defaultDataset);
 		};
 	};
 
-	const initDashboardChart = () => {
+	const renderDashboardChart = () => {
 		const dataNode = document.querySelector("#dashboard-chart-data");
 		const chartRoot = document.querySelector("[data-chart-root]");
 		const switchRoot = document.querySelector("[data-chart-switch]");
@@ -470,319 +633,71 @@ const defaultSummary = summarizeDataset(defaultDataset);
 			return;
 		}
 
-		const datasets = JSON.parse(dataNode.textContent || "{}");
-		const [publishArea, updateArea, deleteArea, publishLine, updateLine, deleteLine] = svg.querySelectorAll("path");
+		const datasets = buildVisitDatasets(JSON.parse(dataNode.textContent || "{}"));
+		const [area, line] = svg.querySelectorAll("path");
+		const activeRange = chartRoot.dataset.currentRange || chartRoot.dataset.defaultRange || "week";
+		const dataset = datasets[activeRange];
+		if (!dataset) {
+			return;
+		}
 
-		const renderChart = (range) => {
-			const dataset = datasets[range];
-			if (!dataset) {
-				return;
-			}
-
-			const metrics = buildMetrics(dataset.points);
-			switchRoot.dataset.activeIndex = range === "week" ? "0" : range === "month" ? "1" : "2";
-			switchRoot.querySelectorAll("[data-range-option]").forEach((button) => {
-				const active = button.dataset.rangeOption === range;
-				button.classList.toggle("is-active", active);
-				button.setAttribute("aria-selected", active ? "true" : "false");
-			});
-
-			publishArea.setAttribute("d", buildAreaPath(metrics, "publishY"));
-			updateArea.setAttribute("d", buildAreaPath(metrics, "updateY"));
-			deleteArea.setAttribute("d", buildAreaPath(metrics, "deleteY"));
-			publishLine.setAttribute("d", buildLinePath(metrics, "publishY"));
-			updateLine.setAttribute("d", buildLinePath(metrics, "updateY"));
-			deleteLine.setAttribute("d", buildLinePath(metrics, "deleteY"));
-			summaryNode.textContent = summarizeDataset(dataset);
-			chartRoot.style.setProperty("--chart-base-point-count", String(metrics.length));
-			chartRoot.style.setProperty("--chart-base-column-width", getColumnWidth(range, metrics.length));
-			labels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(0, 1fr))`;
-			labels.replaceChildren(
-				...metrics.map((point, index) => {
-					const item = document.createElement("span");
-					item.className = "dashboard-chart-label";
-					const visible = shouldShowChartLabel(range, index, metrics.length);
-					item.textContent = visible ? point.label : "";
-					item.setAttribute("aria-hidden", visible ? "false" : "true");
-					if (!visible) {
-						item.classList.add("is-placeholder");
-					}
-					return item;
-				}),
-			);
-		};
-
+		const metrics = buildMetrics(dataset.points);
+		switchRoot.dataset.activeIndex =
+			activeRange === "week" ? "0" : activeRange === "month" ? "1" : "2";
 		switchRoot.querySelectorAll("[data-range-option]").forEach((button) => {
-			button.onclick = () => renderChart(button.dataset.rangeOption);
+			const active = button.dataset.rangeOption === activeRange;
+			button.classList.toggle("is-active", active);
+			button.setAttribute("aria-selected", active ? "true" : "false");
 		});
 
-		renderChart(chartRoot.dataset.defaultRange || "week");
+		area?.setAttribute("d", buildAreaPath(metrics));
+		line?.setAttribute("d", buildLinePath(metrics));
+		summaryNode.textContent = summarizeDataset(dataset);
+		chartRoot.style.setProperty("--chart-base-point-count", String(metrics.length));
+		chartRoot.style.setProperty("--chart-base-column-width", getColumnWidth(activeRange, metrics.length));
+		labels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(0, 1fr))`;
+		labels.replaceChildren(
+			...metrics.map((point, index) => {
+				const item = document.createElement("span");
+				item.className = "dashboard-chart-label";
+				const visible = shouldShowChartLabel(activeRange, index, metrics.length);
+				item.textContent = visible ? point.label : "";
+				item.setAttribute("aria-hidden", visible ? "false" : "true");
+				if (!visible) {
+					item.classList.add("is-placeholder");
+				}
+				return item;
+			}),
+		);
 	};
 
-	const initDashboardPopularPosts = () => {
-		const root = document.querySelector("[data-popular-posts-root]");
-		const statusNode = document.querySelector("[data-popular-posts-status]");
-		const dataNode = document.querySelector("#dashboard-popular-posts-data");
-
-		if (!(root instanceof HTMLElement) || !(dataNode instanceof HTMLScriptElement)) {
+	const initDashboardChart = () => {
+		const chartRoot = document.querySelector("[data-chart-root]");
+		const switchRoot = document.querySelector("[data-chart-switch]");
+		if (!chartRoot || !switchRoot) {
 			return;
 		}
 
-		const posts = JSON.parse(dataNode.textContent || "[]");
-		if (!Array.isArray(posts) || posts.length === 0) {
-			if (statusNode instanceof HTMLElement) {
-				statusNode.textContent = "暂时还没有可统计的文章。";
-			}
-			return;
-		}
-
-		if (root.dataset.popularPostsInitialized === "true") {
-			return;
-		}
-		root.dataset.popularPostsInitialized = "true";
-
-		const counterApi = root.dataset.counterApi || "";
-		const counterOrigin = root.dataset.counterOrigin || window.location.origin;
-		const visibleCount = Math.max(Number.parseInt(root.dataset.visibleCount || "6", 10) || 6, 1);
-		const cacheTtlMs = Math.max(Number.parseInt(root.dataset.cacheTtlMs || "900000", 10) || 900000, 0);
-		const cacheKey = `alf-dashboard-popular-posts:${counterOrigin}`;
-		const postsFingerprint = posts.map((post) => post.url).join("|");
-		const formatVisits = (count) => new Intl.NumberFormat("zh-CN").format(Math.max(0, count));
-		const medalMap = {
-			1: "金牌",
-			2: "银牌",
-			3: "铜牌",
-		};
-		let hasRenderedRanking = false;
-
-		const normalizeVisits = (value) => {
-			if (typeof value === "number" && Number.isFinite(value)) {
-				return Math.max(0, value);
-			}
-
-			if (typeof value === "string") {
-				const parsedValue = Number.parseInt(value.replace(/[^\d]/g, ""), 10);
-				if (Number.isFinite(parsedValue)) {
-					return Math.max(0, parsedValue);
-				}
-			}
-
-			return 0;
-		};
-
-		const buildRanking = (visitsByUrl = {}) =>
-			posts
-				.map((post) => ({
-					...post,
-					visits: normalizeVisits(visitsByUrl[post.url]),
-				}))
-				.sort((left, right) => right.visits - left.visits || left.title.localeCompare(right.title, "zh-CN"));
-
-		const readCachedRanking = () => {
-			try {
-				const rawCache = window.sessionStorage.getItem(cacheKey);
-				if (!rawCache) {
-					return null;
-				}
-
-				const parsedCache = JSON.parse(rawCache);
-				if (parsedCache?.fingerprint !== postsFingerprint || typeof parsedCache?.visitsByUrl !== "object") {
-					return null;
-				}
-
-				return {
-					ranking: buildRanking(parsedCache.visitsByUrl),
-					isFresh:
-						typeof parsedCache.timestamp === "number" &&
-						Number.isFinite(parsedCache.timestamp) &&
-						Date.now() - parsedCache.timestamp < cacheTtlMs,
+		if (chartRoot.dataset.chartInitialized !== "true") {
+			switchRoot.querySelectorAll("[data-range-option]").forEach((button) => {
+				button.onclick = () => {
+					chartRoot.dataset.currentRange = button.dataset.rangeOption || "week";
+					renderDashboardChart();
 				};
-			} catch (_error) {
-				return null;
-			}
-		};
-
-		const writeCachedRanking = (ranking) => {
-			try {
-				const visitsByUrl = Object.fromEntries(
-					ranking.map((item) => [item.url, normalizeVisits(item.visits)]),
-				);
-				window.sessionStorage.setItem(
-					cacheKey,
-					JSON.stringify({
-						timestamp: Date.now(),
-						fingerprint: postsFingerprint,
-						visitsByUrl,
-					}),
-				);
-			} catch (_error) {
-				// Ignore storage errors and keep the live ranking only.
-			}
-		};
-
-		const applyRanking = (ranking) => {
-			const podium = root.querySelector("[data-popular-posts-podium]");
-			const list = root.querySelector("[data-popular-posts-list]");
-
-			if (!(podium instanceof HTMLElement) || !(list instanceof HTMLElement)) {
-				return;
-			}
-
-			hasRenderedRanking = true;
-
-			const visibleRanking = ranking.slice(0, visibleCount);
-			const podiumItems = visibleRanking.slice(0, 3);
-			const listItems = visibleRanking.slice(3);
-
-			podium.replaceChildren(
-				...podiumItems.map((item, index) => {
-					const link = document.createElement("a");
-					link.className = "dashboard-popular-card";
-					link.href = item.url;
-					link.dataset.rank = String(index + 1);
-
-					const medal = document.createElement("div");
-					medal.className = "dashboard-popular-medal";
-					medal.textContent = medalMap[index + 1] || String(index + 1);
-
-					const copy = document.createElement("div");
-					copy.className = "dashboard-popular-copy";
-
-					const rankLabel = document.createElement("p");
-					rankLabel.className = "dashboard-popular-rank-label";
-					rankLabel.textContent = index === 0 ? "金牌席" : index === 1 ? "银牌席" : "铜牌席";
-
-					const title = document.createElement("h4");
-					title.className = "dashboard-popular-title";
-					title.textContent = item.title;
-
-					const description = document.createElement("p");
-					description.className = "dashboard-popular-description";
-					description.textContent = item.description;
-
-					copy.append(rankLabel, title, description);
-
-					const count = document.createElement("div");
-					count.className = "dashboard-popular-count";
-					count.textContent = `${formatVisits(item.visits)} 次`;
-
-					link.append(medal, copy, count);
-					return link;
-				}),
-			);
-
-			list.replaceChildren(
-				...listItems.map((item, index) => {
-					const rank = index + 4;
-					const link = document.createElement("a");
-					link.className = "dashboard-popular-list-item";
-					link.href = item.url;
-					link.dataset.rank = String(rank);
-
-					const rankNode = document.createElement("div");
-					rankNode.className = "dashboard-popular-list-rank";
-					rankNode.textContent = String(rank).padStart(2, "0");
-
-					const copy = document.createElement("div");
-					copy.className = "dashboard-popular-list-copy";
-
-					const title = document.createElement("h4");
-					title.className = "dashboard-popular-list-title";
-					title.textContent = item.title;
-
-					const description = document.createElement("p");
-					description.className = "dashboard-popular-list-description";
-					description.textContent = item.description;
-
-					copy.append(title, description);
-
-					const count = document.createElement("div");
-					count.className = "dashboard-popular-list-count";
-					count.textContent = `${formatVisits(item.visits)} 次`;
-
-					link.append(rankNode, copy, count);
-					return link;
-				}),
-			);
-		};
-
-		const updateStatus = (ranking) => {
-			if (!(statusNode instanceof HTMLElement)) {
-				return;
-			}
-
-			if (ranking.length === 0) {
-				statusNode.textContent = "热门榜暂时还没有数据。";
-				return;
-			}
-
-			const topItem = ranking[0];
-			statusNode.textContent = `${topItem.title} 当前羽毛落点累计 ${formatVisits(topItem.visits)} 次。`;
-		};
-
-		const renderFallback = () => {
-			if (hasRenderedRanking) {
-				if (statusNode instanceof HTMLElement) {
-					statusNode.textContent = "热门榜已显示最近一次统计。";
-				}
-				return;
-			}
-
-			root.querySelectorAll(".is-loading").forEach((node) => {
-				node.classList.remove("is-loading");
 			});
-			if (statusNode instanceof HTMLElement) {
-				statusNode.textContent = "热门榜统计暂时失联。";
-			}
-		};
-
-		const fetchPopularPosts = async () => {
-			if (!counterApi) {
-				renderFallback();
-				return;
-			}
-
-			try {
-				const ranking = buildRanking(
-					Object.fromEntries(
-						await Promise.all(
-							posts.map(async (post) => {
-								const targetUrl = new URL(post.url, counterOrigin).toString();
-								const response = await fetch(counterApi, {
-									method: "GET",
-									cache: "no-store",
-									credentials: "omit",
-									headers: {
-										"x-bsz-referer": targetUrl,
-									},
-								});
-
-								if (!response.ok) {
-									throw new Error(`Failed to fetch ${targetUrl}`);
-								}
-
-								const payload = await response.json();
-								return [post.url, normalizeVisits(payload?.data?.page_pv)];
-							}),
-						),
-					),
-				);
-
-				applyRanking(ranking);
-				updateStatus(ranking);
-				writeCachedRanking(ranking);
-			} catch (_error) {
-				renderFallback();
-			}
-		};
-
-		const cachedRanking = readCachedRanking();
-		if (cachedRanking) {
-			applyRanking(cachedRanking.ranking);
-			updateStatus(cachedRanking.ranking);
+			chartRoot.dataset.chartInitialized = "true";
 		}
 
-		void fetchPopularPosts();
+		renderDashboardSiteVisits();
+		renderDashboardChart();
+
+		if (!window[DASHBOARD_VISIT_EVENT_BOUND_KEY]) {
+			document.addEventListener("alf:visitor-counter-updated", () => {
+				renderDashboardSiteVisits();
+				renderDashboardChart();
+			});
+			window[DASHBOARD_VISIT_EVENT_BOUND_KEY] = true;
+		}
 	};
 
 	const bootDashboard = () => {
@@ -790,7 +705,6 @@ const defaultSummary = summarizeDataset(defaultDataset);
 		initDashboardSearch();
 		initDashboardHints();
 		initDashboardChart();
-		initDashboardPopularPosts();
 	};
 
 	document.addEventListener("astro:page-load", bootDashboard);

@@ -1,17 +1,16 @@
-import { execSync } from "node:child_process";
 import { getCategoryList, getAllSortedContentEntries, getSeriesList } from "./content-utils";
 import { getCollectionUrl } from "./url-utils";
 
-type ActivityPoint = {
+type VisitGrowthPoint = {
 	label: string;
-	publish: number;
-	update: number;
-	delete: number;
+	bucketKey: string;
+	totalVisits: number;
+	growthRate: number;
 };
 
-type ActivityDataset = {
+type VisitGrowthDataset = {
 	label: string;
-	points: ActivityPoint[];
+	points: VisitGrowthPoint[];
 };
 
 type DashboardRecentUpdate = {
@@ -39,26 +38,13 @@ type DashboardMetrics = {
 	latestNote: DashboardEntrySummary;
 };
 
-type PopularPostSeed = {
-	title: string;
-	url: string;
-	description: string;
-};
-
 type DashboardData = {
-	chartDatasets: Record<"week" | "month" | "year", ActivityDataset>;
+	chartDatasets: Record<"week" | "month" | "year", VisitGrowthDataset>;
 	recentUpdates: DashboardRecentUpdate[];
 	dashboardMetrics: DashboardMetrics;
-	popularPosts: PopularPostSeed[];
 };
 
 type WrappedEntry = Awaited<ReturnType<typeof getAllSortedContentEntries>>[number];
-
-type GitDayStats = {
-	publish: number;
-	update: number;
-	delete: number;
-};
 
 const DASHBOARD_FALLBACK_ENTRY: DashboardEntrySummary = {
 	title: "暂无内容",
@@ -66,13 +52,6 @@ const DASHBOARD_FALLBACK_ENTRY: DashboardEntrySummary = {
 	excerpt: "当前还没有可展示的内容。",
 	kindLabel: "内容",
 };
-
-const isMarkdownContentPath = (filePath: string) =>
-	/\.md$/i.test(filePath) &&
-	(filePath.includes("src/content/posts/") ||
-		filePath.includes("src/content/notes/") ||
-		filePath.includes("src\\content\\posts\\") ||
-		filePath.includes("src\\content\\notes\\"));
 
 const formatDateTime = (date: Date) =>
 	new Intl.DateTimeFormat("zh-CN", {
@@ -121,6 +100,12 @@ const formatDayKey = (date: Date) => {
 	return `${year}-${month}-${day}`;
 };
 
+const formatMonthKey = (date: Date) => {
+	const year = date.getFullYear();
+	const month = `${date.getMonth() + 1}`.padStart(2, "0");
+	return `${year}-${month}`;
+};
+
 const createDaySeries = (length: number, endDate: Date) => {
 	const dates: Date[] = [];
 	const normalizedEnd = startOfDay(endDate);
@@ -147,136 +132,31 @@ const createMonthSeries = (length: number, endDate: Date) => {
 	return dates;
 };
 
-const parseGitActivity = () => {
-	const dayStats = new Map<string, GitDayStats>();
-
-	try {
-		const output = execSync(
-			'git log --name-status --find-renames --date=short --format="commit %H %ad" -- src/content/posts src/content/notes',
-			{
-				encoding: "utf8",
-				stdio: ["ignore", "pipe", "ignore"],
-			},
-		);
-
-		let activeDayKey = "";
-
-		for (const rawLine of output.split(/\r?\n/)) {
-			const line = rawLine.trim();
-
-			if (!line) {
-				continue;
-			}
-
-			if (line.startsWith("commit ")) {
-				const parts = line.split(/\s+/);
-				activeDayKey = parts[2] || "";
-				if (activeDayKey && !dayStats.has(activeDayKey)) {
-					dayStats.set(activeDayKey, { publish: 0, update: 0, delete: 0 });
-				}
-				continue;
-			}
-
-			if (!activeDayKey) {
-				continue;
-			}
-
-			const parts = rawLine.split("\t");
-			const status = parts[0]?.trim() || "";
-			const stats = dayStats.get(activeDayKey);
-
-			if (!stats) {
-				continue;
-			}
-
-			if (status.startsWith("A")) {
-				const filePath = parts[1] || "";
-				if (isMarkdownContentPath(filePath)) {
-					stats.publish += 1;
-				}
-				continue;
-			}
-
-			if (status.startsWith("M")) {
-				const filePath = parts[1] || "";
-				if (isMarkdownContentPath(filePath)) {
-					stats.update += 1;
-				}
-				continue;
-			}
-
-			if (status.startsWith("D")) {
-				const filePath = parts[1] || "";
-				if (isMarkdownContentPath(filePath)) {
-					stats.delete += 1;
-				}
-				continue;
-			}
-
-			if (status.startsWith("R") || status.startsWith("C")) {
-				const targetPath = parts[2] || parts[1] || "";
-				if (isMarkdownContentPath(targetPath)) {
-					stats.update += 1;
-				}
-			}
-		}
-	} catch (_error) {
-		return dayStats;
-	}
-
-	return dayStats;
-};
-
-const buildDatasetFromDays = (
+const buildVisitDatasetFromDays = (
 	label: string,
 	dates: Date[],
-	dayStats: Map<string, GitDayStats>,
-): ActivityDataset => ({
+): VisitGrowthDataset => ({
 	label,
-	points: dates.map((date) => {
-		const dayKey = formatDayKey(date);
-		const stats = dayStats.get(dayKey) || { publish: 0, update: 0, delete: 0 };
-
-		return {
-			label: `${`${date.getMonth() + 1}`.padStart(2, "0")}/${`${date.getDate()}`.padStart(2, "0")}`,
-			publish: stats.publish,
-			update: stats.update,
-			delete: stats.delete,
-		};
-	}),
+	points: dates.map((date) => ({
+		label: `${`${date.getMonth() + 1}`.padStart(2, "0")}/${`${date.getDate()}`.padStart(2, "0")}`,
+		bucketKey: formatDayKey(date),
+		totalVisits: 0,
+		growthRate: 0,
+	})),
 });
 
-const buildDatasetFromMonths = (
+const buildVisitDatasetFromMonths = (
 	label: string,
 	dates: Date[],
-	dayStats: Map<string, GitDayStats>,
-): ActivityDataset => {
-	const monthStats = new Map<string, GitDayStats>();
-
-	for (const [dayKey, stats] of dayStats.entries()) {
-		const monthKey = dayKey.slice(0, 7);
-		const current = monthStats.get(monthKey) || { publish: 0, update: 0, delete: 0 };
-		current.publish += stats.publish;
-		current.update += stats.update;
-		current.delete += stats.delete;
-		monthStats.set(monthKey, current);
-	}
-
-	return {
-		label,
-		points: dates.map((date) => {
-			const monthKey = `${date.getFullYear()}-${`${date.getMonth() + 1}`.padStart(2, "0")}`;
-			const stats = monthStats.get(monthKey) || { publish: 0, update: 0, delete: 0 };
-
-			return {
-				label: `${date.getMonth() + 1}月`,
-				publish: stats.publish,
-				update: stats.update,
-				delete: stats.delete,
-			};
-		}),
-	};
-};
+): VisitGrowthDataset => ({
+	label,
+	points: dates.map((date) => ({
+		label: `${date.getMonth() + 1}月`,
+		bucketKey: formatMonthKey(date),
+		totalVisits: 0,
+		growthRate: 0,
+	})),
+});
 
 export async function getDashboardData(): Promise<DashboardData> {
 	const allEntries = await getAllSortedContentEntries();
@@ -311,14 +191,13 @@ export async function getDashboardData(): Promise<DashboardData> {
 		.map((category) => `${category.name} ${category.count} 条`)
 		.join("，");
 
-	const dayStats = parseGitActivity();
 	const now = new Date();
 
 	return {
 		chartDatasets: {
-			week: buildDatasetFromDays("近 7 天", createDaySeries(7, now), dayStats),
-			month: buildDatasetFromDays("近 30 天", createDaySeries(30, now), dayStats),
-			year: buildDatasetFromMonths("近 12 个月", createMonthSeries(12, now), dayStats),
+			week: buildVisitDatasetFromDays("近 7 天", createDaySeries(7, now)),
+			month: buildVisitDatasetFromDays("近 30 天", createDaySeries(30, now)),
+			year: buildVisitDatasetFromMonths("近 12 个月", createMonthSeries(12, now)),
 		},
 		recentUpdates,
 		dashboardMetrics: {
@@ -330,10 +209,5 @@ export async function getDashboardData(): Promise<DashboardData> {
 			latestPost: toEntrySummary(posts[0]),
 			latestNote: toEntrySummary(notes[0]),
 		},
-		popularPosts: posts.map((entry) => ({
-			title: entry.entry.data.title,
-			url: getCollectionUrl(entry.collection, entry.entry.slug),
-			description: entry.entry.data.description || "这篇文章暂时还没有摘要。",
-		})),
 	};
 }

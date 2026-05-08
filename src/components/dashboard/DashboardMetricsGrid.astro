@@ -4,15 +4,17 @@ const { metrics } = Astro.props;
 
 <section class="dashboard-metrics-grid">
 	<article class="dashboard-metric-card card-base">
-		<p class="dashboard-metric-label">近 30 天更新</p>
-		<p class="dashboard-metric-value">{metrics.updatedEntries} 条</p>
-		<p class="dashboard-metric-copy">累计约 {metrics.updatedWords.toLocaleString("zh-CN")} 字</p>
+		<p class="dashboard-metric-label">全站访问量</p>
+		<p class="dashboard-metric-value" data-dashboard-site-visits data-counter-ready="false">统计中...</p>
+		<p class="dashboard-metric-copy">只保留整站统计，不再显示单篇访问量和热门文章榜</p>
 	</article>
 
 	<article class="dashboard-metric-card card-base">
-		<p class="dashboard-metric-label">内容结构</p>
-		<p class="dashboard-metric-value dashboard-metric-value--small">{metrics.contentBreakdown}</p>
-		<p class="dashboard-metric-copy">{metrics.contentBreakdownNote}</p>
+		<p class="dashboard-metric-label">近 30 天更新</p>
+		<p class="dashboard-metric-value">{metrics.updatedEntries} 条</p>
+		<p class="dashboard-metric-copy">
+			累计约 {metrics.updatedWords.toLocaleString("zh-CN")} 字 · {metrics.contentBreakdown}
+		</p>
 	</article>
 
 	<article class="dashboard-metric-card card-base">
