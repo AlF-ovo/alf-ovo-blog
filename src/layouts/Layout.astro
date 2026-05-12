@@ -325,9 +325,13 @@ function disableAnimation() {
 
 const bannerEnabled = !!document.getElementById('banner-wrapper')
 const DOWNLOAD_REFRESH_DELAY_MS = 1200
-const DEFERRED_SIDEBAR_STOP_REVEAL_PX = 72
+const DEFERRED_SIDEBAR_TOP_GAP_PX = 16
 let deferredStickySidebarResizeObserver: ResizeObserver | null = null
 const observedDeferredStickySidebars = new WeakSet<HTMLElement>()
+const deferredStickySidebarStates = new WeakMap<
+	HTMLElement,
+	{ offset: number; lastScrollY: number; mode: 'top' | 'dynamic' | '' }
+>()
 
 function isDownloadLink(anchor: HTMLAnchorElement) {
 	const rawHref = anchor.getAttribute('href') || ''
@@ -473,28 +477,106 @@ function init() {
 	syncDeferredStickySidebars();
 }
 
+function getDeferredSidebarBottomGap(viewportHeight: number) {
+	return Math.min(72, Math.max(24, Math.floor(viewportHeight * 0.12)))
+}
+
+function getDeferredSidebarState(sidebar: HTMLElement) {
+	let state = deferredStickySidebarStates.get(sidebar)
+	if (!state) {
+		state = {
+			offset: 0,
+			lastScrollY: window.scrollY || document.documentElement.scrollTop || 0,
+			mode: '',
+		}
+		deferredStickySidebarStates.set(sidebar, state)
+	}
+
+	return state
+}
+
 function syncDeferredStickySidebars() {
 	const isDesktop = window.innerWidth >= 1024
 	const deferredSidebars = Array.from(document.querySelectorAll('[data-deferred-sidebar-sticky="true"]')) as HTMLElement[]
+	const scrollY = window.scrollY || document.documentElement.scrollTop || 0
 
 	if (deferredSidebars.length === 0) {
 		return
 	}
 
 	for (const sidebar of deferredSidebars) {
+		const state = getDeferredSidebarState(sidebar)
 		if (!isDesktop) {
 			sidebar.style.removeProperty('--sidebar-sticky-top')
+			sidebar.style.removeProperty('position')
+			sidebar.style.removeProperty('top')
+			sidebar.style.removeProperty('transform')
+			sidebar.dataset.deferredSidebarMode = ''
+			state.offset = 0
+			state.lastScrollY = scrollY
+			state.mode = ''
 			continue
 		}
 
 		const viewportHeight = window.innerHeight
-		const sidebarHeight = sidebar.getBoundingClientRect().height
-		const revealOffset = Math.min(
-			DEFERRED_SIDEBAR_STOP_REVEAL_PX,
-			Math.max(24, Math.floor(viewportHeight * 0.12)),
-		)
-		const topOffset = viewportHeight - sidebarHeight - revealOffset
-		sidebar.style.setProperty('--sidebar-sticky-top', `${topOffset}px`)
+		const bottomGap = getDeferredSidebarBottomGap(viewportHeight)
+		const sidebarHeight = sidebar.offsetHeight
+		const container = sidebar.parentElement
+		if (!(container instanceof HTMLElement)) {
+			state.lastScrollY = scrollY
+			continue
+		}
+
+		const containerRect = container.getBoundingClientRect()
+		const containerTop = containerRect.top + scrollY
+		const containerHeight = container.offsetHeight
+		const maxOffset = Math.max(0, containerHeight - sidebarHeight)
+		const fitsViewport =
+			sidebarHeight + DEFERRED_SIDEBAR_TOP_GAP_PX + bottomGap <= viewportHeight
+
+		if (fitsViewport || maxOffset === 0) {
+			sidebar.style.position = 'sticky'
+			sidebar.style.top = `${DEFERRED_SIDEBAR_TOP_GAP_PX}px`
+			sidebar.style.transform = 'translateY(0px)'
+			sidebar.dataset.deferredSidebarMode = 'top'
+			state.offset = 0
+			state.lastScrollY = scrollY
+			state.mode = 'top'
+			continue
+		}
+
+		const currentRect = sidebar.getBoundingClientRect()
+		if (state.mode !== 'dynamic') {
+			state.offset = Math.min(
+				maxOffset,
+				Math.max(0, currentRect.top + scrollY - containerTop),
+			)
+		}
+
+		const requiredBottomOffset =
+			scrollY +
+			viewportHeight -
+			sidebarHeight -
+			bottomGap -
+			containerTop
+		const requiredTopOffset =
+			scrollY + DEFERRED_SIDEBAR_TOP_GAP_PX - containerTop
+		const isScrollingDown = scrollY > state.lastScrollY
+		const isScrollingUp = scrollY < state.lastScrollY
+
+		if (isScrollingDown) {
+			state.offset = Math.max(state.offset, requiredBottomOffset)
+		} else if (isScrollingUp) {
+			state.offset = Math.min(state.offset, requiredTopOffset)
+		}
+
+		state.offset = Math.min(maxOffset, Math.max(0, state.offset))
+		sidebar.style.position = 'relative'
+		sidebar.style.top = '0px'
+		sidebar.style.transform = `translateY(${state.offset}px)`
+		sidebar.dataset.deferredSidebarMode = 'dynamic'
+		state.lastScrollY = scrollY
+		state.mode = 'dynamic'
 	}
 }
 
@@ -674,6 +756,8 @@ function scrollFunction() {
 			navbar.classList.remove('navbar-hidden')
 		}
 	}
+
+	queueDeferredStickySidebarSync()
 }
 window.onscroll = scrollFunction
 
