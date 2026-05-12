@@ -146,6 +146,14 @@ const expressionNames = [
 			return;
 		}
 
+		const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+		if (prefersReducedMotion.matches || window.innerWidth < 1024) {
+			root.hidden = true;
+			root.setAttribute("aria-hidden", "true");
+			document.documentElement.dataset.mascotHidden = "true";
+			return;
+		}
+
 		const expressionNames = JSON.parse(root.dataset.expressionNames || "[]");
 		const panel = root.querySelector(".live2d-mascot__panel");
 		const canvas = root.querySelector("[data-live2d-canvas]");

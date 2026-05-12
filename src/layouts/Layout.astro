@@ -43,9 +43,6 @@ if (!banner || typeof banner !== "string" || banner.trim() === "") {
 	banner = siteConfig.banner.src;
 }
 
-// TODO don't use post cover as banner for now
-banner = siteConfig.banner.src;
-
 const enableBanner = siteConfig.banner.enable;
 const wallpaperSrc = url("/system/wallpaper.png");
 
@@ -324,7 +321,6 @@ function disableAnimation() {
 */
 
 const bannerEnabled = !!document.getElementById('banner-wrapper')
-const DOWNLOAD_REFRESH_DELAY_MS = 1200
 const DEFERRED_SIDEBAR_TOP_GAP_PX = 16
 let deferredStickySidebarResizeObserver: ResizeObserver | null = null
 const observedDeferredStickySidebars = new WeakSet<HTMLElement>()
@@ -332,43 +328,6 @@ const deferredStickySidebarStates = new WeakMap<
 	HTMLElement,
 	{ offset: number; lastScrollY: number; mode: 'top' | 'dynamic' | '' }
 >()
-
-function isDownloadLink(anchor: HTMLAnchorElement) {
-	const rawHref = anchor.getAttribute('href') || ''
-	const linkText = anchor.textContent?.trim() || ''
-	if (!rawHref) {
-		return false
-	}
-
-	if (anchor.hasAttribute('download')) {
-		return true
-	}
-
-	const isAttachmentPath = rawHref.includes('/attachments/')
-	const looksLikeFile = !rawHref.endsWith('/')
-	const looksDownloadLabel = linkText.includes('下载')
-	return isAttachmentPath && looksLikeFile && looksDownloadLabel
-}
-
-function setupDownloadRefresh() {
-	document.addEventListener('click', event => {
-		const target = event.target
-		if (!(target instanceof Element)) {
-			return
-		}
-
-		const anchor = target.closest('a')
-		if (!(anchor instanceof HTMLAnchorElement) || !isDownloadLink(anchor)) {
-			return
-		}
-
-		window.setTimeout(() => {
-			window.location.reload()
-		}, DOWNLOAD_REFRESH_DELAY_MS)
-	})
-}
-
-setupDownloadRefresh()
 
 function setClickOutsideToClose(panel: string, ignores: string[]) {
 	document.addEventListener("click", event => {
@@ -695,7 +654,7 @@ const setup = () => {
 		// hide the temp high element when the transition is done
 		const heightExtend = document.getElementById('page-height-extend')
 		if (heightExtend) {
-			heightExtend.classList.remove('hidden')
+			heightExtend.classList.add('hidden')
 		}
 		queueDeferredStickySidebarSync()
 	});

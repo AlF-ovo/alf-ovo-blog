@@ -673,6 +673,12 @@
 			return;
 		}
 
+		const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)");
+		if (prefersReducedMotion.matches || window.innerWidth < 1024) {
+			root.hidden = true;
+			return;
+		}
+
 		const TARGET_SELECTOR = [
 			".card-base",
 			".banner-container",

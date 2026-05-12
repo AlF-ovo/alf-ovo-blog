@@ -15,6 +15,9 @@ type WrappedEntry<TCollection extends ContentCollection = ContentCollection> = {
 };
 
 let firstContentPublishedAtPromise: Promise<Date | null> | null = null;
+let sortedPostsPromise: Promise<CollectionEntry<"posts">[]> | null = null;
+let sortedNotesPromise: Promise<CollectionEntry<"notes">[]> | null = null;
+let allSortedContentEntriesPromise: Promise<WrappedEntry[]> | null = null;
 
 const shouldIncludeEntry = ({ data }: ContentEntry) =>
 	import.meta.env.PROD ? data.draft !== true : true;
@@ -23,7 +26,8 @@ const sortEntriesByDate = <T extends { entry: ContentEntry }>(entries: T[]) =>
 	[...entries].sort((a, b) => {
 		const dateA = new Date(a.entry.data.updated ?? a.entry.data.published);
 		const dateB = new Date(b.entry.data.updated ?? b.entry.data.published);
-		return dateA > dateB ? -1 : 1;
+		const timeDiff = dateB.getTime() - dateA.getTime();
+		return timeDiff;
 	});
 
 async function getSortedCollectionEntries<TCollection extends ContentCollection>(
@@ -37,19 +41,25 @@ async function getSortedCollectionEntries<TCollection extends ContentCollection>
 }
 
 export async function getSortedPosts() {
-	const sorted = await getSortedCollectionEntries("posts");
+	if (!sortedPostsPromise) {
+		sortedPostsPromise = (async () => {
+			const sorted = await getSortedCollectionEntries("posts");
 
-	for (let index = 1; index < sorted.length; index++) {
-		sorted[index].data.nextSlug = sorted[index - 1].slug;
-		sorted[index].data.nextTitle = sorted[index - 1].data.title;
+			for (let index = 1; index < sorted.length; index++) {
+				sorted[index].data.nextSlug = sorted[index - 1].slug;
+				sorted[index].data.nextTitle = sorted[index - 1].data.title;
+			}
+
+			for (let index = 0; index < sorted.length - 1; index++) {
+				sorted[index].data.prevSlug = sorted[index + 1].slug;
+				sorted[index].data.prevTitle = sorted[index + 1].data.title;
+			}
+
+			return sorted;
+		})();
 	}
 
-	for (let index = 0; index < sorted.length - 1; index++) {
-		sorted[index].data.prevSlug = sorted[index + 1].slug;
-		sorted[index].data.prevTitle = sorted[index + 1].data.title;
-	}
-
-	return sorted;
+	return sortedPostsPromise;
 }
 
 export function getFirstContentPublishedAt(): Promise<Date | null> {
@@ -78,28 +88,40 @@ export function getFirstContentPublishedAt(): Promise<Date | null> {
 }
 
 export async function getSortedNotes() {
-	const sorted = await getSortedCollectionEntries("notes");
+	if (!sortedNotesPromise) {
+		sortedNotesPromise = (async () => {
+			const sorted = await getSortedCollectionEntries("notes");
 
-	for (let index = 1; index < sorted.length; index++) {
-		sorted[index].data.nextSlug = sorted[index - 1].slug;
-		sorted[index].data.nextTitle = sorted[index - 1].data.title;
+			for (let index = 1; index < sorted.length; index++) {
+				sorted[index].data.nextSlug = sorted[index - 1].slug;
+				sorted[index].data.nextTitle = sorted[index - 1].data.title;
+			}
+
+			for (let index = 0; index < sorted.length - 1; index++) {
+				sorted[index].data.prevSlug = sorted[index + 1].slug;
+				sorted[index].data.prevTitle = sorted[index + 1].data.title;
+			}
+
+			return sorted;
+		})();
 	}
 
-	for (let index = 0; index < sorted.length - 1; index++) {
-		sorted[index].data.prevSlug = sorted[index + 1].slug;
-		sorted[index].data.prevTitle = sorted[index + 1].data.title;
-	}
-
-	return sorted;
+	return sortedNotesPromise;
 }
 
 export async function getAllSortedContentEntries(): Promise<WrappedEntry[]> {
-	const [posts, notes] = await Promise.all([getSortedPosts(), getSortedNotes()]);
+	if (!allSortedContentEntriesPromise) {
+		allSortedContentEntriesPromise = (async () => {
+			const [posts, notes] = await Promise.all([getSortedPosts(), getSortedNotes()]);
 
-	return sortEntriesByDate([
-		...posts.map((entry) => ({ collection: "posts" as const, entry })),
-		...notes.map((entry) => ({ collection: "notes" as const, entry })),
-	]);
+			return sortEntriesByDate([
+				...posts.map((entry) => ({ collection: "posts" as const, entry })),
+				...notes.map((entry) => ({ collection: "notes" as const, entry })),
+			]);
+		})();
+	}
+
+	return allSortedContentEntriesPromise;
 }
 
 export type ContentForList = {
