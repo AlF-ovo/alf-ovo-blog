@@ -39,7 +39,7 @@ const {
 	<div class="dashboard-chart-meta">
 		<div class="dashboard-chart-meta-primary">
 			<div class="dashboard-chart-legend">
-				<span><i class="is-publish"></i> 增长率</span>
+				<span><i class="is-publish"></i> 访问量</span>
 			</div>
 		</div>
 		<p class="dashboard-chart-summary" data-chart-summary>{defaultSummary}</p>
@@ -51,29 +51,55 @@ const {
 				class="dashboard-chart-stage"
 				style={`--chart-base-point-count: ${defaultMetrics.length}; --chart-base-column-width: 2.45rem;`}
 			>
-				<svg
-					class="dashboard-chart-svg dashboard-chart-svg--compact"
-					data-chart-svg
-					viewBox="0 0 100 100"
-					preserveAspectRatio="none"
-					aria-label={ariaLabel}
-				>
-					<path
-						class="dashboard-chart-area is-publish"
-						fill={chartColor.area}
-						stroke="none"
-						d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.y}`).join(" ")} L 100 100 Z`}
-					></path>
-					<path
-						class="dashboard-chart-line is-publish"
-						fill="none"
-						stroke={chartColor.line}
-						stroke-width="2.1"
-						stroke-linecap="round"
-						stroke-linejoin="round"
-						d={`M ${defaultMetrics.map((point) => `${point.x} ${point.y}`).join(" L ")}`}
-					></path>
-				</svg>
+				<div class="dashboard-chart-plot" data-chart-plot>
+					<svg
+						class="dashboard-chart-svg dashboard-chart-svg--compact"
+						data-chart-svg
+						viewBox="0 0 100 100"
+						preserveAspectRatio="none"
+						aria-label={ariaLabel}
+					>
+						<path
+							class="dashboard-chart-area is-publish"
+							fill={chartColor.area}
+							stroke="none"
+							d={`M 0 100 ${defaultMetrics.map((point) => `L ${point.x} ${point.y}`).join(" ")} L 100 100 Z`}
+						></path>
+						<path
+							class="dashboard-chart-line is-publish"
+							fill="none"
+							stroke={chartColor.line}
+							stroke-width="2.1"
+							stroke-linecap="round"
+							stroke-linejoin="round"
+							d={`M ${defaultMetrics.map((point) => `${point.x} ${point.y}`).join(" L ")}`}
+						></path>
+					</svg>
+					<div class="dashboard-chart-hotspots" data-chart-hotspots>
+						{
+							defaultMetrics.map((point) => (
+								<button
+									type="button"
+									class="dashboard-chart-hotspot"
+									data-chart-hotspot
+									data-label={point.label}
+									data-total-visits={String(point.totalVisits)}
+									data-x={String(point.x)}
+									data-y={String(point.y)}
+									style={`left: ${point.x}%; top: ${point.y}%;`}
+									aria-label={`${point.label} 访问量 ${point.totalVisits}`}
+									title={`${point.label} · ${point.totalVisits}`}
+								>
+									<span class="dashboard-chart-dot"></span>
+								</button>
+							))
+						}
+					</div>
+					<div class="dashboard-chart-tooltip" data-chart-tooltip hidden>
+						<p class="dashboard-chart-tooltip-label" data-chart-tooltip-label></p>
+						<p class="dashboard-chart-tooltip-value" data-chart-tooltip-value></p>
+					</div>
+				</div>
 				<div
 					class="dashboard-chart-labels"
 					data-chart-labels

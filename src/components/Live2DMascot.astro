@@ -106,6 +106,14 @@ const expressionNames = [
 		filter: drop-shadow(0 1rem 2rem rgb(15 23 42 / 0.16));
 	}
 
+	.live2d-mascot[data-locked="false"] .live2d-mascot__canvas {
+		cursor: grab;
+	}
+
+	.live2d-mascot[data-locked="false"] .live2d-mascot__canvas:active {
+		cursor: grabbing;
+	}
+
 	@media (max-width: 1023px) {
 		.live2d-mascot__panel {
 			width: calc(clamp(8.5rem, 30vw, 11rem) * var(--live2d-scale, 1));
@@ -165,9 +173,11 @@ const expressionNames = [
 			dragOriginX: 0,
 			dragOriginY: 0,
 			dragMoved: false,
+			locked: false,
 		};
 
 		const positionStorageKey = "alf.live2d.position";
+		const lockStorageKey = "system:mascot-locked";
 		const visibilityStorageKey = "system:mascot-hidden";
 		const viewportPadding = 8;
 		const expressionIntervalMs = 15000;
@@ -195,6 +205,14 @@ const expressionNames = [
 			height: Math.max(panel.offsetHeight || 0, 1),
 		});
 
+		const getBottomRightPosition = () => {
+			const size = getPanelSize();
+			return clampPosition(
+				window.innerWidth - size.width - 12,
+				window.innerHeight - size.height - 4,
+			);
+		};
+
 		const clampPosition = (x, y) => {
 			const size = getPanelSize();
 			const maxX = Math.max(window.innerWidth - size.width - viewportPadding, viewportPadding);
@@ -215,12 +233,48 @@ const expressionNames = [
 			root.style.top = `${nextPosition.y}px`;
 		};
 
+		const persistLockState = (locked) => {
+			try {
+				localStorage.setItem(lockStorageKey, locked ? "true" : "false");
+			} catch (_error) {
+				// Ignore storage failures.
+			}
+		};
+
+		const applyLockedPlacement = () => {
+			const lockedPosition = getBottomRightPosition();
+			applyPosition(lockedPosition.x, lockedPosition.y);
+			persistPlacement();
+		};
+
+		const setLockedState = (locked, shouldPersist = true) => {
+			state.locked = locked;
+			root.dataset.locked = locked ? "true" : "false";
+			document.documentElement.dataset.mascotLocked = locked ? "true" : "false";
+
+			if (locked) {
+				if (state.dragPointerId !== null) {
+					canvas.releasePointerCapture?.(state.dragPointerId);
+				}
+				state.dragPointerId = null;
+				state.dragMoved = false;
+				window.requestAnimationFrame(() => {
+					applyLockedPlacement();
+				});
+			}
+
+			if (shouldPersist) {
+				persistLockState(locked);
+			}
+		};
+
 		const restorePlacement = () => {
-			const size = getPanelSize();
-			const fallback = clampPosition(
-				window.innerWidth - size.width - 12,
-				window.innerHeight - size.height - 4,
-			);
+			const fallback = getBottomRightPosition();
+
+			if (state.locked) {
+				applyPosition(fallback.x, fallback.y);
+				return;
+			}
 
 			let restoredPosition = fallback;
 
@@ -305,6 +359,11 @@ const expressionNames = [
 		};
 
 		const updatePlacementForViewport = () => {
+			if (state.locked) {
+				applyLockedPlacement();
+				return;
+			}
+
 			if (!state.position) {
 				restorePlacement();
 				return;
@@ -423,6 +482,10 @@ const expressionNames = [
 				return;
 			}
 
+			if (state.locked) {
+				return;
+			}
+
 			const deltaX = event.clientX - state.dragStartX;
 			const deltaY = event.clientY - state.dragStartY;
 			if (Math.abs(deltaX) > 4 || Math.abs(deltaY) > 4) {
@@ -511,6 +574,10 @@ const expressionNames = [
 
 		window.addEventListener("resize", handleViewportResize);
 		window.addEventListener("alf:live2d-resize", handleViewportResize);
+		window.addEventListener("alf:live2d-lock", (event) => {
+			const locked = Boolean(event?.detail?.locked);
+			setLockedState(locked, false);
+		});
 		window.addEventListener("alf:live2d-visibility", (event) => {
 			const hidden = Boolean(event?.detail?.hidden);
 			setHiddenState(hidden, false);
@@ -543,6 +610,23 @@ const expressionNames = [
 			return document.documentElement.dataset.mascotHidden === "true";
 		})();
 
+		const initiallyLocked = (() => {
+			try {
+				const rememberedLocked = localStorage.getItem(lockStorageKey);
+				if (rememberedLocked === "true") {
+					return true;
+				}
+				if (rememberedLocked === "false") {
+					return false;
+				}
+			} catch (_error) {
+				// Ignore storage failures.
+			}
+
+			return document.documentElement.dataset.mascotLocked === "true";
+		})();
+
+		setLockedState(initiallyLocked, false);
 		setHiddenState(initiallyHidden, false);
 		if (!initiallyHidden) {
 			void initMascot();

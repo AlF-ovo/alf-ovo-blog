@@ -139,10 +139,12 @@ const bannerOffset =
 				0.6,
 				1.5,
 			);
+			const mascotLocked = localStorage.getItem('system:mascot-locked') === 'true';
 			const mascotHidden = localStorage.getItem('system:mascot-hidden') === 'true';
 			document.documentElement.style.setProperty('--system-wallpaper-opacity', '1');
 			document.documentElement.style.setProperty('--system-foreground-opacity', `${wallpaperOpacity}`);
-			document.documentElement.style.setProperty('--live2d-scale', `${mascotScale}`);
+			document.documentElement.style.setProperty('--live2d-scale', `${mascotLocked ? 1 : mascotScale}`);
+			document.documentElement.dataset.mascotLocked = mascotLocked ? 'true' : 'false';
 			document.documentElement.dataset.mascotHidden = mascotHidden ? 'true' : 'false';
 
 			// calculate the --banner-height-extend, which needs to be a multiple of 4 to avoid blurry text

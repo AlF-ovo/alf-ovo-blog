@@ -16,6 +16,8 @@ const foregroundOpacityId = "system-foreground-opacity";
 const foregroundOpacityValueId = "system-foreground-opacity-value";
 const mascotScaleId = "live2d-mascot-scale";
 const mascotScaleValueId = "live2d-mascot-scale-value";
+const mascotLockId = "live2d-mascot-lock";
+const mascotLockValueId = "live2d-mascot-lock-value";
 const mascotVisibilityId = "live2d-mascot-visibility";
 const mascotVisibilityValueId = "live2d-mascot-visibility-value";
 const panelHintId = "system-panel-hint";
@@ -64,10 +66,12 @@ const systemPanels = [
 			data-volume-key="background-music:volume"
 			data-foreground-opacity-key="system:foreground-opacity"
 			data-mascot-scale-key="system:mascot-scale"
+			data-mascot-locked-key="system:mascot-locked"
 			data-mascot-hidden-key="system:mascot-hidden"
 			data-default-volume="0.20"
 			data-default-foreground-opacity="0.8"
 			data-default-mascot-scale="1"
+			data-default-mascot-locked="false"
 			data-default-mascot-hidden="false"
 		>
 			<audio id={audioId} preload={defaultTrack?.hasSource ? "metadata" : "none"} playsinline></audio>
@@ -238,6 +242,21 @@ const systemPanels = [
 							value="100"
 							aria-label="看板娘大小"
 						/>
+					</div>
+
+					<div class="system-control-section">
+						<div class="system-control-section__row">
+							<div>
+								<p class="system-control-section__title">锁定在右下角</p>
+								<p class="system-control-section__copy">锁定后看板娘会固定在屏幕右下角，并强制保持 100% 大小，不可拖动也不可调整尺寸。取消后会保留这个位置和大小，直到你下一次手动更改。</p>
+							</div>
+							<span id={mascotLockValueId} class="system-control-value">未锁定</span>
+						</div>
+						<label class="system-control-check">
+							<input id={mascotLockId} class="system-control-check__input" type="checkbox" />
+							<span class="system-control-check__box" aria-hidden="true"></span>
+							<span class="system-control-check__label">固定在右下角</span>
+						</label>
 					</div>
 				</section>
 
@@ -507,6 +526,59 @@ const systemPanels = [
 		accent-color: rgb(226, 232, 240);
 	}
 
+	.system-control-slider:disabled {
+		opacity: 0.4;
+		cursor: not-allowed;
+	}
+
+	.system-control-check {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.7rem;
+		margin-top: 0.75rem;
+		cursor: pointer;
+		user-select: none;
+	}
+
+	.system-control-check__input {
+		position: absolute;
+		opacity: 0;
+		pointer-events: none;
+	}
+
+	.system-control-check__box {
+		width: 1.1rem;
+		height: 1.1rem;
+		border-radius: 0.3rem;
+		border: 1px solid rgba(255, 255, 255, 0.22);
+		background: rgba(255, 255, 255, 0.04);
+		box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+		transition:
+			border-color 180ms ease,
+			background 180ms ease,
+			box-shadow 180ms ease;
+	}
+
+	.system-control-check__label {
+		font-size: 0.8rem;
+		font-weight: 700;
+		color: rgba(248, 250, 252, 0.94);
+	}
+
+	.system-control-check__input:checked + .system-control-check__box {
+		border-color: rgba(255, 255, 255, 0.34);
+		background:
+			linear-gradient(180deg, rgba(59, 130, 246, 0.88), rgba(37, 99, 235, 0.88));
+		box-shadow:
+			inset 0 0 0 0.16rem rgba(255, 255, 255, 0.92),
+			0 0 0 0.18rem rgba(59, 130, 246, 0.14);
+	}
+
+	.system-control-check__input:focus-visible + .system-control-check__box {
+		outline: 2px solid rgba(255, 255, 255, 0.34);
+		outline-offset: 2px;
+	}
+
 	.system-control-action,
 	.system-control-play {
 		display: inline-flex;
@@ -669,6 +741,8 @@ const systemPanels = [
 	const foregroundOpacityValueId = "system-foreground-opacity-value";
 	const mascotScaleId = "live2d-mascot-scale";
 	const mascotScaleValueId = "live2d-mascot-scale-value";
+	const mascotLockId = "live2d-mascot-lock";
+	const mascotLockValueId = "live2d-mascot-lock-value";
 	const mascotVisibilityId = "live2d-mascot-visibility";
 	const mascotVisibilityValueId = "live2d-mascot-visibility-value";
 	const panelHintId = "system-panel-hint";
@@ -687,6 +761,8 @@ const systemPanels = [
 		const foregroundOpacityValue = document.getElementById(foregroundOpacityValueId);
 		const mascotScaleInput = document.getElementById(mascotScaleId);
 		const mascotScaleValue = document.getElementById(mascotScaleValueId);
+		const mascotLockInput = document.getElementById(mascotLockId);
+		const mascotLockValue = document.getElementById(mascotLockValueId);
 		const mascotVisibilityButton = document.getElementById(mascotVisibilityId);
 		const mascotVisibilityValue = document.getElementById(mascotVisibilityValueId);
 		const panelHint = document.getElementById(panelHintId);
@@ -711,6 +787,8 @@ const systemPanels = [
 			!(foregroundOpacityValue instanceof HTMLElement) ||
 			!(mascotScaleInput instanceof HTMLInputElement) ||
 			!(mascotScaleValue instanceof HTMLElement) ||
+			!(mascotLockInput instanceof HTMLInputElement) ||
+			!(mascotLockValue instanceof HTMLElement) ||
 			!(mascotVisibilityButton instanceof HTMLButtonElement) ||
 			!(mascotVisibilityValue instanceof HTMLElement) ||
 			!(panelHint instanceof HTMLElement)
@@ -732,6 +810,8 @@ const systemPanels = [
 			root.dataset.foregroundOpacityKey || "system:foreground-opacity";
 		const mascotScaleKey =
 			root.dataset.mascotScaleKey || "system:mascot-scale";
+		const mascotLockedKey =
+			root.dataset.mascotLockedKey || "system:mascot-locked";
 		const mascotHiddenKey =
 			root.dataset.mascotHiddenKey || "system:mascot-hidden";
 		const defaultTrackId = root.dataset.defaultTrackId || "";
@@ -752,6 +832,7 @@ const systemPanels = [
 			0.6,
 			1.5,
 		);
+		const defaultMascotLocked = root.dataset.defaultMascotLocked === "true";
 		const defaultMascotHidden = root.dataset.defaultMascotHidden === "true";
 		const trackButtons = Array.from(trackList.querySelectorAll("[data-track-id]")).filter(
 			(button) => button instanceof HTMLButtonElement,
@@ -879,6 +960,22 @@ const systemPanels = [
 
 			if (shouldPersist) {
 				setRememberedValue(mascotScaleKey, String(normalizedScale));
+			}
+		};
+
+		const applyMascotLock = (locked, shouldPersist = true) => {
+			document.documentElement.dataset.mascotLocked = locked ? "true" : "false";
+			mascotLockInput.checked = locked;
+			mascotLockValue.textContent = locked ? "已锁定" : "可拖动";
+			mascotScaleInput.disabled = locked;
+			window.dispatchEvent(
+				new CustomEvent("alf:live2d-lock", {
+					detail: { locked },
+				}),
+			);
+
+			if (shouldPersist) {
+				setRememberedValue(mascotLockedKey, locked ? "true" : "false");
 			}
 		};
 
@@ -1038,6 +1135,7 @@ const systemPanels = [
 		const rememberedMascotScale = Number.parseFloat(
 			getRememberedValue(mascotScaleKey) || "",
 		);
+		const rememberedMascotLocked = getRememberedValue(mascotLockedKey);
 		const rememberedMascotHidden = getRememberedValue(mascotHiddenKey);
 
 		applyForegroundOpacity(
@@ -1048,9 +1146,17 @@ const systemPanels = [
 		);
 		applyVolume(Number.isFinite(rememberedVolume) ? rememberedVolume : defaultVolume, false);
 		applyMascotScale(
-			Number.isFinite(rememberedMascotScale)
-				? rememberedMascotScale
-				: defaultMascotScale,
+			rememberedMascotLocked === "true"
+				? 1
+				: Number.isFinite(rememberedMascotScale)
+					? rememberedMascotScale
+					: defaultMascotScale,
+			false,
+		);
+		applyMascotLock(
+			rememberedMascotLocked === null
+				? defaultMascotLocked
+				: rememberedMascotLocked === "true",
 			false,
 		);
 		applyMascotVisibility(
@@ -1110,6 +1216,14 @@ const systemPanels = [
 
 		mascotScaleInput.addEventListener("input", () => {
 			applyMascotScale(Number.parseFloat(mascotScaleInput.value) / 100);
+		});
+
+		mascotLockInput.addEventListener("change", () => {
+			const nextLocked = mascotLockInput.checked;
+			if (nextLocked) {
+				applyMascotScale(1);
+			}
+			applyMascotLock(nextLocked);
 		});
 
 		mascotVisibilityButton.addEventListener("click", () => {

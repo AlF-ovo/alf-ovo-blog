@@ -149,19 +149,23 @@ const visitChartColor = {
 };
 
 const getChartMetrics = (points: VisitGrowthPoint[]): VisitGrowthMetric[] => {
-	const growthValues = points.map((point) => point.growthRate);
+	const visitValues = points.map((point) =>
+		typeof point.totalVisits === "number" && Number.isFinite(point.totalVisits)
+			? point.totalVisits
+			: 0,
+	);
 	const denominator = Math.max(points.length - 1, 1);
-	const minValue = Math.min(...growthValues, 0);
-	const maxValue = Math.max(...growthValues, 0);
+	const minValue = Math.min(...visitValues, 0);
+	const maxValue = Math.max(...visitValues, 0);
 	const isFlat = Math.abs(maxValue - minValue) < 0.0001;
-	const padding = isFlat ? 0 : Math.max((maxValue - minValue) * 0.12, 0.5);
+	const padding = isFlat ? 0 : Math.max((maxValue - minValue) * 0.12, 1);
 	const domainMin = isFlat ? minValue - 1 : minValue - padding;
 	const domainMax = isFlat ? maxValue + 1 : maxValue + padding;
 
 	return points.map((point, index) => ({
 		...point,
 		x: (index / denominator) * 100,
-		y: isFlat ? 50 : 100 - ((point.growthRate - domainMin) / (domainMax - domainMin)) * 100,
+		y: isFlat ? 50 : 100 - ((point.totalVisits - domainMin) / (domainMax - domainMin)) * 100,
 	}));
 };
 
@@ -249,16 +253,16 @@ const defaultSummary = "等待全站访问快照...";
 	};
 
 	const buildMetrics = (points) => {
-		const growthValues = points.map((point) =>
-			typeof point.growthRate === "number" && Number.isFinite(point.growthRate)
-				? point.growthRate
+		const visitValues = points.map((point) =>
+			typeof point.totalVisits === "number" && Number.isFinite(point.totalVisits)
+				? point.totalVisits
 				: 0,
 		);
 		const denominator = Math.max(points.length - 1, 1);
-		const minValue = Math.min(...growthValues, 0);
-		const maxValue = Math.max(...growthValues, 0);
+		const minValue = Math.min(...visitValues, 0);
+		const maxValue = Math.max(...visitValues, 0);
 		const isFlat = Math.abs(maxValue - minValue) < 0.0001;
-		const padding = isFlat ? 0 : Math.max((maxValue - minValue) * 0.12, 0.5);
+		const padding = isFlat ? 0 : Math.max((maxValue - minValue) * 0.12, 1);
 		const domainMin = isFlat ? minValue - 1 : minValue - padding;
 		const domainMax = isFlat ? maxValue + 1 : maxValue + padding;
 
@@ -267,7 +271,7 @@ const defaultSummary = "等待全站访问快照...";
 			x: (index / denominator) * 100,
 			y: isFlat
 				? 50
-				: 100 - ((point.growthRate - domainMin) / (domainMax - domainMin)) * 100,
+				: 100 - ((point.totalVisits - domainMin) / (domainMax - domainMin)) * 100,
 		}));
 	};
 
@@ -275,6 +279,37 @@ const defaultSummary = "等待全站访问快照...";
 		`M 0 100 ${metrics.map((point) => `L ${point.x} ${point.y}`).join(" ")} L 100 100 Z`;
 	const buildLinePath = (metrics) =>
 		`M ${metrics.map((point) => `${point.x} ${point.y}`).join(" L ")}`;
+	const hideChartTooltip = (tooltip) => {
+		if (!(tooltip instanceof HTMLElement)) {
+			return;
+		}
+
+		tooltip.hidden = true;
+		tooltip.style.removeProperty("left");
+		tooltip.style.removeProperty("top");
+		tooltip.dataset.align = "center";
+		tooltip.dataset.vertical = "above";
+	};
+	const showChartTooltip = (tooltip, point) => {
+		if (!(tooltip instanceof HTMLElement) || !point) {
+			return;
+		}
+
+		const labelNode = tooltip.querySelector("[data-chart-tooltip-label]");
+		const valueNode = tooltip.querySelector("[data-chart-tooltip-value]");
+		if (!(labelNode instanceof HTMLElement) || !(valueNode instanceof HTMLElement)) {
+			return;
+		}
+
+		labelNode.textContent = point.label;
+		valueNode.textContent = `${formatVisits(point.totalVisits)} 次`;
+		tooltip.hidden = false;
+		tooltip.dataset.align =
+			point.x >= 86 ? "end" : point.x <= 14 ? "start" : "center";
+		tooltip.dataset.vertical = point.y <= 18 ? "below" : "above";
+		tooltip.style.left = `${point.x}%`;
+		tooltip.style.top = `${point.y}%`;
+	};
 	const summarizeDataset = (dataset) => {
 		const validPoints = dataset.points.filter((point) => point.totalVisits > 0);
 		if (validPoints.length === 0) {
@@ -283,7 +318,7 @@ const defaultSummary = "等待全站访问快照...";
 
 		const latestPoint = validPoints[validPoints.length - 1];
 		if (validPoints.length < 2) {
-			return `${dataset.label}：当前全站访问量 ${formatVisits(latestPoint.totalVisits)}，继续积累快照后显示增长率。`;
+			return `${dataset.label}：当前全站访问量 ${formatVisits(latestPoint.totalVisits)}，继续积累快照后会形成更完整的走势。`;
 		}
 
 		const firstPoint = validPoints[0];
@@ -631,7 +666,9 @@ const defaultSummary = "等待全站访问快照...";
 		const summaryNode = document.querySelector("[data-chart-summary]");
 		const svg = document.querySelector("[data-chart-svg]");
 		const labels = document.querySelector("[data-chart-labels]");
-		if (!dataNode || !chartRoot || !summaryNode || !svg || !labels) {
+		const hotspots = document.querySelector("[data-chart-hotspots]");
+		const tooltip = document.querySelector("[data-chart-tooltip]");
+		if (!dataNode || !chartRoot || !summaryNode || !svg || !labels || !hotspots || !tooltip) {
 			return;
 		}
 
@@ -646,9 +683,41 @@ const defaultSummary = "等待全站访问快照...";
 		area?.setAttribute("d", buildAreaPath(metrics));
 		line?.setAttribute("d", buildLinePath(metrics));
 		summaryNode.textContent = summarizeDataset(dataset);
+		hideChartTooltip(tooltip);
 		chartRoot.style.setProperty("--chart-base-point-count", String(metrics.length));
 		chartRoot.style.setProperty("--chart-base-column-width", getColumnWidth(metrics.length));
 		labels.style.gridTemplateColumns = `repeat(${metrics.length}, minmax(0, 1fr))`;
+		hotspots.replaceChildren(
+			...metrics.map((point) => {
+				const button = document.createElement("button");
+				button.type = "button";
+				button.className = "dashboard-chart-hotspot";
+				button.dataset.chartHotspot = "";
+				button.dataset.label = point.label;
+				button.dataset.totalVisits = String(point.totalVisits);
+				button.dataset.x = String(point.x);
+				button.dataset.y = String(point.y);
+				button.style.left = `${point.x}%`;
+				button.style.top = `${point.y}%`;
+				button.setAttribute(
+					"aria-label",
+					`${point.label} 访问量 ${formatVisits(point.totalVisits)}`,
+				);
+				button.title = `${point.label} · ${formatVisits(point.totalVisits)}`;
+
+				const dot = document.createElement("span");
+				dot.className = "dashboard-chart-dot";
+				button.appendChild(dot);
+
+				const activate = () => showChartTooltip(tooltip, point);
+				button.addEventListener("pointerenter", activate);
+				button.addEventListener("focus", activate);
+				button.addEventListener("pointerleave", () => hideChartTooltip(tooltip));
+				button.addEventListener("blur", () => hideChartTooltip(tooltip));
+
+				return button;
+			}),
+		);
 		labels.replaceChildren(
 			...metrics.map((point, index) => {
 				const item = document.createElement("span");
@@ -1429,6 +1498,10 @@ const defaultSummary = "等待全站访问快照...";
 		min-width: max(100%, calc(var(--chart-base-point-count, 7) * var(--chart-base-column-width, 3.4rem)));
 	}
 
+	.dashboard-chart-plot {
+		position: relative;
+	}
+
 	.dashboard-chart-svg {
 		display: block;
 		width: 100%;
@@ -1452,6 +1525,117 @@ const defaultSummary = "等待全站访问快照...";
 		vector-effect: non-scaling-stroke;
 		stroke-linecap: round;
 		stroke-linejoin: round;
+	}
+
+	.dashboard-chart-hotspots {
+		position: absolute;
+		inset: 0;
+	}
+
+	.dashboard-chart-hotspot {
+		position: absolute;
+		width: 1.15rem;
+		height: 1.15rem;
+		display: grid;
+		place-items: center;
+		padding: 0;
+		border: 0;
+		background: transparent;
+		box-shadow: none;
+		backdrop-filter: none;
+		transform: translate(-50%, -50%);
+		cursor: pointer;
+	}
+
+	.dashboard-chart-hotspot::before {
+		content: "";
+		position: absolute;
+		inset: -0.5rem;
+		border-radius: 999px;
+	}
+
+	.dashboard-chart-dot {
+		width: 0.6rem;
+		height: 0.6rem;
+		border-radius: 999px;
+		background: rgb(59, 130, 246);
+		border: 2px solid rgba(255, 255, 255, 0.92);
+		box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.14);
+		transition:
+			transform 160ms ease,
+			box-shadow 160ms ease,
+			background 160ms ease;
+	}
+
+	.dashboard-chart-hotspot:hover .dashboard-chart-dot,
+	.dashboard-chart-hotspot:focus-visible .dashboard-chart-dot {
+		transform: scale(1.18);
+		box-shadow: 0 0 0 6px rgba(59, 130, 246, 0.2);
+	}
+
+	.dashboard-chart-hotspot:focus-visible {
+		outline: none;
+	}
+
+	.dashboard-chart-tooltip {
+		position: absolute;
+		left: 50%;
+		top: 50%;
+		z-index: 2;
+		min-width: 6rem;
+		padding: 0.55rem 0.7rem;
+		border-radius: 0.9rem;
+		border: 1px solid var(--dashboard-frame-strong);
+		background: rgba(15, 23, 42, 0.92);
+		box-shadow: 0 16px 32px rgba(15, 23, 42, 0.22);
+		color: rgba(248, 250, 252, 0.96);
+		pointer-events: none;
+		backdrop-filter: blur(12px);
+	}
+
+	.dashboard-chart-tooltip[hidden] {
+		display: none;
+	}
+
+	.dashboard-chart-tooltip[data-align="start"] {
+		transform: translate(0.85rem, calc(-100% - 0.9rem));
+	}
+
+	.dashboard-chart-tooltip[data-align="center"] {
+		transform: translate(-50%, calc(-100% - 0.9rem));
+	}
+
+	.dashboard-chart-tooltip[data-align="end"] {
+		transform: translate(calc(-100% - 0.85rem), calc(-100% - 0.9rem));
+	}
+
+	.dashboard-chart-tooltip[data-vertical="below"][data-align="start"] {
+		transform: translate(0.85rem, 0.9rem);
+	}
+
+	.dashboard-chart-tooltip[data-vertical="below"][data-align="center"] {
+		transform: translate(-50%, 0.9rem);
+	}
+
+	.dashboard-chart-tooltip[data-vertical="below"][data-align="end"] {
+		transform: translate(calc(-100% - 0.85rem), 0.9rem);
+	}
+
+	.dashboard-chart-tooltip-label,
+	.dashboard-chart-tooltip-value {
+		margin: 0;
+	}
+
+	.dashboard-chart-tooltip-label {
+		font-size: 0.72rem;
+		color: rgba(226, 232, 240, 0.76);
+	}
+
+	.dashboard-chart-tooltip-value {
+		margin-top: 0.2rem;
+		font-size: 0.92rem;
+		font-weight: 800;
+		color: rgba(255, 255, 255, 0.98);
 	}
 
 	.dashboard-chart-labels {

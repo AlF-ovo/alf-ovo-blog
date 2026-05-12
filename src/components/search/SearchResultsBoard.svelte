@@ -46,17 +46,17 @@ $: if (!$searchDisplayState.isOpen && wasOpen) {
 	<section
 		id="search-results-board"
 		bind:this={boardElement}
-		class="card-base search-results-board mb-4 overflow-hidden rounded-[1.75rem] p-5 md:p-6"
+		class="card-base search-results-board mb-4 overflow-hidden rounded-[1.75rem] p-5 text-white md:p-6"
 		aria-labelledby="search-results-title"
 	>
 		<div class="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
 			<div class="space-y-2">
-				<p class="text-[0.78rem] font-semibold uppercase tracking-[0.22em] text-black/45 dark:text-white/45">
+				<p class="text-[0.78rem] font-semibold uppercase tracking-[0.22em] text-white/45">
 					正文搜索结果
 				</p>
 				<h2
 					id="search-results-title"
-					class="text-xl font-bold text-black/80 dark:text-white/85"
+					class="text-xl font-bold text-white/90"
 				>
 					{#if $searchDisplayState.keyword.trim()}
 						“{$searchDisplayState.keyword}” 的匹配结果
@@ -64,13 +64,13 @@ $: if (!$searchDisplayState.isOpen && wasOpen) {
 						搜索结果
 					{/if}
 				</h2>
-				<p class="max-w-3xl text-sm leading-7 text-black/55 dark:text-white/55">
+				<p class="max-w-3xl text-sm leading-7 text-white/60">
 					结果沿用当前搜索返回顺序展示，也就是按匹配程度从高到低向下排列。
 				</p>
 			</div>
 			<button
 				type="button"
-				class="btn-plain inline-flex h-11 w-11 items-center justify-center rounded-full border border-black/10 text-black/55 transition hover:border-black/20 hover:text-black/75 dark:border-white/10 dark:text-white/55 dark:hover:border-white/20 dark:hover:text-white/80"
+				class="btn-plain inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/10 text-white/55 transition hover:border-white/20 hover:text-white/85"
 				on:click={closeSearchDisplay}
 				aria-label="关闭正文搜索结果"
 			>
@@ -79,15 +79,15 @@ $: if (!$searchDisplayState.isOpen && wasOpen) {
 		</div>
 
 		{#if $searchDisplayState.isSearching}
-			<div class="mt-5 rounded-[1.2rem] border border-dashed border-black/10 px-4 py-5 text-sm text-black/55 dark:border-white/10 dark:text-white/55">
+			<div class="mt-5 rounded-[1.2rem] border border-dashed border-white/10 px-4 py-5 text-sm text-white/60">
 				正在搜索中，结果会显示在这里。
 			</div>
 		{:else if !$searchDisplayState.keyword.trim()}
-			<div class="mt-5 rounded-[1.2rem] border border-dashed border-black/10 px-4 py-5 text-sm text-black/55 dark:border-white/10 dark:text-white/55">
+			<div class="mt-5 rounded-[1.2rem] border border-dashed border-white/10 px-4 py-5 text-sm text-white/60">
 				先输入关键词，再点击搜索图标。
 			</div>
 		{:else if !$searchDisplayState.results.length}
-			<div class="mt-5 rounded-[1.2rem] border border-dashed border-black/10 px-4 py-5 text-sm text-black/55 dark:border-white/10 dark:text-white/55">
+			<div class="mt-5 rounded-[1.2rem] border border-dashed border-white/10 px-4 py-5 text-sm text-white/60">
 				没有找到匹配结果。
 			</div>
 		{:else}
@@ -95,20 +95,20 @@ $: if (!$searchDisplayState.isOpen && wasOpen) {
 				{#each $searchDisplayState.results as item, index}
 					<a
 						href={item.url}
-						class="group block rounded-[1.2rem] border border-black/8 bg-black/[0.025] px-4 py-4 transition hover:border-black/15 hover:bg-black/[0.045] dark:border-white/8 dark:bg-white/[0.025] dark:hover:border-white/15 dark:hover:bg-white/[0.05]"
+						class="group block rounded-[1.2rem] border border-white/8 bg-white/[0.025] px-4 py-4 transition hover:border-white/15 hover:bg-white/[0.045]"
 						on:click={handleResultClick}
 					>
-						<div class="mb-2 flex flex-wrap items-center gap-2 text-[0.76rem] text-black/45 dark:text-white/45">
+						<div class="search-result-meta mb-2 flex flex-wrap items-center gap-2 text-[0.76rem] text-white/45">
 							<span class="rounded-full bg-[var(--primary)]/10 px-2 py-1 font-semibold text-[var(--primary)]">
 								#{index + 1}
 							</span>
 							<span>{getResultKind(item.url)}</span>
 							<span class="truncate">{getResultPath(item.url)}</span>
 						</div>
-						<h3 class="text-base font-bold text-black/80 transition group-hover:text-[var(--primary)] dark:text-white/85">
+						<h3 class="search-result-title text-base font-bold text-white/90 transition group-hover:text-[var(--primary)]">
 							{item.meta.title}
 						</h3>
-						<p class="mt-2 text-sm leading-7 text-black/58 dark:text-white/58">
+						<p class="search-result-excerpt mt-2 text-sm leading-7 text-white/72">
 							{@html item.excerpt}
 						</p>
 					</a>
@@ -119,10 +119,24 @@ $: if (!$searchDisplayState.isOpen && wasOpen) {
 {/if}
 
 <style>
+	.search-results-board {
+		color: rgba(255, 255, 255, 0.9);
+	}
+
+	.search-result-title,
+	.search-result-meta,
+	.search-result-excerpt {
+		color: inherit;
+	}
+
+	.search-result-excerpt :global(*) {
+		color: rgba(255, 255, 255, 0.78) !important;
+	}
+
 	.search-results-board :global(mark) {
 		padding: 0 0.2em;
 		border-radius: 0.35em;
 		background: color-mix(in srgb, var(--primary) 18%, transparent);
-		color: inherit;
+		color: rgba(255, 255, 255, 0.96);
 	}
 </style>

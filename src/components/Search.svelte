@@ -71,6 +71,24 @@ const syncBoardState = (
 const getCurrentKeyword = (isDesktop: boolean): string =>
 	isDesktop ? keywordDesktop : keywordMobile;
 
+const setKeywordValue = (keyword: string, isDesktop: boolean): void => {
+	if (isDesktop) {
+		keywordDesktop = keyword;
+		return;
+	}
+
+	keywordMobile = keyword;
+};
+
+const setKeywordForBothInputs = (keyword: string): void => {
+	keywordDesktop = keyword;
+	keywordMobile = keyword;
+};
+
+const clearSearchInputs = (): void => {
+	setKeywordForBothInputs("");
+};
+
 const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 	if (!keyword) {
 		closeFloatingPanel();
@@ -107,8 +125,7 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 			console.error("Pagefind is not available in production environment.");
 		}
 
-		const latestKeyword = getCurrentKeyword(isDesktop);
-		if (searchToken !== activeSearchToken || latestKeyword !== keyword) {
+		if (searchToken !== activeSearchToken) {
 			return;
 		}
 
@@ -119,8 +136,7 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 			closeFloatingPanel();
 		}
 	} catch (error) {
-		const latestKeyword = getCurrentKeyword(isDesktop);
-		if (searchToken !== activeSearchToken || latestKeyword !== keyword) {
+		if (searchToken !== activeSearchToken) {
 			return;
 		}
 
@@ -134,9 +150,36 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 	} finally {
 		if (searchToken === activeSearchToken) {
 			isSearching = false;
-			syncBoardState(getCurrentKeyword(isDesktop), { isSearching: false });
+			syncBoardState(keyword, { isSearching: false });
 		}
 	}
+};
+
+const handleKeywordInput = (keyword: string, isDesktop: boolean): void => {
+	setKeywordValue(keyword, isDesktop);
+	if (!initialized) {
+		return;
+	}
+
+	void search(keyword, isDesktop);
+};
+
+const searchFromUrl = (): void => {
+	if (typeof window === "undefined" || !initialized) {
+		return;
+	}
+
+	const keyword = new URL(window.location.href).searchParams.get("search")?.trim() || "";
+	if (!keyword) {
+		setKeywordForBothInputs("");
+		result = [];
+		closeSearchDisplay();
+		syncBoardState("", { results: [], isSearching: false });
+		return;
+	}
+
+	void search(keyword, true);
+	clearSearchInputs();
 };
 
 const showResultsBoard = (isDesktop: boolean): void => {
@@ -153,7 +196,14 @@ const showResultsBoard = (isDesktop: boolean): void => {
 };
 
 const submitSearch = (isDesktop: boolean): void => {
+	const keyword = getCurrentKeyword(isDesktop).trim();
+	if (!keyword) {
+		closeSearchDisplay();
+		return;
+	}
+
 	showResultsBoard(isDesktop);
+	clearSearchInputs();
 };
 
 const handleSearchKeydown = (
@@ -176,8 +226,7 @@ onMount(() => {
 			!!window.pagefind &&
 			typeof window.pagefind.search === "function";
 		console.log("Pagefind status on init:", pagefindLoaded);
-		if (keywordDesktop) search(keywordDesktop, true);
-		if (keywordMobile) search(keywordMobile, false);
+		searchFromUrl();
 	};
 
 	if (import.meta.env.DEV) {
@@ -205,19 +254,17 @@ onMount(() => {
 			}
 		}, 2000); // Adjust timeout as needed
 	}
+
+	const handlePageLoad = () => {
+		searchFromUrl();
+	};
+
+	document.addEventListener("astro:page-load", handlePageLoad);
+
+	return () => {
+		document.removeEventListener("astro:page-load", handlePageLoad);
+	};
 });
-
-$: if (initialized && keywordDesktop) {
-	(async () => {
-		await search(keywordDesktop, true);
-	})();
-}
-
-$: if (initialized && keywordMobile) {
-	(async () => {
-		await search(keywordMobile, false);
-	})();
-}
 </script>
 
 <!-- search bar for desktop view -->
@@ -227,6 +274,7 @@ $: if (initialized && keywordMobile) {
 ">
     <Icon icon="material-symbols:search" class="absolute text-[1.25rem] pointer-events-none ml-3 transition my-auto text-black/30 dark:text-white/30"></Icon>
     <input placeholder="{i18n(I18nKey.search)}" bind:value={keywordDesktop} on:focus={() => search(keywordDesktop, true)}
+           on:input={(event) => handleKeywordInput((event.currentTarget as HTMLInputElement).value, true)}
            on:keydown={(event) => handleSearchKeydown(event, true)}
            class="transition-all pl-10 text-sm bg-transparent outline-0
           h-full w-40 pr-11 active:w-60 focus:w-60 text-black/50 dark:text-white/50"
@@ -266,6 +314,7 @@ top-20 left-4 md:left-[unset] right-4 shadow-2xl rounded-2xl p-2">
   ">
         <Icon icon="material-symbols:search" class="absolute text-[1.25rem] pointer-events-none ml-3 transition my-auto text-black/30 dark:text-white/30"></Icon>
         <input placeholder="Search" bind:value={keywordMobile}
+               on:input={(event) => handleKeywordInput((event.currentTarget as HTMLInputElement).value, false)}
                on:keydown={(event) => handleSearchKeydown(event, false)}
                class="pl-10 absolute inset-0 text-sm bg-transparent outline-0
                 focus:w-60 text-black/50 dark:text-white/50"

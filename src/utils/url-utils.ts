@@ -34,6 +34,12 @@ export function getTagUrl(tag: string): string {
 	return url(`/archive/?tag=${encodeURIComponent(tag.trim())}`);
 }
 
+export function getSearchUrl(keyword: string): string {
+	const normalizedKeyword = keyword.trim();
+	if (!normalizedKeyword) return url("/");
+	return url(`/?search=${encodeURIComponent(normalizedKeyword)}`);
+}
+
 export function getCategoryUrl(category: string | null): string {
 	if (
 		!category ||
