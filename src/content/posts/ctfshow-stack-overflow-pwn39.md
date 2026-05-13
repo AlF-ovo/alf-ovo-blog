@@ -3,10 +3,10 @@ title: "ctfshow 栈溢出 pwn39"
 published: 2026-05-11T00:50:00+08:00
 description: "记录 ctfshow 栈溢出 pwn39 的解题过程。"
 image: ""
-tags: ["ctfshow", "栈溢出", "Pwn", "ret2text", "pwntools"]
+tags: ["ctfshow", "stack-overflow", "Pwn", "ret2text", "pwntools"]
 category: "ctfshow"
-categoryPath: ["ctfshow", "栈溢出"]
-series: "ctfshow-栈溢出"
+categoryPath: ["ctfshow", "stack-overflow"]
+series: "ctfshow-stack-overflow"
 draft: false
 lang: "zh_CN"
 ---
