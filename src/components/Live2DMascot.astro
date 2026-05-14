@@ -200,6 +200,7 @@ const fastPointerExpressionName = "4OAO";
 			pausedExpressionMode: "",
 			pausedExpressionName: "",
 			pausedExpressionTimerRemainingMs: 0,
+			expressionRequestId: 0,
 			position: null,
 			dragPointerId: null,
 			dragStartX: 0,
@@ -237,6 +238,7 @@ const fastPointerExpressionName = "4OAO";
 		const gazeConfig = {
 			eyeBallX: 1,
 			eyeBallY: 0.8,
+			horizontalDirection: -1,
 			angleX: 12,
 			angleY: 8,
 			angleZ: 3.2,
@@ -375,6 +377,11 @@ const fastPointerExpressionName = "4OAO";
 				y: nextY / magnitude,
 			};
 		};
+
+		const orientGaze = (x, y) => ({
+			x: x * gazeConfig.horizontalDirection,
+			y,
+		});
 
 		const persistPlacement = () => {
 			if (!state.position) {
@@ -554,10 +561,12 @@ const fastPointerExpressionName = "4OAO";
 				return false;
 			}
 
+			const oriented = orientGaze(x, y);
+
 			// `Live2DModel.focus()` expects world-space pointer coordinates.
 			// Here we already operate in normalized gaze space, so drive the
 			// internal focus controller directly and skip its own interpolation.
-			focusController.focus(x, y, true);
+			focusController.focus(oriented.x, oriented.y, true);
 			return true;
 		};
 
@@ -590,16 +599,18 @@ const fastPointerExpressionName = "4OAO";
 		};
 
 		const applyEyeGazeViaParameters = (x, y) => {
-			addCoreModelParameter("ParamEyeBallX", x * gazeConfig.eyeBallX);
-			addCoreModelParameter("ParamEyeBallY", y * gazeConfig.eyeBallY);
+			const oriented = orientGaze(x, y);
+			addCoreModelParameter("ParamEyeBallX", oriented.x * gazeConfig.eyeBallX);
+			addCoreModelParameter("ParamEyeBallY", oriented.y * gazeConfig.eyeBallY);
 		};
 
 		const applyPoseViaParameters = (x, y) => {
-			addCoreModelParameter("ParamAngleX", x * gazeConfig.angleX);
-			addCoreModelParameter("ParamAngleY", y * gazeConfig.angleY);
-			addCoreModelParameter("ParamAngleZ", x * y * gazeConfig.angleZ);
-			addCoreModelParameter("ParamBodyAngleX", x * gazeConfig.bodyAngleX);
-			addCoreModelParameter("ParamBodyAngleY", y * gazeConfig.bodyAngleY);
+			const oriented = orientGaze(x, y);
+			addCoreModelParameter("ParamAngleX", oriented.x * gazeConfig.angleX);
+			addCoreModelParameter("ParamAngleY", oriented.y * gazeConfig.angleY);
+			addCoreModelParameter("ParamAngleZ", oriented.x * oriented.y * gazeConfig.angleZ);
+			addCoreModelParameter("ParamBodyAngleX", oriented.x * gazeConfig.bodyAngleX);
+			addCoreModelParameter("ParamBodyAngleY", oriented.y * gazeConfig.bodyAngleY);
 		};
 
 		const applyGaze = (x, y) => {
@@ -869,18 +880,27 @@ const fastPointerExpressionName = "4OAO";
 			}
 		};
 
-		const playExpression = (expressionName) => {
-			if (
-				!state.model ||
-				typeof state.model.expression !== "function" ||
-				!expressionName
-			) {
+		const playExpression = async (expressionName) => {
+			if (!state.model || !expressionName) {
 				return false;
 			}
 
-			state.currentExpression = expressionName;
-			state.model.expression(expressionName);
-			return true;
+			const requestId = ++state.expressionRequestId;
+			const expressionManager =
+				state.model.internalModel?.motionManager?.expressionManager;
+			let played = false;
+
+			if (typeof expressionManager?.setExpression === "function") {
+				played = await expressionManager.setExpression(expressionName);
+			} else if (typeof state.model.expression === "function") {
+				played = await state.model.expression(expressionName);
+			}
+
+			if (played && requestId === state.expressionRequestId) {
+				state.currentExpression = expressionName;
+			}
+
+			return played;
 		};
 
 		const scheduleNormalExpressionTimer = (delayMs = normalExpressionIntervalMs) => {
@@ -891,11 +911,11 @@ const fastPointerExpressionName = "4OAO";
 
 			state.normalExpressionTimerRemainingMs = delayMs;
 			state.normalExpressionTimerStartedAt = performance.now();
-			state.normalExpressionTimer = window.setTimeout(() => {
+			state.normalExpressionTimer = window.setTimeout(async () => {
 				const nextExpression = pickRandomExpression(normalExpressionNames, [
 					state.lastNormalExpression,
 				]);
-				if (playExpression(nextExpression)) {
+				if (await playExpression(nextExpression)) {
 					state.lastNormalExpression = nextExpression;
 					state.expressionMode = "normal";
 				}
@@ -925,9 +945,11 @@ const fastPointerExpressionName = "4OAO";
 				const nextExpression = pickRandomExpression(normalExpressionNames, [
 					state.lastNormalExpression,
 				]);
-				if (playExpression(nextExpression)) {
-					state.lastNormalExpression = nextExpression;
-				}
+				void playExpression(nextExpression).then((played) => {
+					if (played) {
+						state.lastNormalExpression = nextExpression;
+					}
+				});
 			}
 
 			scheduleNormalExpressionTimer(delayMs);
@@ -949,7 +971,7 @@ const fastPointerExpressionName = "4OAO";
 
 			state.expressionMode = pausedMode;
 			if (pausedExpressionName) {
-				playExpression(pausedExpressionName);
+				void playExpression(pausedExpressionName);
 			}
 
 			const nextDelay = pausedRemainingMs > 0 ? pausedRemainingMs : getModeDuration(pausedMode);
@@ -968,7 +990,7 @@ const fastPointerExpressionName = "4OAO";
 
 			pauseCurrentExpressionMode();
 			state.expressionMode = "special";
-			playExpression(fastPointerExpressionName);
+			void playExpression(fastPointerExpressionName);
 		};
 
 		const exitFastPointerExpressionMode = () => {
@@ -979,7 +1001,7 @@ const fastPointerExpressionName = "4OAO";
 			resumePausedExpressionMode();
 		};
 
-		const triggerInteractiveExpression = () => {
+		const triggerInteractiveExpression = async () => {
 			if (interactiveExpressionNames.length === 0) {
 				return false;
 			}
@@ -987,18 +1009,14 @@ const fastPointerExpressionName = "4OAO";
 			const nextExpression = pickRandomExpression(interactiveExpressionNames, [
 				state.lastInteractiveExpression,
 			]);
-			if (state.expressionMode === "special") {
-				state.pausedExpressionMode = "interactive";
-				state.pausedExpressionName = nextExpression;
-				state.pausedExpressionTimerRemainingMs = interactiveExpressionDurationMs;
-				state.lastInteractiveExpression = nextExpression;
-				return Boolean(nextExpression);
-			}
-
 			clearModeTimer("normal");
 			clearModeTimer("interactive");
+			state.pausedExpressionMode = "";
+			state.pausedExpressionName = "";
+			state.pausedExpressionTimerRemainingMs = 0;
+			state.fastPointerAccumulatedMs = 0;
 			state.expressionMode = "interactive";
-			const played = playExpression(nextExpression);
+			const played = await playExpression(nextExpression);
 			if (!played) {
 				return false;
 			}
@@ -1044,6 +1062,7 @@ const fastPointerExpressionName = "4OAO";
 			state.dragOriginX = state.position?.x || 0;
 			state.dragOriginY = state.position?.y || 0;
 			state.dragMoved = false;
+			state.fastPointerAccumulatedMs = 0;
 			resetGazeTarget(true);
 			canvas.setPointerCapture?.(event.pointerId);
 		};
@@ -1081,7 +1100,7 @@ const fastPointerExpressionName = "4OAO";
 				return;
 			}
 
-			triggerInteractiveExpression();
+			void triggerInteractiveExpression();
 		};
 
 		const initMascot = async () => {
