@@ -223,6 +223,7 @@ const fastPointerExpressionName = "4OAO";
 			hasMousePosition: false,
 			lastPointerMoveAt: 0,
 			dizzinessScore: 0,
+			dizzinessHoldUntil: 0,
 			lastHeadAngleX: 0,
 			lastHeadAngleY: 0,
 			lastHeadVelocityX: 0,
@@ -263,15 +264,17 @@ const fastPointerExpressionName = "4OAO";
 			nearCancelRangeY: 0.3,
 			headBobAmplitudeY: 0.06,
 			headBobSpeed: 0.0038,
-			dizzinessRecentWindowMs: 180,
-			dizzinessVelocityFloorDegPerSecond: 55,
+			dizzinessRecentWindowMs: 220,
+			dizzinessVelocityFloorDegPerSecond: 42,
 			dizzinessVelocityCeilingDegPerSecond: 420,
-			dizzinessScoreGainPerSecond: 3.1,
-			dizzinessDirectionChangeBonusPerSecond: 1.15,
+			dizzinessScoreGainPerSecond: 3.6,
+			dizzinessDirectionChangeBonusPerSecond: 1.35,
 			dizzinessActiveDecayPerSecond: 0.45,
 			dizzinessIdleDecayPerSecond: 1.35,
-			dizzinessEnterThreshold: 1,
+			dizzinessEnterThreshold: 0.72,
 			dizzinessExitThreshold: 0.28,
+			dizzinessHoldDurationMs: 3000,
+			dizzinessRefreshActivityThreshold: 0.3,
 			faceCenterX: 0.5,
 			faceCenterY: 0.38,
 		};
@@ -404,7 +407,12 @@ const fastPointerExpressionName = "4OAO";
 			if (frameDt <= 0) {
 				state.lastHeadAngleX = angleX;
 				state.lastHeadAngleY = angleY;
-				return;
+				return {
+					angularVelocity: 0,
+					normalizedVelocity: 0,
+					directionChangeStrength: 0,
+					rotationActivity: 0,
+				};
 			}
 
 			const dtSeconds = Math.max(frameDt / 1000, 1 / 240);
@@ -447,12 +455,19 @@ const fastPointerExpressionName = "4OAO";
 				(mouseDriven
 					? gazeConfig.dizzinessActiveDecayPerSecond
 					: gazeConfig.dizzinessIdleDecayPerSecond) * dtSeconds;
+			const rotationActivity = normalizedVelocity * (0.7 + 0.6 * directionChangeStrength);
 
 			state.dizzinessScore = clamp(state.dizzinessScore - scoreDecay + scoreGain, 0, 4);
 			state.lastHeadAngleX = angleX;
 			state.lastHeadAngleY = angleY;
 			state.lastHeadVelocityX = velocityX;
 			state.lastHeadVelocityY = velocityY;
+			return {
+				angularVelocity,
+				normalizedVelocity,
+				directionChangeStrength,
+				rotationActivity,
+			};
 		};
 
 		const persistPlacement = () => {
@@ -838,12 +853,26 @@ const fastPointerExpressionName = "4OAO";
 				state.gazePointerActive &&
 				state.hasMousePosition &&
 				now - state.lastPointerMoveAt <= gazeConfig.dizzinessRecentWindowMs;
-			updateDizzinessScore(headPoseAngles.x, headPoseAngles.y, frameDt, isMouseDrivingHead);
+			const dizzinessTelemetry = updateDizzinessScore(
+				headPoseAngles.x,
+				headPoseAngles.y,
+				frameDt,
+				isMouseDrivingHead,
+			);
+			const dizzinessRotationActive =
+				isMouseDrivingHead &&
+				dizzinessTelemetry.rotationActivity >=
+					gazeConfig.dizzinessRefreshActivityThreshold;
 
 			if (state.dizzinessScore >= gazeConfig.dizzinessEnterThreshold) {
 				enterFastPointerExpressionMode();
+			}
+
+			if (state.expressionMode === "special" && dizzinessRotationActive) {
+				state.dizzinessHoldUntil = now + gazeConfig.dizzinessHoldDurationMs;
 			} else if (
 				state.expressionMode === "special" &&
+				now >= state.dizzinessHoldUntil &&
 				state.dizzinessScore <= gazeConfig.dizzinessExitThreshold
 			) {
 				exitFastPointerExpressionMode();
@@ -1022,6 +1051,7 @@ const fastPointerExpressionName = "4OAO";
 
 			pauseCurrentExpressionMode();
 			state.expressionMode = "special";
+			state.dizzinessHoldUntil = performance.now() + gazeConfig.dizzinessHoldDurationMs;
 			void playExpression(fastPointerExpressionName);
 		};
 
@@ -1030,6 +1060,7 @@ const fastPointerExpressionName = "4OAO";
 				return;
 			}
 
+			state.dizzinessHoldUntil = 0;
 			resumePausedExpressionMode();
 		};
 
