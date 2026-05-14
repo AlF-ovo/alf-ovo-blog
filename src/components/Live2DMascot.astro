@@ -221,10 +221,12 @@ const fastPointerExpressionName = "4OAO";
 			lastMouseX: 0,
 			lastMouseY: 0,
 			hasMousePosition: false,
-			pointerSpeed: 0,
 			lastPointerMoveAt: 0,
-			lastPointerSampleAt: 0,
-			fastPointerAccumulatedMs: 0,
+			dizzinessScore: 0,
+			lastHeadAngleX: 0,
+			lastHeadAngleY: 0,
+			lastHeadVelocityX: 0,
+			lastHeadVelocityY: 0,
 			lastGazeTickAt: 0,
 		};
 
@@ -234,7 +236,6 @@ const fastPointerExpressionName = "4OAO";
 		const viewportPadding = 8;
 		const normalExpressionIntervalMs = 30000;
 		const interactiveExpressionDurationMs = 15000;
-		const fastPointerTriggerDurationMs = 8000;
 		const gazeConfig = {
 			eyeBallX: 1,
 			eyeBallY: 0.8,
@@ -261,8 +262,15 @@ const fastPointerExpressionName = "4OAO";
 			nearCancelRangeY: 0.3,
 			headBobAmplitudeY: 0.16,
 			headBobSpeed: 0.0048,
-			fastPointerSpeedThreshold: 1.15,
-			fastPointerRecentWindowMs: 140,
+			dizzinessRecentWindowMs: 180,
+			dizzinessVelocityFloorDegPerSecond: 55,
+			dizzinessVelocityCeilingDegPerSecond: 420,
+			dizzinessScoreGainPerSecond: 3.1,
+			dizzinessDirectionChangeBonusPerSecond: 1.15,
+			dizzinessActiveDecayPerSecond: 0.45,
+			dizzinessIdleDecayPerSecond: 1.35,
+			dizzinessEnterThreshold: 1,
+			dizzinessExitThreshold: 0.28,
 			faceCenterX: 0.5,
 			faceCenterY: 0.38,
 		};
@@ -382,6 +390,69 @@ const fastPointerExpressionName = "4OAO";
 			x: x * gazeConfig.horizontalDirection,
 			y,
 		});
+
+		const getHeadPoseAngles = (x, y) => {
+			const oriented = orientGaze(x, y);
+			return {
+				x: oriented.x * gazeConfig.angleX,
+				y: oriented.y * gazeConfig.angleY,
+			};
+		};
+
+		const updateDizzinessScore = (angleX, angleY, frameDt, mouseDriven) => {
+			if (frameDt <= 0) {
+				state.lastHeadAngleX = angleX;
+				state.lastHeadAngleY = angleY;
+				return;
+			}
+
+			const dtSeconds = Math.max(frameDt / 1000, 1 / 240);
+			const velocityX = (angleX - state.lastHeadAngleX) / dtSeconds;
+			const velocityY = (angleY - state.lastHeadAngleY) / dtSeconds;
+			const angularVelocity = Math.hypot(velocityX, velocityY);
+			const normalizedVelocity = clamp(
+				(angularVelocity - gazeConfig.dizzinessVelocityFloorDegPerSecond) /
+					Math.max(
+						gazeConfig.dizzinessVelocityCeilingDegPerSecond -
+							gazeConfig.dizzinessVelocityFloorDegPerSecond,
+						1,
+					),
+				0,
+				1,
+			);
+
+			let directionChangeStrength = 0;
+			const previousVelocityMagnitude = Math.hypot(
+				state.lastHeadVelocityX,
+				state.lastHeadVelocityY,
+			);
+			if (angularVelocity > 0.001 && previousVelocityMagnitude > 0.001) {
+				const directionDot =
+					(velocityX * state.lastHeadVelocityX +
+						velocityY * state.lastHeadVelocityY) /
+					(angularVelocity * previousVelocityMagnitude);
+				directionChangeStrength = clamp((-directionDot - 0.08) / 0.92, 0, 1);
+			}
+
+			const scoreGain = mouseDriven
+				? ((normalizedVelocity * normalizedVelocity) *
+					gazeConfig.dizzinessScoreGainPerSecond +
+					directionChangeStrength *
+						normalizedVelocity *
+						gazeConfig.dizzinessDirectionChangeBonusPerSecond) *
+					dtSeconds
+				: 0;
+			const scoreDecay =
+				(mouseDriven
+					? gazeConfig.dizzinessActiveDecayPerSecond
+					: gazeConfig.dizzinessIdleDecayPerSecond) * dtSeconds;
+
+			state.dizzinessScore = clamp(state.dizzinessScore - scoreDecay + scoreGain, 0, 4);
+			state.lastHeadAngleX = angleX;
+			state.lastHeadAngleY = angleY;
+			state.lastHeadVelocityX = velocityX;
+			state.lastHeadVelocityY = velocityY;
+		};
 
 		const persistPlacement = () => {
 			if (!state.position) {
@@ -705,16 +776,6 @@ const fastPointerExpressionName = "4OAO";
 			}
 
 			const now = performance.now();
-			if (state.lastPointerSampleAt > 0) {
-				const dt = Math.max(12, now - state.lastPointerSampleAt);
-				const dx = event.clientX - state.lastMouseX;
-				const dy = event.clientY - state.lastMouseY;
-				state.pointerSpeed = Math.hypot(dx, dy) / dt;
-			} else {
-				state.pointerSpeed = 0;
-			}
-
-			state.lastPointerSampleAt = now;
 			state.lastPointerMoveAt = now;
 			state.lastMouseX = event.clientX;
 			state.lastMouseY = event.clientY;
@@ -754,29 +815,6 @@ const fastPointerExpressionName = "4OAO";
 			let headBobOffsetY = 0;
 
 			if (canAnimateGaze) {
-				const pointerIsFast =
-					state.hasMousePosition &&
-					now - state.lastPointerMoveAt <= gazeConfig.fastPointerRecentWindowMs &&
-					state.pointerSpeed >= gazeConfig.fastPointerSpeedThreshold;
-
-				if (pointerIsFast) {
-					state.fastPointerAccumulatedMs = Math.min(
-						fastPointerTriggerDurationMs,
-						state.fastPointerAccumulatedMs + frameDt,
-					);
-					if (
-						state.fastPointerAccumulatedMs >= fastPointerTriggerDurationMs &&
-						state.expressionMode !== "special"
-					) {
-						enterFastPointerExpressionMode();
-					}
-				} else {
-					state.fastPointerAccumulatedMs = 0;
-					if (state.expressionMode === "special") {
-						exitFastPointerExpressionMode();
-					}
-				}
-
 				if (state.gazePointerActive) {
 					targetX = state.gazeTargetX;
 					targetY = state.gazeTargetY;
@@ -802,9 +840,6 @@ const fastPointerExpressionName = "4OAO";
 					targetY = state.gazeIdleTargetY;
 					smoothing = gazeConfig.idleSmoothing;
 				}
-			} else if (state.expressionMode === "special") {
-				state.fastPointerAccumulatedMs = 0;
-				exitFastPointerExpressionMode();
 			}
 
 			state.gazeCurrentX = lerp(state.gazeCurrentX, targetX, smoothing);
@@ -815,6 +850,23 @@ const fastPointerExpressionName = "4OAO";
 			}
 			if (Math.abs(state.gazeCurrentY) < 0.001 && targetY === 0) {
 				state.gazeCurrentY = 0;
+			}
+
+			const headPoseAngles = getHeadPoseAngles(state.gazeCurrentX, state.gazeCurrentY);
+			const isMouseDrivingHead =
+				canAnimateGaze &&
+				state.gazePointerActive &&
+				state.hasMousePosition &&
+				now - state.lastPointerMoveAt <= gazeConfig.dizzinessRecentWindowMs;
+			updateDizzinessScore(headPoseAngles.x, headPoseAngles.y, frameDt, isMouseDrivingHead);
+
+			if (state.dizzinessScore >= gazeConfig.dizzinessEnterThreshold) {
+				enterFastPointerExpressionMode();
+			} else if (
+				state.expressionMode === "special" &&
+				state.dizzinessScore <= gazeConfig.dizzinessExitThreshold
+			) {
+				exitFastPointerExpressionMode();
 			}
 
 			applyGaze(
@@ -1006,6 +1058,13 @@ const fastPointerExpressionName = "4OAO";
 				return false;
 			}
 
+			if (
+				state.expressionMode === "special" ||
+				state.dizzinessScore >= gazeConfig.dizzinessEnterThreshold
+			) {
+				return false;
+			}
+
 			const nextExpression = pickRandomExpression(interactiveExpressionNames, [
 				state.lastInteractiveExpression,
 			]);
@@ -1014,7 +1073,6 @@ const fastPointerExpressionName = "4OAO";
 			state.pausedExpressionMode = "";
 			state.pausedExpressionName = "";
 			state.pausedExpressionTimerRemainingMs = 0;
-			state.fastPointerAccumulatedMs = 0;
 			state.expressionMode = "interactive";
 			const played = await playExpression(nextExpression);
 			if (!played) {
@@ -1062,7 +1120,6 @@ const fastPointerExpressionName = "4OAO";
 			state.dragOriginX = state.position?.x || 0;
 			state.dragOriginY = state.position?.y || 0;
 			state.dragMoved = false;
-			state.fastPointerAccumulatedMs = 0;
 			resetGazeTarget(true);
 			canvas.setPointerCapture?.(event.pointerId);
 		};
