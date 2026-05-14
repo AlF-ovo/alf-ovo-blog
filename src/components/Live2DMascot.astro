@@ -211,12 +211,12 @@ const expressionNames = [
 			angleZ: 3.2,
 			bodyAngleX: 3.5,
 			bodyAngleY: 1.5,
-			smoothing: 0.14,
+			smoothing: 0.34,
 			idleSmoothing: 0.045,
-			returnSpeed: 0.08,
+			returnSpeed: 0.14,
 			deadZone: 0.03,
-			pointerRangeX: 2.4,
-			pointerRangeY: 2.8,
+			pointerRangeX: 1.8,
+			pointerRangeY: 2.15,
 			minViewportRangeX: 0.16,
 			minViewportRangeY: 0.18,
 			idleDelayMs: 1400,
@@ -224,6 +224,10 @@ const expressionNames = [
 			idleHoldMaxMs: 3600,
 			idleRangeX: 0.2,
 			idleRangeY: 0.12,
+			nearCancelRangeX: 0.34,
+			nearCancelRangeY: 0.3,
+			headBobAmplitudeY: 0.055,
+			headBobSpeed: 0.0085,
 			faceCenterX: 0.5,
 			faceCenterY: 0.38,
 		};
@@ -430,22 +434,16 @@ const expressionNames = [
 		const getCoreModel = () => state.model?.internalModel?.coreModel ?? null;
 
 		const applyGazeViaFocusController = (x, y) => {
-			if (!state.model) {
+			const focusController = state.model?.internalModel?.focusController;
+			if (typeof focusController?.focus !== "function") {
 				return false;
 			}
 
-			if (typeof state.model.focus === "function") {
-				state.model.focus(x, y);
-				return true;
-			}
-
-			const focusController = state.model.internalModel?.focusController;
-			if (typeof focusController?.focus === "function") {
-				focusController.focus(x, y);
-				return true;
-			}
-
-			return false;
+			// `Live2DModel.focus()` expects world-space pointer coordinates.
+			// Here we already operate in normalized gaze space, so drive the
+			// internal focus controller directly and skip its own interpolation.
+			focusController.focus(x, y, true);
+			return true;
 		};
 
 		const addCoreModelParameter = (parameterId, amount) => {
@@ -519,6 +517,19 @@ const expressionNames = [
 			const rect = panel.getBoundingClientRect();
 			const focusX = rect.left + rect.width * gazeConfig.faceCenterX;
 			const focusY = rect.top + rect.height * gazeConfig.faceCenterY;
+			const nearZoneX = (clientX - focusX) / Math.max(rect.width * gazeConfig.nearCancelRangeX, 1);
+			const nearZoneY = (clientY - focusY) / Math.max(
+				rect.height * gazeConfig.nearCancelRangeY,
+				1,
+			);
+			if (Math.hypot(nearZoneX, nearZoneY) < 1) {
+				state.gazePointerActive = false;
+				state.gazeTargetX = 0;
+				state.gazeTargetY = 0;
+				deferIdleGaze();
+				return false;
+			}
+
 			const rangeX = Math.max(
 				rect.width * gazeConfig.pointerRangeX,
 				window.innerWidth * gazeConfig.minViewportRangeX,
@@ -534,6 +545,7 @@ const expressionNames = [
 			state.gazePointerActive = true;
 			state.gazeTargetX = target.x;
 			state.gazeTargetY = target.y;
+			return true;
 		};
 
 		const refreshGazeFromLastPointer = () => {
@@ -541,8 +553,7 @@ const expressionNames = [
 				return false;
 			}
 
-			setGazeTargetFromPoint(state.lastMouseX, state.lastMouseY);
-			return true;
+			return setGazeTargetFromPoint(state.lastMouseX, state.lastMouseY);
 		};
 
 		const resetGazeTarget = (preservePointer = false) => {
@@ -590,12 +601,22 @@ const expressionNames = [
 			let targetX = 0;
 			let targetY = 0;
 			let smoothing = gazeConfig.returnSpeed;
+			let headBobOffsetY = 0;
 
 			if (canAnimateGaze) {
 				if (state.gazePointerActive) {
 					targetX = state.gazeTargetX;
 					targetY = state.gazeTargetY;
 					smoothing = gazeConfig.smoothing;
+					const followStrength = clamp(
+						Math.hypot(state.gazeTargetX, state.gazeTargetY),
+						0.24,
+						1,
+					);
+					headBobOffsetY =
+						Math.sin(performance.now() * gazeConfig.headBobSpeed) *
+						gazeConfig.headBobAmplitudeY *
+						followStrength;
 				} else {
 					const timestamp = performance.now();
 					if (state.gazeIdleNextAt <= 0) {
@@ -620,7 +641,10 @@ const expressionNames = [
 				state.gazeCurrentY = 0;
 			}
 
-			applyGaze(state.gazeCurrentX, state.gazeCurrentY);
+			applyGaze(
+				state.gazeCurrentX,
+				clamp(state.gazeCurrentY + headBobOffsetY, -1, 1),
+			);
 		};
 
 		const ensureGazeTicker = () => {
