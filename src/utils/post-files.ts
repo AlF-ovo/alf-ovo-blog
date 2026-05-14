@@ -23,10 +23,10 @@ export function hasMarkdownEntriesOnDisk(dir: string): boolean {
 	return false;
 }
 
-export function hasMarkdownPostsOnDisk() {
+export function hasMarkdownPostsOnDisk(): boolean {
 	return hasMarkdownEntriesOnDisk(POSTS_DIR);
 }
 
-export function hasMarkdownNotesOnDisk() {
+export function hasMarkdownNotesOnDisk(): boolean {
 	return hasMarkdownEntriesOnDisk(NOTES_DIR);
 }

@@ -228,6 +228,17 @@ onMount(() => {
 		console.log("Pagefind status on init:", pagefindLoaded);
 		searchFromUrl();
 	};
+	const handlePagefindReady = () => {
+		console.log("Pagefind ready event received.");
+		initializeSearch();
+	};
+	const handlePagefindLoadError = () => {
+		console.warn(
+			"Pagefind load error event received. Search functionality will be limited.",
+		);
+		initializeSearch();
+	};
+	let fallbackTimer: ReturnType<typeof window.setTimeout> | undefined;
 
 	if (import.meta.env.DEV) {
 		console.log(
@@ -235,19 +246,11 @@ onMount(() => {
 		);
 		initializeSearch();
 	} else {
-		document.addEventListener("pagefindready", () => {
-			console.log("Pagefind ready event received.");
-			initializeSearch();
-		});
-		document.addEventListener("pagefindloaderror", () => {
-			console.warn(
-				"Pagefind load error event received. Search functionality will be limited.",
-			);
-			initializeSearch(); // Initialize with pagefindLoaded as false
-		});
+		document.addEventListener("pagefindready", handlePagefindReady);
+		document.addEventListener("pagefindloaderror", handlePagefindLoadError);
 
 		// Fallback in case events are not caught or pagefind is already loaded by the time this script runs
-		setTimeout(() => {
+		fallbackTimer = window.setTimeout(() => {
 			if (!initialized) {
 				console.log("Fallback: Initializing search after timeout.");
 				initializeSearch();
@@ -263,6 +266,11 @@ onMount(() => {
 
 	return () => {
 		document.removeEventListener("astro:page-load", handlePageLoad);
+		document.removeEventListener("pagefindready", handlePagefindReady);
+		document.removeEventListener("pagefindloaderror", handlePagefindLoadError);
+		if (fallbackTimer) {
+			window.clearTimeout(fallbackTimer);
+		}
 	};
 });
 </script>

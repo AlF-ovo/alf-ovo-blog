@@ -1,5 +1,5 @@
 import type { SearchResult } from "@/global";
-import { writable } from "svelte/store";
+import { writable, type Writable } from "svelte/store";
 
 export interface SearchDisplayState {
 	keyword: string;
@@ -15,7 +15,8 @@ const initialState: SearchDisplayState = {
 	isOpen: false,
 };
 
-export const searchDisplayState = writable<SearchDisplayState>(initialState);
+export const searchDisplayState: Writable<SearchDisplayState> =
+	writable<SearchDisplayState>(initialState);
 
 export const syncSearchDisplay = (
 	partial: Partial<SearchDisplayState>,

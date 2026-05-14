@@ -30,7 +30,10 @@ const notesCollection = defineCollection({
 const specCollection = defineCollection({
 	schema: z.object({}),
 });
-export const collections = {
+export const collections: Record<
+	"posts" | "notes" | "spec",
+	ReturnType<typeof defineCollection>
+> = {
 	posts: postsCollection,
 	notes: notesCollection,
 	spec: specCollection,

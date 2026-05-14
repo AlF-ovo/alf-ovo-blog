@@ -22,7 +22,7 @@ export function setHue(hue: number): void {
 	r.style.setProperty("--hue", String(hue));
 }
 
-export function applyThemeToDocument() {
+export function applyThemeToDocument(): void {
 	document.documentElement.classList.add("dark");
 
 	// Set the theme for Expressive Code

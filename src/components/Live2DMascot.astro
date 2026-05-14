@@ -25,6 +25,11 @@ const expressionNames = [
 	id="live2d-mascot"
 	class="live2d-mascot"
 	data-expression-names={JSON.stringify(expressionNames)}
+	data-live2d-url={live2dUrl}
+	data-local-core-path={localCorePath}
+	data-model-path={modelPath}
+	data-official-core-url={officialCoreUrl}
+	data-pixi-url={pixiUrl}
 	aria-live="polite"
 >
 	<section class="live2d-mascot__panel" aria-label="Live2D 看板娘">
@@ -125,16 +130,8 @@ const expressionNames = [
 	}
 </style>
 
-<script
-	is:inline
-	define:vars={{
-		live2dUrl,
-		localCorePath,
-		modelPath,
-		officialCoreUrl,
-		pixiUrl,
-	}}
->
+<script>
+	// @ts-nocheck
 	(() => {
 		if (window.__alfLive2DMascotSetup) {
 			return;
@@ -155,6 +152,11 @@ const expressionNames = [
 		}
 
 		const expressionNames = JSON.parse(root.dataset.expressionNames || "[]");
+		const live2dUrl = root.dataset.live2dUrl || "";
+		const localCorePath = root.dataset.localCorePath || "";
+		const modelPath = root.dataset.modelPath || "";
+		const officialCoreUrl = root.dataset.officialCoreUrl || "";
+		const pixiUrl = root.dataset.pixiUrl || "";
 		const panel = root.querySelector(".live2d-mascot__panel");
 		const canvas = root.querySelector("[data-live2d-canvas]");
 		const status = root.querySelector("[data-live2d-status]");
@@ -182,6 +184,12 @@ const expressionNames = [
 			dragOriginY: 0,
 			dragMoved: false,
 			locked: false,
+			gazeTargetX: 0,
+			gazeTargetY: 0,
+			gazeCurrentX: 0,
+			gazeCurrentY: 0,
+			gazePointerActive: false,
+			gazeTickerBound: false,
 		};
 
 		const positionStorageKey = "alf.live2d.position";
@@ -189,12 +197,33 @@ const expressionNames = [
 		const visibilityStorageKey = "system:mascot-hidden";
 		const viewportPadding = 8;
 		const expressionIntervalMs = 15000;
+		const gazeConfig = {
+			eyeBallX: 1,
+			eyeBallY: 0.8,
+			angleX: 12,
+			angleY: 8,
+			bodyAngleX: 3.5,
+			bodyAngleY: 1.5,
+			smoothing: 0.14,
+			returnSpeed: 0.08,
+			deadZone: 0.03,
+			viewportRangeX: 0.35,
+			viewportRangeY: 0.4,
+			faceCenterY: 0.38,
+		};
 
 		const setStatus = (message, mode = "info") => {
 			status.textContent = message;
 			status.dataset.mode = mode;
 			status.hidden = message.length === 0;
 		};
+
+		const clamp = (value, min, max) => Math.min(max, Math.max(min, value));
+
+		const lerp = (from, to, factor) => from + (to - from) * factor;
+
+		const applyDeadZone = (value) =>
+			Math.abs(value) < gazeConfig.deadZone ? 0 : clamp(value, -1, 1);
 
 		const persistPlacement = () => {
 			if (!state.position) {
@@ -366,6 +395,131 @@ const expressionNames = [
 			state.model.position.set(width * 0.5, height * 0.99);
 		};
 
+		const getCoreModel = () => state.model?.internalModel?.coreModel ?? null;
+
+		const applyGazeViaFocusController = (x, y) => {
+			if (!state.model) {
+				return false;
+			}
+
+			if (typeof state.model.focus === "function") {
+				state.model.focus(x, y);
+				return true;
+			}
+
+			const focusController = state.model.internalModel?.focusController;
+			if (typeof focusController?.focus === "function") {
+				focusController.focus(x, y);
+				return true;
+			}
+
+			return false;
+		};
+
+		const addCoreModelParameter = (parameterId, amount) => {
+			const coreModel = getCoreModel();
+			if (!coreModel || Math.abs(amount) < 0.0001) {
+				return false;
+			}
+
+			if (typeof coreModel.addParameterValueById === "function") {
+				coreModel.addParameterValueById(parameterId, amount, 1);
+				return true;
+			}
+
+			if (
+				typeof coreModel.getParameterValueById === "function" &&
+				typeof coreModel.setParameterValueById === "function"
+			) {
+				const currentValue = Number(coreModel.getParameterValueById(parameterId)) || 0;
+				coreModel.setParameterValueById(parameterId, currentValue + amount, 1);
+				return true;
+			}
+
+			if (typeof coreModel.setParameterValueById === "function") {
+				coreModel.setParameterValueById(parameterId, amount, 1);
+				return true;
+			}
+
+			return false;
+		};
+
+		const applyGazeViaParameters = (x, y) => {
+			addCoreModelParameter("ParamEyeBallX", x * gazeConfig.eyeBallX);
+			addCoreModelParameter("ParamEyeBallY", y * gazeConfig.eyeBallY);
+			addCoreModelParameter("ParamAngleX", x * gazeConfig.angleX);
+			addCoreModelParameter("ParamAngleY", y * gazeConfig.angleY);
+			addCoreModelParameter("ParamBodyAngleX", x * gazeConfig.bodyAngleX);
+			addCoreModelParameter("ParamBodyAngleY", y * gazeConfig.bodyAngleY);
+		};
+
+		const applyGaze = (x, y) => {
+			if (applyGazeViaFocusController(x, y)) {
+				return;
+			}
+
+			// Fallback for runtimes that expose only Cubism parameters.
+			applyGazeViaParameters(x, y);
+		};
+
+		const resetGazeTarget = () => {
+			state.gazePointerActive = false;
+			state.gazeTargetX = 0;
+			state.gazeTargetY = 0;
+		};
+
+		const updateGazeTarget = (event) => {
+			if (!(event instanceof PointerEvent) || event.pointerType !== "mouse" || root.hidden) {
+				return;
+			}
+
+			const rect = panel.getBoundingClientRect();
+			const focusX = rect.left + rect.width * 0.5;
+			const focusY = rect.top + rect.height * gazeConfig.faceCenterY;
+			const nextX = (event.clientX - focusX) / (window.innerWidth * gazeConfig.viewportRangeX);
+			const nextY = (focusY - event.clientY) / (window.innerHeight * gazeConfig.viewportRangeY);
+
+			state.gazePointerActive = true;
+			state.gazeTargetX = applyDeadZone(nextX);
+			state.gazeTargetY = applyDeadZone(nextY);
+		};
+
+		const tickGaze = () => {
+			if (!state.model) {
+				return;
+			}
+
+			const shouldFollowPointer =
+				!root.hidden &&
+				document.visibilityState === "visible" &&
+				state.dragPointerId === null &&
+				state.gazePointerActive;
+			const targetX = shouldFollowPointer ? state.gazeTargetX : 0;
+			const targetY = shouldFollowPointer ? state.gazeTargetY : 0;
+			const smoothing = shouldFollowPointer ? gazeConfig.smoothing : gazeConfig.returnSpeed;
+
+			state.gazeCurrentX = lerp(state.gazeCurrentX, targetX, smoothing);
+			state.gazeCurrentY = lerp(state.gazeCurrentY, targetY, smoothing);
+
+			if (Math.abs(state.gazeCurrentX) < 0.001 && targetX === 0) {
+				state.gazeCurrentX = 0;
+			}
+			if (Math.abs(state.gazeCurrentY) < 0.001 && targetY === 0) {
+				state.gazeCurrentY = 0;
+			}
+
+			applyGaze(state.gazeCurrentX, state.gazeCurrentY);
+		};
+
+		const ensureGazeTicker = () => {
+			if (!state.app || state.gazeTickerBound) {
+				return;
+			}
+
+			state.app.ticker.add(tickGaze);
+			state.gazeTickerBound = true;
+		};
+
 		const updatePlacementForViewport = () => {
 			if (state.locked) {
 				applyLockedPlacement();
@@ -394,6 +548,10 @@ const expressionNames = [
 			root.hidden = hidden;
 			root.setAttribute("aria-hidden", hidden ? "true" : "false");
 			document.documentElement.dataset.mascotHidden = hidden ? "true" : "false";
+
+			if (hidden) {
+				resetGazeTarget();
+			}
 
 			if (shouldPersist) {
 				persistVisibility(hidden);
@@ -482,6 +640,7 @@ const expressionNames = [
 			state.dragOriginX = state.position?.x || 0;
 			state.dragOriginY = state.position?.y || 0;
 			state.dragMoved = false;
+			resetGazeTarget();
 			canvas.setPointerCapture?.(event.pointerId);
 		};
 
@@ -563,6 +722,7 @@ const expressionNames = [
 
 				fitModel();
 				restorePlacement();
+				ensureGazeTicker();
 				startExpressionTimer();
 				setStatus("");
 			})().catch((error) => {
@@ -581,6 +741,8 @@ const expressionNames = [
 		};
 
 		window.addEventListener("resize", handleViewportResize);
+		window.addEventListener("pointermove", updateGazeTarget, { passive: true });
+		window.addEventListener("blur", resetGazeTarget);
 		window.addEventListener("alf:live2d-resize", handleViewportResize);
 		window.addEventListener("alf:live2d-lock", (event) => {
 			const locked = Boolean(event?.detail?.locked);
@@ -600,6 +762,11 @@ const expressionNames = [
 		canvas.addEventListener("pointercancel", endDrag);
 		canvas.addEventListener("lostpointercapture", () => {
 			state.dragPointerId = null;
+		});
+		document.addEventListener("visibilitychange", () => {
+			if (document.visibilityState !== "visible") {
+				resetGazeTarget();
+			}
 		});
 
 		const initiallyHidden = (() => {

@@ -40,7 +40,7 @@ async function getSortedCollectionEntries<TCollection extends ContentCollection>
 	return wrappedEntries.map((item) => item.entry as CollectionEntry<TCollection>);
 }
 
-export async function getSortedPosts() {
+export async function getSortedPosts(): Promise<CollectionEntry<"posts">[]> {
 	if (!sortedPostsPromise) {
 		sortedPostsPromise = (async () => {
 			const sorted = await getSortedCollectionEntries("posts");
@@ -87,7 +87,7 @@ export function getFirstContentPublishedAt(): Promise<Date | null> {
 	return firstContentPublishedAtPromise;
 }
 
-export async function getSortedNotes() {
+export async function getSortedNotes(): Promise<CollectionEntry<"notes">[]> {
 	if (!sortedNotesPromise) {
 		sortedNotesPromise = (async () => {
 			const sorted = await getSortedCollectionEntries("notes");

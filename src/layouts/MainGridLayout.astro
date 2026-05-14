@@ -98,9 +98,6 @@ const mainPanelTop = siteConfig.banner.enable
                     <!-- make id different from windows.swup global property -->
                     <SearchResultsBoard client:only="svelte" />
                     <slot></slot>
-                    <div class="footer col-span-2 onload-animation hidden lg:block">
-                        <Footer></Footer>
-                    </div>
                 </div>
             </main>
 
@@ -113,7 +110,7 @@ const mainPanelTop = siteConfig.banner.enable
 				deferredSticky={deferredSidebarSticky}
 			></SideBar>
 
-            <div class="footer col-span-2 onload-animation block lg:hidden">
+            <div class="footer col-span-2 onload-animation order-3">
                 <Footer></Footer>
             </div>
         </div>

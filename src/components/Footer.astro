@@ -34,7 +34,10 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 ---
 
 <div class="transition border-t border-black/10 dark:border-white/15 my-10 border-dashed mx-32"></div>
-<div class="footer-shell transition border-dashed border-[oklch(85%_0.01_var(--hue))] dark:border-white/15 rounded-2xl mb-12 flex flex-col items-center justify-center px-6 py-5">
+<div
+	class="footer-shell transition border-dashed border-[oklch(85%_0.01_var(--hue))] dark:border-white/15 rounded-2xl mb-12 flex flex-col items-center justify-center px-6 py-5"
+	data-visitor-counter-api={visitorCounterApi}
+>
 	<div class="footer-status-grid">
 		<div class="footer-status-chip">
 			<span class="footer-status-label">值班乌鸦已值守</span>
@@ -117,7 +120,8 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 	}
 </style>
 
-<script is:inline define:vars={{ visitorCounterApi }}>
+<script>
+	// @ts-nocheck
 	const VISITOR_COUNTER_BOUND_KEY = "__alfFooterVisitorCounterBound";
 	const VISITOR_IDENTITY_STORAGE_KEY = "bsz-id";
 	const SITE_VISIT_HISTORY_STORAGE_KEY = "alf-site-visit-history-v1";
@@ -132,6 +136,11 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 			pendingPageKey: "",
 			lastCountsByPageKey: {},
 		});
+	const footerRoot = document.querySelector("[data-visitor-counter-api]");
+	const visitorCounterApi =
+		footerRoot instanceof HTMLElement
+			? footerRoot.dataset.visitorCounterApi ?? ""
+			: "";
 	const counterApi =
 		typeof visitorCounterApi === "string"
 			? visitorCounterApi.replace(/\/js(?:[?#].*)?$/, "/api")
@@ -398,6 +407,7 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 			}
 
 			footerState.pendingPageKey = "";
+			footerState.activePageKey = cachedCounts ? currentPageKey : "";
 			if (cachedCounts) {
 				renderVisitorCounts(cachedCounts);
 				return;
