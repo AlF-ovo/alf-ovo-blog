@@ -226,7 +226,7 @@ const expressionNames = [
 			idleRangeY: 0.12,
 			nearCancelRangeX: 0.34,
 			nearCancelRangeY: 0.3,
-			headBobAmplitudeY: 0.055,
+			headBobAmplitudeY: 0.11,
 			headBobSpeed: 0.0085,
 			faceCenterX: 0.5,
 			faceCenterY: 0.38,
@@ -474,9 +474,12 @@ const expressionNames = [
 			return false;
 		};
 
-		const applyGazeViaParameters = (x, y) => {
+		const applyEyeGazeViaParameters = (x, y) => {
 			addCoreModelParameter("ParamEyeBallX", x * gazeConfig.eyeBallX);
 			addCoreModelParameter("ParamEyeBallY", y * gazeConfig.eyeBallY);
+		};
+
+		const applyPoseViaParameters = (x, y) => {
 			addCoreModelParameter("ParamAngleX", x * gazeConfig.angleX);
 			addCoreModelParameter("ParamAngleY", y * gazeConfig.angleY);
 			addCoreModelParameter("ParamAngleZ", x * y * gazeConfig.angleZ);
@@ -485,12 +488,16 @@ const expressionNames = [
 		};
 
 		const applyGaze = (x, y) => {
-			if (applyGazeViaFocusController(x, y)) {
-				return;
+			const usedFocusController = applyGazeViaFocusController(x, y);
+			if (!usedFocusController) {
+				// Fallback for runtimes that expose only Cubism parameters.
+				applyEyeGazeViaParameters(x, y);
 			}
 
-			// Fallback for runtimes that expose only Cubism parameters.
-			applyGazeViaParameters(x, y);
+			// Always drive pose parameters ourselves so head/body motion and
+			// deliberate bobbing remain visible even when eye focus uses the
+			// runtime's focus controller path.
+			applyPoseViaParameters(x, y);
 		};
 
 		const deferIdleGaze = (timestamp = performance.now()) => {
