@@ -535,7 +535,8 @@
 			0 2px 10px rgb(9 9 12 / 0.42);
 		opacity: 0;
 		transform: translate3d(var(--talk-x, 0px), var(--talk-y, 0px), 0);
-		animation: raven-thought-line-fade var(--thought-line-duration, 1600ms) ease forwards;
+		animation: raven-thought-line-fade var(--thought-line-duration, 2800ms)
+			cubic-bezier(0.2, 0.72, 0.18, 1) forwards;
 	}
 
 	.raven-emote--heart {
@@ -634,17 +635,22 @@
 	@keyframes raven-thought-line-fade {
 		0% {
 			opacity: 0;
-			transform: translate3d(var(--talk-x, 0px), calc(var(--talk-y, 0px) + 6px), 0);
+			transform: translate3d(var(--talk-x, 0px), calc(var(--talk-y, 0px) + 7px), 0);
 		}
 
-		8%,
-		78% {
+		10% {
 			opacity: 1;
+			transform: translate3d(var(--talk-x, 0px), var(--talk-y, 0px), 0);
+		}
+
+		82% {
+			opacity: 1;
+			transform: translate3d(var(--talk-x, 0px), var(--talk-y, 0px), 0);
 		}
 
 		100% {
 			opacity: 0;
-			transform: translate3d(var(--talk-x, 0px), calc(var(--talk-y, 0px) - 10px), 0);
+			transform: translate3d(var(--talk-x, 0px), calc(var(--talk-y, 0px) - 8px), 0);
 		}
 	}
 
@@ -790,8 +796,8 @@
 		const FRIES_DIRECT_DROP_VX_SCALE = 0.11;
 		const FRIES_DIRECT_DROP_VY_SCALE = 0.06;
 		const FRIES_DIRECT_DROP_LEAD_MAX = 14;
-		const THOUGHT_LINE_LIFETIME_MIN_MS = 1200;
-		const THOUGHT_LINE_LIFETIME_MAX_MS = 1800;
+		const THOUGHT_LINE_LIFETIME_MIN_MS = 2400;
+		const THOUGHT_LINE_LIFETIME_MAX_MS = 3400;
 		const SCARECROW_GAP = 18;
 		const SCARECROW_BUTTON_GAP = 10;
 		const SCARECROW_BODY_HEIGHT = 83;
