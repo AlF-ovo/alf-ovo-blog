@@ -19,12 +19,18 @@ const expressionNames = [
 	"8punch",
 	"9",
 ];
+const normalExpressionNames = ["1desk", "2mic", "3clever", "9"];
+const interactiveExpressionNames = ["5QAQ", "6i gi a ri", "7keyboard", "8punch"];
+const fastPointerExpressionName = "4OAO";
 ---
 
 <div
 	id="live2d-mascot"
 	class="live2d-mascot"
 	data-expression-names={JSON.stringify(expressionNames)}
+	data-normal-expression-names={JSON.stringify(normalExpressionNames)}
+	data-interactive-expression-names={JSON.stringify(interactiveExpressionNames)}
+	data-fast-pointer-expression-name={fastPointerExpressionName}
 	data-live2d-url={live2dUrl}
 	data-local-core-path={localCorePath}
 	data-model-path={modelPath}
@@ -152,6 +158,13 @@ const expressionNames = [
 		}
 
 		const expressionNames = JSON.parse(root.dataset.expressionNames || "[]");
+		const normalExpressionNames = JSON.parse(
+			root.dataset.normalExpressionNames || "[]",
+		);
+		const interactiveExpressionNames = JSON.parse(
+			root.dataset.interactiveExpressionNames || "[]",
+		);
+		const fastPointerExpressionName = root.dataset.fastPointerExpressionName || "4OAO";
 		const live2dUrl = root.dataset.live2dUrl || "";
 		const localCorePath = root.dataset.localCorePath || "";
 		const modelPath = root.dataset.modelPath || "";
@@ -174,8 +187,19 @@ const expressionNames = [
 			model: null,
 			initPromise: null,
 			baseSize: null,
-			expressionIndex: 0,
-			expressionTimer: null,
+			currentExpression: "",
+			expressionMode: "normal",
+			normalExpressionTimer: null,
+			interactiveExpressionTimer: null,
+			normalExpressionTimerStartedAt: 0,
+			interactiveExpressionTimerStartedAt: 0,
+			normalExpressionTimerRemainingMs: 0,
+			interactiveExpressionTimerRemainingMs: 0,
+			lastNormalExpression: "",
+			lastInteractiveExpression: "",
+			pausedExpressionMode: "",
+			pausedExpressionName: "",
+			pausedExpressionTimerRemainingMs: 0,
 			position: null,
 			dragPointerId: null,
 			dragStartX: 0,
@@ -196,13 +220,20 @@ const expressionNames = [
 			lastMouseX: 0,
 			lastMouseY: 0,
 			hasMousePosition: false,
+			pointerSpeed: 0,
+			lastPointerMoveAt: 0,
+			lastPointerSampleAt: 0,
+			fastPointerAccumulatedMs: 0,
+			lastGazeTickAt: 0,
 		};
 
 		const positionStorageKey = "alf.live2d.position";
 		const lockStorageKey = "system:mascot-locked";
 		const visibilityStorageKey = "system:mascot-hidden";
 		const viewportPadding = 8;
-		const expressionIntervalMs = 15000;
+		const normalExpressionIntervalMs = 30000;
+		const interactiveExpressionDurationMs = 15000;
+		const fastPointerTriggerDurationMs = 8000;
 		const gazeConfig = {
 			eyeBallX: 1,
 			eyeBallY: 0.8,
@@ -226,11 +257,16 @@ const expressionNames = [
 			idleRangeY: 0.12,
 			nearCancelRangeX: 0.34,
 			nearCancelRangeY: 0.3,
-			headBobAmplitudeY: 0.11,
-			headBobSpeed: 0.0085,
+			headBobAmplitudeY: 0.16,
+			headBobSpeed: 0.0048,
+			fastPointerSpeedThreshold: 1.15,
+			fastPointerRecentWindowMs: 140,
 			faceCenterX: 0.5,
 			faceCenterY: 0.38,
 		};
+
+		state.normalExpressionTimerRemainingMs = normalExpressionIntervalMs;
+		state.interactiveExpressionTimerRemainingMs = interactiveExpressionDurationMs;
 
 		const setStatus = (message, mode = "info") => {
 			status.textContent = message;
@@ -243,6 +279,85 @@ const expressionNames = [
 		const lerp = (from, to, factor) => from + (to - from) * factor;
 
 		const randomBetween = (min, max) => min + Math.random() * (max - min);
+
+		const clearExpressionTimer = (timerName) => {
+			if (state[timerName]) {
+				window.clearTimeout(state[timerName]);
+				state[timerName] = null;
+			}
+		};
+
+		const getTimerStartedAtKey = (mode) =>
+			mode === "interactive"
+				? "interactiveExpressionTimerStartedAt"
+				: "normalExpressionTimerStartedAt";
+
+		const getTimerRemainingKey = (mode) =>
+			mode === "interactive"
+				? "interactiveExpressionTimerRemainingMs"
+				: "normalExpressionTimerRemainingMs";
+
+		const getTimerHandleKey = (mode) =>
+			mode === "interactive" ? "interactiveExpressionTimer" : "normalExpressionTimer";
+
+		const getModeDuration = (mode) =>
+			mode === "interactive"
+				? interactiveExpressionDurationMs
+				: normalExpressionIntervalMs;
+
+		const getRemainingTimeForMode = (mode) => {
+			if (mode !== "normal" && mode !== "interactive") {
+				return 0;
+			}
+
+			const startedAtKey = getTimerStartedAtKey(mode);
+			const remainingKey = getTimerRemainingKey(mode);
+			const handleKey = getTimerHandleKey(mode);
+			if (!state[handleKey]) {
+				return Number(state[remainingKey]) || 0;
+			}
+
+			const elapsed = Math.max(0, performance.now() - (Number(state[startedAtKey]) || 0));
+			return Math.max(0, (Number(state[remainingKey]) || 0) - elapsed);
+		};
+
+		const clearModeTimer = (mode) => {
+			if (mode !== "normal" && mode !== "interactive") {
+				return;
+			}
+
+			const handleKey = getTimerHandleKey(mode);
+			const startedAtKey = getTimerStartedAtKey(mode);
+			clearExpressionTimer(handleKey);
+			state[startedAtKey] = 0;
+		};
+
+		const pauseCurrentExpressionMode = () => {
+			const mode = state.expressionMode;
+			if (mode !== "normal" && mode !== "interactive") {
+				state.pausedExpressionMode = "";
+				state.pausedExpressionName = "";
+				state.pausedExpressionTimerRemainingMs = 0;
+				return;
+			}
+
+			state.pausedExpressionMode = mode;
+			state.pausedExpressionName = state.currentExpression;
+			state.pausedExpressionTimerRemainingMs = getRemainingTimeForMode(mode);
+			clearModeTimer(mode);
+		};
+
+		const pickRandomExpression = (pool, disallowedNames = []) => {
+			const disallowed = new Set(disallowedNames.filter(Boolean));
+			const preferredPool = pool.filter((name) => !disallowed.has(name));
+			const sourcePool = preferredPool.length > 0 ? preferredPool : pool;
+			if (sourcePool.length === 0) {
+				return "";
+			}
+
+			const randomIndex = Math.floor(Math.random() * sourcePool.length);
+			return sourcePool[randomIndex];
+		};
 
 		const applyDeadZone = (value) =>
 			Math.abs(value) < gazeConfig.deadZone ? 0 : clamp(value, -1, 1);
@@ -578,6 +693,18 @@ const expressionNames = [
 				return;
 			}
 
+			const now = performance.now();
+			if (state.lastPointerSampleAt > 0) {
+				const dt = Math.max(12, now - state.lastPointerSampleAt);
+				const dx = event.clientX - state.lastMouseX;
+				const dy = event.clientY - state.lastMouseY;
+				state.pointerSpeed = Math.hypot(dx, dy) / dt;
+			} else {
+				state.pointerSpeed = 0;
+			}
+
+			state.lastPointerSampleAt = now;
+			state.lastPointerMoveAt = now;
 			state.lastMouseX = event.clientX;
 			state.lastMouseY = event.clientY;
 			state.hasMousePosition = true;
@@ -601,6 +728,11 @@ const expressionNames = [
 				return;
 			}
 
+			const now = performance.now();
+			const frameDt =
+				state.lastGazeTickAt > 0 ? Math.max(0, now - state.lastGazeTickAt) : 0;
+			state.lastGazeTickAt = now;
+
 			const canAnimateGaze =
 				!root.hidden &&
 				document.visibilityState === "visible" &&
@@ -611,6 +743,29 @@ const expressionNames = [
 			let headBobOffsetY = 0;
 
 			if (canAnimateGaze) {
+				const pointerIsFast =
+					state.hasMousePosition &&
+					now - state.lastPointerMoveAt <= gazeConfig.fastPointerRecentWindowMs &&
+					state.pointerSpeed >= gazeConfig.fastPointerSpeedThreshold;
+
+				if (pointerIsFast) {
+					state.fastPointerAccumulatedMs = Math.min(
+						fastPointerTriggerDurationMs,
+						state.fastPointerAccumulatedMs + frameDt,
+					);
+					if (
+						state.fastPointerAccumulatedMs >= fastPointerTriggerDurationMs &&
+						state.expressionMode !== "special"
+					) {
+						enterFastPointerExpressionMode();
+					}
+				} else {
+					state.fastPointerAccumulatedMs = 0;
+					if (state.expressionMode === "special") {
+						exitFastPointerExpressionMode();
+					}
+				}
+
 				if (state.gazePointerActive) {
 					targetX = state.gazeTargetX;
 					targetY = state.gazeTargetY;
@@ -636,6 +791,9 @@ const expressionNames = [
 					targetY = state.gazeIdleTargetY;
 					smoothing = gazeConfig.idleSmoothing;
 				}
+			} else if (state.expressionMode === "special") {
+				state.fastPointerAccumulatedMs = 0;
+				exitFastPointerExpressionMode();
 			}
 
 			state.gazeCurrentX = lerp(state.gazeCurrentX, targetX, smoothing);
@@ -711,42 +869,142 @@ const expressionNames = [
 			}
 		};
 
-		const cycleExpression = () => {
+		const playExpression = (expressionName) => {
 			if (
 				!state.model ||
 				typeof state.model.expression !== "function" ||
-				expressionNames.length === 0
+				!expressionName
 			) {
-				return;
+				return false;
 			}
 
-			const expressionName = expressionNames[state.expressionIndex % expressionNames.length];
-			state.expressionIndex += 1;
+			state.currentExpression = expressionName;
 			state.model.expression(expressionName);
+			return true;
 		};
 
-		const playRandomExpression = () => {
-			if (
-				!state.model ||
-				typeof state.model.expression !== "function" ||
-				expressionNames.length === 0
-			) {
+		const scheduleNormalExpressionTimer = (delayMs = normalExpressionIntervalMs) => {
+			clearModeTimer("normal");
+			if (normalExpressionNames.length === 0) {
 				return;
 			}
 
-			const randomIndex = Math.floor(Math.random() * expressionNames.length);
-			state.expressionIndex = randomIndex + 1;
-			state.model.expression(expressionNames[randomIndex]);
+			state.normalExpressionTimerRemainingMs = delayMs;
+			state.normalExpressionTimerStartedAt = performance.now();
+			state.normalExpressionTimer = window.setTimeout(() => {
+				const nextExpression = pickRandomExpression(normalExpressionNames, [
+					state.lastNormalExpression,
+				]);
+				if (playExpression(nextExpression)) {
+					state.lastNormalExpression = nextExpression;
+					state.expressionMode = "normal";
+				}
+				scheduleNormalExpressionTimer(normalExpressionIntervalMs);
+			}, delayMs);
 		};
 
-		const startExpressionTimer = () => {
-			if (state.expressionTimer) {
-				window.clearInterval(state.expressionTimer);
+		const scheduleInteractiveExpressionTimer = (
+			delayMs = interactiveExpressionDurationMs,
+		) => {
+			clearModeTimer("interactive");
+			state.interactiveExpressionTimerRemainingMs = delayMs;
+			state.interactiveExpressionTimerStartedAt = performance.now();
+			state.interactiveExpressionTimer = window.setTimeout(() => {
+				enterNormalExpressionMode(true);
+			}, delayMs);
+		};
+
+		const enterNormalExpressionMode = (
+			shouldRefreshExpression = true,
+			delayMs = normalExpressionIntervalMs,
+		) => {
+			clearModeTimer("interactive");
+			state.expressionMode = "normal";
+
+			if (shouldRefreshExpression) {
+				const nextExpression = pickRandomExpression(normalExpressionNames, [
+					state.lastNormalExpression,
+				]);
+				if (playExpression(nextExpression)) {
+					state.lastNormalExpression = nextExpression;
+				}
 			}
 
-			state.expressionTimer = window.setInterval(() => {
-				playRandomExpression();
-			}, expressionIntervalMs);
+			scheduleNormalExpressionTimer(delayMs);
+		};
+
+		const resumePausedExpressionMode = () => {
+			const pausedMode = state.pausedExpressionMode;
+			const pausedExpressionName = state.pausedExpressionName;
+			const pausedRemainingMs = Math.max(0, state.pausedExpressionTimerRemainingMs || 0);
+
+			state.pausedExpressionMode = "";
+			state.pausedExpressionName = "";
+			state.pausedExpressionTimerRemainingMs = 0;
+
+			if (pausedMode !== "normal" && pausedMode !== "interactive") {
+				enterNormalExpressionMode(true, normalExpressionIntervalMs);
+				return;
+			}
+
+			state.expressionMode = pausedMode;
+			if (pausedExpressionName) {
+				playExpression(pausedExpressionName);
+			}
+
+			const nextDelay = pausedRemainingMs > 0 ? pausedRemainingMs : getModeDuration(pausedMode);
+			if (pausedMode === "interactive") {
+				scheduleInteractiveExpressionTimer(nextDelay);
+				return;
+			}
+
+			scheduleNormalExpressionTimer(nextDelay);
+		};
+
+		const enterFastPointerExpressionMode = () => {
+			if (state.expressionMode === "special") {
+				return;
+			}
+
+			pauseCurrentExpressionMode();
+			state.expressionMode = "special";
+			playExpression(fastPointerExpressionName);
+		};
+
+		const exitFastPointerExpressionMode = () => {
+			if (state.expressionMode !== "special") {
+				return;
+			}
+
+			resumePausedExpressionMode();
+		};
+
+		const triggerInteractiveExpression = () => {
+			if (interactiveExpressionNames.length === 0) {
+				return false;
+			}
+
+			const nextExpression = pickRandomExpression(interactiveExpressionNames, [
+				state.lastInteractiveExpression,
+			]);
+			if (state.expressionMode === "special") {
+				state.pausedExpressionMode = "interactive";
+				state.pausedExpressionName = nextExpression;
+				state.pausedExpressionTimerRemainingMs = interactiveExpressionDurationMs;
+				state.lastInteractiveExpression = nextExpression;
+				return Boolean(nextExpression);
+			}
+
+			clearModeTimer("normal");
+			clearModeTimer("interactive");
+			state.expressionMode = "interactive";
+			const played = playExpression(nextExpression);
+			if (!played) {
+				return false;
+			}
+			state.lastInteractiveExpression = nextExpression;
+			scheduleInteractiveExpressionTimer(interactiveExpressionDurationMs);
+			return true;
 		};
 
 		const isPointInsideRect = (x, y, rect) =>
@@ -823,8 +1081,7 @@ const expressionNames = [
 				return;
 			}
 
-			cycleExpression();
-			startExpressionTimer();
+			triggerInteractiveExpression();
 		};
 
 		const initMascot = async () => {
@@ -870,7 +1127,7 @@ const expressionNames = [
 				fitModel();
 				restorePlacement();
 				ensureGazeTicker();
-				startExpressionTimer();
+				enterNormalExpressionMode(true);
 				setStatus("");
 			})().catch((error) => {
 				state.initPromise = null;
