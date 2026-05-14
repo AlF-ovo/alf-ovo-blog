@@ -1,8 +1,8 @@
 html.is-changing .transition-swup-fade {
     transition:
-        opacity 420ms ease,
-        transform 420ms ease,
-        filter 420ms ease;
+        opacity 210ms ease,
+        transform 210ms ease,
+        filter 210ms ease;
     will-change: opacity, transform, filter;
 }
 
@@ -16,7 +16,7 @@ html.is-animating .transition-swup-fade {
     opacity: 0;
     transform: translateY(0.95rem);
     filter: blur(0.18rem);
-    animation: alf-page-fade-in 760ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
+    animation: alf-page-fade-in 380ms cubic-bezier(0.22, 1, 0.36, 1) forwards;
     animation-delay: var(--content-delay, 0ms);
     will-change: opacity, transform, filter;
 }

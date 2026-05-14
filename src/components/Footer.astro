@@ -59,6 +59,13 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		<a class="transition link text-[var(--primary)] font-medium" target="_blank" href="https://github.com/saicaca/fuwari">Fuwari</a>
 		驱动
 	</div>
+	<p class="footer-disclaimer transition text-center text-sm leading-7">
+		如有侵权，联系
+		<a class="transition link text-[var(--primary)] font-medium" href="mailto:3483179408@qq.com">
+			3483179408@qq.com
+		</a>
+		，看到会立刻删除。
+	</p>
 </div>
 
 <style>
@@ -98,12 +105,21 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		color: rgba(15, 23, 42, 0.92);
 	}
 
+	.footer-disclaimer {
+		margin: 0;
+		color: rgba(71, 85, 105, 0.84);
+	}
+
 	:global(.dark) .footer-status-label {
 		color: rgba(203, 213, 225, 0.62);
 	}
 
 	:global(.dark) .footer-status-chip strong {
 		color: rgba(248, 250, 252, 0.92);
+	}
+
+	:global(.dark) .footer-disclaimer {
+		color: rgba(203, 213, 225, 0.76);
 	}
 
 	@media (max-width: 900px) {
