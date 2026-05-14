@@ -190,6 +190,12 @@ const expressionNames = [
 			gazeCurrentY: 0,
 			gazePointerActive: false,
 			gazeTickerBound: false,
+			gazeIdleTargetX: 0,
+			gazeIdleTargetY: 0,
+			gazeIdleNextAt: 0,
+			lastMouseX: 0,
+			lastMouseY: 0,
+			hasMousePosition: false,
 		};
 
 		const positionStorageKey = "alf.live2d.position";
@@ -202,13 +208,23 @@ const expressionNames = [
 			eyeBallY: 0.8,
 			angleX: 12,
 			angleY: 8,
+			angleZ: 3.2,
 			bodyAngleX: 3.5,
 			bodyAngleY: 1.5,
 			smoothing: 0.14,
+			idleSmoothing: 0.045,
 			returnSpeed: 0.08,
 			deadZone: 0.03,
-			viewportRangeX: 0.35,
-			viewportRangeY: 0.4,
+			pointerRangeX: 2.4,
+			pointerRangeY: 2.8,
+			minViewportRangeX: 0.16,
+			minViewportRangeY: 0.18,
+			idleDelayMs: 1400,
+			idleHoldMinMs: 1800,
+			idleHoldMaxMs: 3600,
+			idleRangeX: 0.2,
+			idleRangeY: 0.12,
+			faceCenterX: 0.5,
 			faceCenterY: 0.38,
 		};
 
@@ -222,8 +238,24 @@ const expressionNames = [
 
 		const lerp = (from, to, factor) => from + (to - from) * factor;
 
+		const randomBetween = (min, max) => min + Math.random() * (max - min);
+
 		const applyDeadZone = (value) =>
 			Math.abs(value) < gazeConfig.deadZone ? 0 : clamp(value, -1, 1);
+
+		const clampGazeVector = (x, y) => {
+			const nextX = applyDeadZone(x);
+			const nextY = applyDeadZone(y);
+			const magnitude = Math.hypot(nextX, nextY);
+			if (magnitude <= 1) {
+				return { x: nextX, y: nextY };
+			}
+
+			return {
+				x: nextX / magnitude,
+				y: nextY / magnitude,
+			};
+		};
 
 		const persistPlacement = () => {
 			if (!state.position) {
@@ -449,6 +481,7 @@ const expressionNames = [
 			addCoreModelParameter("ParamEyeBallY", y * gazeConfig.eyeBallY);
 			addCoreModelParameter("ParamAngleX", x * gazeConfig.angleX);
 			addCoreModelParameter("ParamAngleY", y * gazeConfig.angleY);
+			addCoreModelParameter("ParamAngleZ", x * y * gazeConfig.angleZ);
 			addCoreModelParameter("ParamBodyAngleX", x * gazeConfig.bodyAngleX);
 			addCoreModelParameter("ParamBodyAngleY", y * gazeConfig.bodyAngleY);
 		};
@@ -462,10 +495,64 @@ const expressionNames = [
 			applyGazeViaParameters(x, y);
 		};
 
-		const resetGazeTarget = () => {
+		const deferIdleGaze = (timestamp = performance.now()) => {
+			state.gazeIdleTargetX = 0;
+			state.gazeIdleTargetY = 0;
+			state.gazeIdleNextAt = timestamp + gazeConfig.idleDelayMs;
+		};
+
+		const scheduleIdleGaze = (timestamp = performance.now()) => {
+			state.gazeIdleNextAt =
+				timestamp + randomBetween(gazeConfig.idleHoldMinMs, gazeConfig.idleHoldMaxMs);
+
+			if (Math.random() < 0.25) {
+				state.gazeIdleTargetX = 0;
+				state.gazeIdleTargetY = 0;
+				return;
+			}
+
+			state.gazeIdleTargetX = randomBetween(-gazeConfig.idleRangeX, gazeConfig.idleRangeX);
+			state.gazeIdleTargetY = randomBetween(-gazeConfig.idleRangeY, gazeConfig.idleRangeY);
+		};
+
+		const setGazeTargetFromPoint = (clientX, clientY) => {
+			const rect = panel.getBoundingClientRect();
+			const focusX = rect.left + rect.width * gazeConfig.faceCenterX;
+			const focusY = rect.top + rect.height * gazeConfig.faceCenterY;
+			const rangeX = Math.max(
+				rect.width * gazeConfig.pointerRangeX,
+				window.innerWidth * gazeConfig.minViewportRangeX,
+			);
+			const rangeY = Math.max(
+				rect.height * gazeConfig.pointerRangeY,
+				window.innerHeight * gazeConfig.minViewportRangeY,
+			);
+			const nextX = (clientX - focusX) / rangeX;
+			const nextY = (focusY - clientY) / rangeY;
+			const target = clampGazeVector(nextX, nextY);
+
+			state.gazePointerActive = true;
+			state.gazeTargetX = target.x;
+			state.gazeTargetY = target.y;
+		};
+
+		const refreshGazeFromLastPointer = () => {
+			if (!state.hasMousePosition || root.hidden) {
+				return false;
+			}
+
+			setGazeTargetFromPoint(state.lastMouseX, state.lastMouseY);
+			return true;
+		};
+
+		const resetGazeTarget = (preservePointer = false) => {
 			state.gazePointerActive = false;
 			state.gazeTargetX = 0;
 			state.gazeTargetY = 0;
+			if (!preservePointer) {
+				state.hasMousePosition = false;
+			}
+			deferIdleGaze();
 		};
 
 		const updateGazeTarget = (event) => {
@@ -473,15 +560,22 @@ const expressionNames = [
 				return;
 			}
 
-			const rect = panel.getBoundingClientRect();
-			const focusX = rect.left + rect.width * 0.5;
-			const focusY = rect.top + rect.height * gazeConfig.faceCenterY;
-			const nextX = (event.clientX - focusX) / (window.innerWidth * gazeConfig.viewportRangeX);
-			const nextY = (focusY - event.clientY) / (window.innerHeight * gazeConfig.viewportRangeY);
+			state.lastMouseX = event.clientX;
+			state.lastMouseY = event.clientY;
+			state.hasMousePosition = true;
+			setGazeTargetFromPoint(event.clientX, event.clientY);
+		};
 
-			state.gazePointerActive = true;
-			state.gazeTargetX = applyDeadZone(nextX);
-			state.gazeTargetY = applyDeadZone(nextY);
+		const handlePointerExit = (event) => {
+			if (!(event instanceof PointerEvent) || event.pointerType !== "mouse") {
+				return;
+			}
+
+			if (event.relatedTarget !== null) {
+				return;
+			}
+
+			resetGazeTarget();
 		};
 
 		const tickGaze = () => {
@@ -489,14 +583,32 @@ const expressionNames = [
 				return;
 			}
 
-			const shouldFollowPointer =
+			const canAnimateGaze =
 				!root.hidden &&
 				document.visibilityState === "visible" &&
-				state.dragPointerId === null &&
-				state.gazePointerActive;
-			const targetX = shouldFollowPointer ? state.gazeTargetX : 0;
-			const targetY = shouldFollowPointer ? state.gazeTargetY : 0;
-			const smoothing = shouldFollowPointer ? gazeConfig.smoothing : gazeConfig.returnSpeed;
+				state.dragPointerId === null;
+			let targetX = 0;
+			let targetY = 0;
+			let smoothing = gazeConfig.returnSpeed;
+
+			if (canAnimateGaze) {
+				if (state.gazePointerActive) {
+					targetX = state.gazeTargetX;
+					targetY = state.gazeTargetY;
+					smoothing = gazeConfig.smoothing;
+				} else {
+					const timestamp = performance.now();
+					if (state.gazeIdleNextAt <= 0) {
+						deferIdleGaze(timestamp);
+					}
+					if (timestamp >= state.gazeIdleNextAt) {
+						scheduleIdleGaze(timestamp);
+					}
+					targetX = state.gazeIdleTargetX;
+					targetY = state.gazeIdleTargetY;
+					smoothing = gazeConfig.idleSmoothing;
+				}
+			}
 
 			state.gazeCurrentX = lerp(state.gazeCurrentX, targetX, smoothing);
 			state.gazeCurrentY = lerp(state.gazeCurrentY, targetY, smoothing);
@@ -561,6 +673,9 @@ const expressionNames = [
 				window.requestAnimationFrame(() => {
 					fitModel();
 					updatePlacementForViewport();
+					if (!refreshGazeFromLastPointer()) {
+						resetGazeTarget(true);
+					}
 				});
 			}
 		};
@@ -640,7 +755,7 @@ const expressionNames = [
 			state.dragOriginX = state.position?.x || 0;
 			state.dragOriginY = state.position?.y || 0;
 			state.dragMoved = false;
-			resetGazeTarget();
+			resetGazeTarget(true);
 			canvas.setPointerCapture?.(event.pointerId);
 		};
 
@@ -670,6 +785,7 @@ const expressionNames = [
 			canvas.releasePointerCapture?.(event.pointerId);
 			const wasDrag = state.dragMoved;
 			state.dragPointerId = null;
+			refreshGazeFromLastPointer();
 
 			if (wasDrag) {
 				persistPlacement();
@@ -738,10 +854,14 @@ const expressionNames = [
 		const handleViewportResize = () => {
 			fitModel();
 			updatePlacementForViewport();
+			if (!refreshGazeFromLastPointer()) {
+				resetGazeTarget();
+			}
 		};
 
 		window.addEventListener("resize", handleViewportResize);
 		window.addEventListener("pointermove", updateGazeTarget, { passive: true });
+		window.addEventListener("pointerout", handlePointerExit, { passive: true });
 		window.addEventListener("blur", resetGazeTarget);
 		window.addEventListener("alf:live2d-resize", handleViewportResize);
 		window.addEventListener("alf:live2d-lock", (event) => {
@@ -803,6 +923,7 @@ const expressionNames = [
 
 		setLockedState(initiallyLocked, false);
 		setHiddenState(initiallyHidden, false);
+		resetGazeTarget();
 		if (!initiallyHidden) {
 			void initMascot();
 		}
