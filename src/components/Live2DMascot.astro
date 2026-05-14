@@ -237,13 +237,15 @@ const fastPointerExpressionName = "4OAO";
 		const normalExpressionIntervalMs = 30000;
 		const interactiveExpressionDurationMs = 15000;
 		const gazeConfig = {
-			eyeBallX: 1,
-			eyeBallY: 0.8,
-			angleX: 12,
-			angleY: 8,
-			angleZ: 3.2,
-			bodyAngleX: 3.5,
-			bodyAngleY: 1.5,
+			directionX: -1,
+			directionY: 1,
+			eyeBallX: 0.72,
+			eyeBallY: 0.58,
+			angleX: 7.2,
+			angleY: 5.2,
+			angleZ: 1.1,
+			bodyAngleX: 1.6,
+			bodyAngleY: 0.7,
 			smoothing: 0.34,
 			idleSmoothing: 0.045,
 			returnSpeed: 0.14,
@@ -259,8 +261,8 @@ const fastPointerExpressionName = "4OAO";
 			idleRangeY: 0.12,
 			nearCancelRangeX: 0.34,
 			nearCancelRangeY: 0.3,
-			headBobAmplitudeY: 0.16,
-			headBobSpeed: 0.0048,
+			headBobAmplitudeY: 0.06,
+			headBobSpeed: 0.0038,
 			dizzinessRecentWindowMs: 180,
 			dizzinessVelocityFloorDegPerSecond: 55,
 			dizzinessVelocityCeilingDegPerSecond: 420,
@@ -385,10 +387,16 @@ const fastPointerExpressionName = "4OAO";
 			};
 		};
 
+		const calibrateGaze = (x, y) => ({
+			x: clamp(x * gazeConfig.directionX, -1, 1),
+			y: clamp(y * gazeConfig.directionY, -1, 1),
+		});
+
 		const getHeadPoseAngles = (x, y) => {
+			const calibrated = calibrateGaze(x, y);
 			return {
-				x: x * gazeConfig.angleX,
-				y: y * gazeConfig.angleY,
+				x: calibrated.x * gazeConfig.angleX,
+				y: calibrated.y * gazeConfig.angleY,
 			};
 		};
 
@@ -619,25 +627,6 @@ const fastPointerExpressionName = "4OAO";
 
 		const getCoreModel = () => state.model?.internalModel?.coreModel ?? null;
 
-		const applyGazeViaFocusController = (x, y) => {
-			if (!state.model) {
-				return false;
-			}
-
-			if (typeof state.model.focus === "function") {
-				state.model.focus(x, y);
-				return true;
-			}
-
-			const focusController = state.model.internalModel?.focusController;
-			if (typeof focusController?.focus !== "function") {
-				return false;
-			}
-
-			focusController.focus(x, y);
-			return true;
-		};
-
 		const addCoreModelParameter = (parameterId, amount) => {
 			const coreModel = getCoreModel();
 			if (!coreModel || Math.abs(amount) < 0.0001) {
@@ -667,25 +656,23 @@ const fastPointerExpressionName = "4OAO";
 		};
 
 		const applyEyeGazeViaParameters = (x, y) => {
-			addCoreModelParameter("ParamEyeBallX", x * gazeConfig.eyeBallX);
-			addCoreModelParameter("ParamEyeBallY", y * gazeConfig.eyeBallY);
+			const calibrated = calibrateGaze(x, y);
+			addCoreModelParameter("ParamEyeBallX", calibrated.x * gazeConfig.eyeBallX);
+			addCoreModelParameter("ParamEyeBallY", calibrated.y * gazeConfig.eyeBallY);
 		};
 
 		const applyPoseViaParameters = (x, y) => {
-			addCoreModelParameter("ParamAngleX", x * gazeConfig.angleX);
-			addCoreModelParameter("ParamAngleY", y * gazeConfig.angleY);
-			addCoreModelParameter("ParamAngleZ", x * y * gazeConfig.angleZ);
-			addCoreModelParameter("ParamBodyAngleX", x * gazeConfig.bodyAngleX);
-			addCoreModelParameter("ParamBodyAngleY", y * gazeConfig.bodyAngleY);
+			const calibrated = calibrateGaze(x, y);
+			addCoreModelParameter("ParamAngleX", calibrated.x * gazeConfig.angleX);
+			addCoreModelParameter("ParamAngleY", calibrated.y * gazeConfig.angleY);
+			addCoreModelParameter("ParamAngleZ", calibrated.x * calibrated.y * gazeConfig.angleZ);
+			addCoreModelParameter("ParamBodyAngleX", calibrated.x * gazeConfig.bodyAngleX);
+			addCoreModelParameter("ParamBodyAngleY", calibrated.y * gazeConfig.bodyAngleY);
 		};
 
 		const applyGaze = (x, y) => {
-			if (applyGazeViaFocusController(x, y)) {
-				return;
-			}
-
-			// Keep a single direction convention. If the runtime doesn't expose
-			// a focus controller, fall back to manual eye/head/body parameters.
+			// This model responds more predictably to direct parameter control
+			// than the runtime focus controller, so keep gaze mapping explicit.
 			applyEyeGazeViaParameters(x, y);
 			applyPoseViaParameters(x, y);
 		};
