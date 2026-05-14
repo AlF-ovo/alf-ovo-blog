@@ -239,7 +239,6 @@ const fastPointerExpressionName = "4OAO";
 		const gazeConfig = {
 			eyeBallX: 1,
 			eyeBallY: 0.8,
-			horizontalDirection: -1,
 			angleX: 12,
 			angleY: 8,
 			angleZ: 3.2,
@@ -386,16 +385,10 @@ const fastPointerExpressionName = "4OAO";
 			};
 		};
 
-		const orientGaze = (x, y) => ({
-			x: x * gazeConfig.horizontalDirection,
-			y,
-		});
-
 		const getHeadPoseAngles = (x, y) => {
-			const oriented = orientGaze(x, y);
 			return {
-				x: oriented.x * gazeConfig.angleX,
-				y: oriented.y * gazeConfig.angleY,
+				x: x * gazeConfig.angleX,
+				y: y * gazeConfig.angleY,
 			};
 		};
 
@@ -627,17 +620,21 @@ const fastPointerExpressionName = "4OAO";
 		const getCoreModel = () => state.model?.internalModel?.coreModel ?? null;
 
 		const applyGazeViaFocusController = (x, y) => {
-			const focusController = state.model?.internalModel?.focusController;
+			if (!state.model) {
+				return false;
+			}
+
+			if (typeof state.model.focus === "function") {
+				state.model.focus(x, y);
+				return true;
+			}
+
+			const focusController = state.model.internalModel?.focusController;
 			if (typeof focusController?.focus !== "function") {
 				return false;
 			}
 
-			const oriented = orientGaze(x, y);
-
-			// `Live2DModel.focus()` expects world-space pointer coordinates.
-			// Here we already operate in normalized gaze space, so drive the
-			// internal focus controller directly and skip its own interpolation.
-			focusController.focus(oriented.x, oriented.y, true);
+			focusController.focus(x, y);
 			return true;
 		};
 
@@ -670,30 +667,26 @@ const fastPointerExpressionName = "4OAO";
 		};
 
 		const applyEyeGazeViaParameters = (x, y) => {
-			const oriented = orientGaze(x, y);
-			addCoreModelParameter("ParamEyeBallX", oriented.x * gazeConfig.eyeBallX);
-			addCoreModelParameter("ParamEyeBallY", oriented.y * gazeConfig.eyeBallY);
+			addCoreModelParameter("ParamEyeBallX", x * gazeConfig.eyeBallX);
+			addCoreModelParameter("ParamEyeBallY", y * gazeConfig.eyeBallY);
 		};
 
 		const applyPoseViaParameters = (x, y) => {
-			const oriented = orientGaze(x, y);
-			addCoreModelParameter("ParamAngleX", oriented.x * gazeConfig.angleX);
-			addCoreModelParameter("ParamAngleY", oriented.y * gazeConfig.angleY);
-			addCoreModelParameter("ParamAngleZ", oriented.x * oriented.y * gazeConfig.angleZ);
-			addCoreModelParameter("ParamBodyAngleX", oriented.x * gazeConfig.bodyAngleX);
-			addCoreModelParameter("ParamBodyAngleY", oriented.y * gazeConfig.bodyAngleY);
+			addCoreModelParameter("ParamAngleX", x * gazeConfig.angleX);
+			addCoreModelParameter("ParamAngleY", y * gazeConfig.angleY);
+			addCoreModelParameter("ParamAngleZ", x * y * gazeConfig.angleZ);
+			addCoreModelParameter("ParamBodyAngleX", x * gazeConfig.bodyAngleX);
+			addCoreModelParameter("ParamBodyAngleY", y * gazeConfig.bodyAngleY);
 		};
 
 		const applyGaze = (x, y) => {
-			const usedFocusController = applyGazeViaFocusController(x, y);
-			if (!usedFocusController) {
-				// Fallback for runtimes that expose only Cubism parameters.
-				applyEyeGazeViaParameters(x, y);
+			if (applyGazeViaFocusController(x, y)) {
+				return;
 			}
 
-			// Always drive pose parameters ourselves so head/body motion and
-			// deliberate bobbing remain visible even when eye focus uses the
-			// runtime's focus controller path.
+			// Keep a single direction convention. If the runtime doesn't expose
+			// a focus controller, fall back to manual eye/head/body parameters.
+			applyEyeGazeViaParameters(x, y);
 			applyPoseViaParameters(x, y);
 		};
 
