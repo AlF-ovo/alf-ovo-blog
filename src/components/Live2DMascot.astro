@@ -245,8 +245,6 @@ const fastPointerExpressionName = "4OAO";
 			angleX: 7.2,
 			angleY: 5.2,
 			angleZ: 1.1,
-			bodyAngleX: 1.6,
-			bodyAngleY: 0.7,
 			smoothing: 0.34,
 			idleSmoothing: 0.045,
 			returnSpeed: 0.14,
@@ -260,8 +258,6 @@ const fastPointerExpressionName = "4OAO";
 			idleHoldMaxMs: 3600,
 			idleRangeX: 0.2,
 			idleRangeY: 0.12,
-			nearCancelRangeX: 0.34,
-			nearCancelRangeY: 0.3,
 			headBobAmplitudeY: 0.06,
 			headBobSpeed: 0.0038,
 			dizzinessRecentWindowMs: 220,
@@ -681,8 +677,6 @@ const fastPointerExpressionName = "4OAO";
 			addCoreModelParameter("ParamAngleX", calibrated.x * gazeConfig.angleX);
 			addCoreModelParameter("ParamAngleY", calibrated.y * gazeConfig.angleY);
 			addCoreModelParameter("ParamAngleZ", calibrated.x * calibrated.y * gazeConfig.angleZ);
-			addCoreModelParameter("ParamBodyAngleX", calibrated.x * gazeConfig.bodyAngleX);
-			addCoreModelParameter("ParamBodyAngleY", calibrated.y * gazeConfig.bodyAngleY);
 		};
 
 		const applyGaze = (x, y) => {
@@ -712,29 +706,42 @@ const fastPointerExpressionName = "4OAO";
 			state.gazeIdleTargetY = randomBetween(-gazeConfig.idleRangeY, gazeConfig.idleRangeY);
 		};
 
+		const getFaceFocusPoint = () => {
+			const rect = canvas.getBoundingClientRect();
+			const model = state.model;
+			const baseWidth = state.baseSize?.width || model?.width || rect.width;
+			const baseHeight = state.baseSize?.height || model?.height || rect.height;
+			const scaleX = Number(model?.scale?.x) || 1;
+			const scaleY = Number(model?.scale?.y) || scaleX;
+			const modelPositionX = Number(model?.position?.x) || rect.width * 0.5;
+			const modelPositionY = Number(model?.position?.y) || rect.height * 0.99;
+			const renderedWidth = Math.max(baseWidth * scaleX, 1);
+			const renderedHeight = Math.max(baseHeight * scaleY, 1);
+			const modelLeft = rect.left + modelPositionX - renderedWidth * 0.5;
+			const modelTop = rect.top + modelPositionY - renderedHeight;
+
+			return {
+				x: modelLeft + renderedWidth * gazeConfig.faceCenterX,
+				y: modelTop + renderedHeight * gazeConfig.faceCenterY,
+				width: renderedWidth,
+				height: renderedHeight,
+			};
+		};
+
 		const setGazeTargetFromPoint = (clientX, clientY) => {
-			const rect = panel.getBoundingClientRect();
-			const focusX = rect.left + rect.width * gazeConfig.faceCenterX;
-			const focusY = rect.top + rect.height * gazeConfig.faceCenterY;
-			const nearZoneX = (clientX - focusX) / Math.max(rect.width * gazeConfig.nearCancelRangeX, 1);
-			const nearZoneY = (clientY - focusY) / Math.max(
-				rect.height * gazeConfig.nearCancelRangeY,
-				1,
-			);
-			if (Math.hypot(nearZoneX, nearZoneY) < 1) {
-				state.gazePointerActive = false;
-				state.gazeTargetX = 0;
-				state.gazeTargetY = 0;
-				deferIdleGaze();
-				return false;
-			}
+			const focus = getFaceFocusPoint();
+			const panelRect = panel.getBoundingClientRect();
+			const focusX = focus.x;
+			const focusY = focus.y;
 
 			const rangeX = Math.max(
-				rect.width * gazeConfig.pointerRangeX,
+				focus.width * gazeConfig.pointerRangeX,
+				panelRect.width * 0.9,
 				window.innerWidth * gazeConfig.minViewportRangeX,
 			);
 			const rangeY = Math.max(
-				rect.height * gazeConfig.pointerRangeY,
+				focus.height * gazeConfig.pointerRangeY,
+				panelRect.height * 0.9,
 				window.innerHeight * gazeConfig.minViewportRangeY,
 			);
 			const nextX = (clientX - focusX) / rangeX;
