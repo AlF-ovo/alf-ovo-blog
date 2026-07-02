@@ -242,6 +242,8 @@ const fastPointerExpressionName = "4OAO";
 			directionY: 1,
 			eyeBallX: 0.72,
 			eyeBallY: 0.58,
+			headDirectionX: -1,
+			headDirectionY: 1,
 			angleX: 7.2,
 			angleY: 5.2,
 			angleZ: 1.1,
@@ -394,8 +396,8 @@ const fastPointerExpressionName = "4OAO";
 		const getHeadPoseAngles = (x, y) => {
 			const calibrated = calibrateGaze(x, y);
 			return {
-				x: calibrated.x * gazeConfig.angleX,
-				y: calibrated.y * gazeConfig.angleY,
+				x: calibrated.x * gazeConfig.headDirectionX * gazeConfig.angleX,
+				y: calibrated.y * gazeConfig.headDirectionY * gazeConfig.angleY,
 			};
 		};
 
@@ -674,9 +676,11 @@ const fastPointerExpressionName = "4OAO";
 
 		const applyPoseViaParameters = (x, y) => {
 			const calibrated = calibrateGaze(x, y);
-			addCoreModelParameter("ParamAngleX", calibrated.x * gazeConfig.angleX);
-			addCoreModelParameter("ParamAngleY", calibrated.y * gazeConfig.angleY);
-			addCoreModelParameter("ParamAngleZ", calibrated.x * calibrated.y * gazeConfig.angleZ);
+			const headX = calibrated.x * gazeConfig.headDirectionX;
+			const headY = calibrated.y * gazeConfig.headDirectionY;
+			addCoreModelParameter("ParamAngleX", headX * gazeConfig.angleX);
+			addCoreModelParameter("ParamAngleY", headY * gazeConfig.angleY);
+			addCoreModelParameter("ParamAngleZ", headX * headY * gazeConfig.angleZ);
 		};
 
 		const applyGaze = (x, y) => {
