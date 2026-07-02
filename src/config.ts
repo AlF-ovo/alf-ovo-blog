@@ -60,6 +60,13 @@ export const siteConfig: SiteConfig = {
 				group: "7co",
 				src: "/audio/background/tomato-7co.mp3",
 			},
+			{
+				id: "i-really-want-to-stay-at-your-house-cyberpunk",
+				title: "I Really Want to Stay at Your House",
+				artist: "Cyberpunk",
+				group: "cyberpunk",
+				src: "/audio/background/i-really-want-to-stay-at-your-house-cyberpunk.mp3",
+			},
 		],
 	},
 	favicon: [],

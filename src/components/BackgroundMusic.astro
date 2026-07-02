@@ -631,9 +631,32 @@ const systemPanels = [
 		display: flex;
 		flex-direction: column;
 		gap: 0.55rem;
-		max-height: min(18rem, 40vh);
+		max-height: min(12.25rem, 34vh);
 		margin-top: 0.8rem;
-		overflow: auto;
+		padding-right: 0.35rem;
+		overflow-y: auto;
+		overflow-x: hidden;
+		scrollbar-gutter: stable;
+		scrollbar-width: thin;
+		scrollbar-color: rgba(226, 232, 240, 0.42) rgba(255, 255, 255, 0.06);
+	}
+
+	.system-control-track-list::-webkit-scrollbar {
+		width: 0.38rem;
+	}
+
+	.system-control-track-list::-webkit-scrollbar-track {
+		border-radius: 999px;
+		background: rgba(255, 255, 255, 0.06);
+	}
+
+	.system-control-track-list::-webkit-scrollbar-thumb {
+		border-radius: 999px;
+		background: rgba(226, 232, 240, 0.42);
+	}
+
+	.system-control-track-list::-webkit-scrollbar-thumb:hover {
+		background: rgba(248, 250, 252, 0.62);
 	}
 
 	.system-control-track {
