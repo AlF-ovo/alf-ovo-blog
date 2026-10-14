@@ -66,6 +66,16 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		</a>
 		，看到会立刻删除。
 	</p>
+	<p class="footer-icp transition text-center text-sm leading-7">
+		<a
+			class="transition link text-[var(--primary)] font-medium"
+			href="https://beian.miit.gov.cn/"
+			target="_blank"
+			rel="noopener noreferrer"
+		>
+			浙ICP备2026026752号-1
+		</a>
+	</p>
 </div>
 
 <style>
@@ -110,6 +120,11 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 		color: rgba(71, 85, 105, 0.84);
 	}
 
+	.footer-icp {
+		margin: 0;
+		color: rgba(71, 85, 105, 0.84);
+	}
+
 	:global(.dark) .footer-status-label {
 		color: rgba(203, 213, 225, 0.62);
 	}
@@ -119,6 +134,10 @@ const visitorCounterApi = siteConfig.footer?.visitorCounterApi ?? "";
 	}
 
 	:global(.dark) .footer-disclaimer {
+		color: rgba(203, 213, 225, 0.76);
+	}
+
+	:global(.dark) .footer-icp {
 		color: rgba(203, 213, 225, 0.76);
 	}
 
